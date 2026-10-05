@@ -1,135 +1,162 @@
-import streamlit as st
-import streamlit.components.v1 as components
-import sys
-import os
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-if BASE_DIR not in sys.path:
-    sys.path.append(BASE_DIR)
-
-st.set_page_config(
-    page_title="පිරිවෙන් අංශයේ ප්‍රධාන කළමනාකරණ පෝටලය",
-    page_icon="🏛️",
-    layout="wide",
-    initial_sidebar_state="collapsed"
-)
-
-# Active Module State එක කළමනාකරණය
-if "active_module" not in st.session_state:
-    st.session_state.active_module = None
-
-# URL Query Parameter එකක් පැමිණ ඇත්නම් එයට මුල්තැන දීම
-try:
-    param_module = st.query_params.get("module")
-except Exception:
-    params = st.experimental_get_query_params()
-    param_module = params.get("module", [None])[0]
-
-if param_module and st.session_state.active_module is None:
-    st.session_state.active_module = param_module
-
-# =========================================================================
-# 0. ප්‍රධාන ඩෑෂ්බෝඩ් එක (INDEX.HTML)
-# =========================================================================
-if not st.session_state.active_module:
-    st.markdown("""
+<!DOCTYPE html>
+<html lang="si">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>පිරිවෙන් අංශයේ ප්‍රධාන කළමනාකරණ පෝටලය</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        [data-testid='stSidebar'] { display: none !important; }
-        .block-container { padding: 0 !important; max-width: 100% !important; }
-        header { visibility: hidden !important; }
-        footer { visibility: hidden !important; }
+        body {
+            background-color: #f8fafc;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding-bottom: 30px;
+        }
+        .header-section {
+            background: linear-gradient(135deg, #0f766e, #115e59);
+            color: white;
+            padding: 30px 0;
+            border-radius: 0 0 20px 20px;
+            margin-bottom: 40px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .card-custom {
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+            height: 100%;
+            border: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .card-custom:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        .card-exam { border-top: 5px solid #2563eb; }
+        .card-fin { border-top: 5px solid #10b981; }
+        .card-census { border-top: 5px solid #8b5cf6; }
+        .card-board { border-top: 5px solid #f59e0b; }
+        .card-inv { border-top: 5px solid #ef4444; }
+        .card-peqi { border-top: 5px solid #06b6d4; }
+        
+        .btn-portal {
+            width: 100%;
+            padding: 10px;
+            font-weight: 700;
+            border-radius: 10px;
+            border: none;
+            color: white !important;
+            transition: opacity 0.2s;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+            cursor: pointer;
+        }
+        .btn-portal:hover {
+            opacity: 0.9;
+        }
     </style>
-    """, unsafe_allow_html=True)
+</head>
+<body>
 
-    html_path = os.path.join(BASE_DIR, "index.html")
-    if os.path.exists(html_path):
-        with open(html_path, "r", encoding="utf-8") as f:
-            html_content = f.read()
+    <div class="header-section text-center">
+        <div class="container">
+            <h2><i class="fa-solid fa-landmark"></i> පිරිවෙන් අංශයේ ප්‍රධාන කළමනාකරණ පෝටලය</h2>
+            <p class="mb-0 text-light">අධ්‍යාපන අමාත්‍යාංශය - ශ්‍රී ලංකා | කේන්ද්‍රීය කළමනාකරණ මධ්‍යස්ථානය</p>
+        </div>
+    </div>
 
-        # HTML Component එකෙන් User Click කළ Module එක ලබාගැනීම
-        clicked_module = components.html(html_content, height=1000, scrolling=True)
+    <div class="container">
+        <h4 class="mb-4 text-secondary fw-bold">🚀 පද්ධති මොඩියුල සහ කළමනාකරණ අංශ</h4>
+        
+        <div class="row g-4">
+            <!-- 1. විභාග විශ්ලේෂණය -->
+            <div class="col-md-6 col-lg-4">
+                <div class="card-custom card-exam">
+                    <div>
+                        <h5><i class="fa-solid fa-chart-line text-primary"></i> 1. විභාග ප්‍රතිඵල විශ්ලේෂණය</h5>
+                        <p class="text-muted small mt-2">පිරිවෙන් සාමාන්‍ය පෙළ විභාග ප්‍රතිඵල, Quality Score (QS) සහ කලාපීය ප්‍රගති ප්‍රස්තාර.</p>
+                    </div>
+                    <button type="button" onclick="selectApp('exam')" class="btn-portal mt-3" style="background-color: #2563eb;">විභාග විශ්ලේෂණයට පිවිසෙන්න</button>
+                </div>
+            </div>
 
-        if clicked_module and clicked_module != st.session_state.active_module:
-            st.session_state.active_module = clicked_module
-            st.rerun()
-    else:
-        st.error("⚠️ index.html ගොනුව හමු නොවීය!")
+            <!-- 2. AIP මූල්‍ය පාලනය -->
+            <div class="col-md-6 col-lg-4">
+                <div class="card-custom card-fin">
+                    <div>
+                        <h5><i class="fa-solid fa-coins text-success"></i> 2. AIP මූල්‍ය හා ප්‍රගති පාලනය</h5>
+                        <p class="text-muted small mt-2">ප්‍රාග්ධන සහ පුනරාවර්තන වැය ශීර්ෂ, වවුචර් ලොග් සහ මූල්‍ය ප්‍රගති වාර්තා.</p>
+                    </div>
+                    <button type="button" onclick="selectApp('aip')" class="btn-portal mt-3" style="background-color: #10b981;">මූල්‍ය පාලන පද්ධතියට පිවිසෙන්න</button>
+                </div>
+            </div>
 
-# =========================================================================
-# මොඩියුල පිටු (AIP ඇතුළු අනෙකුත් සියල්ල)
-# =========================================================================
-else:
-    # ආපසු ප්‍රධාන Dashboard එකට යාමට Native Streamlit Button
-    if st.sidebar.button("⬅️ ප්‍රධාන පෝටලයට ආපසු", use_container_width=True):
-        st.session_state.active_module = None
-        try:
-            st.query_params.clear()
-        except Exception:
-            st.experimental_set_query_params()
-        st.rerun()
+            <!-- 3. සංගණන දත්ත -->
+            <div class="col-md-6 col-lg-4">
+                <div class="card-custom card-census">
+                    <div>
+                        <h5><i class="fa-solid fa-users-rectangle text-purple"></i> 3. පිරිවෙන් සංගණන දත්ත</h5>
+                        <p class="text-muted small mt-2">පිරිවෙන් ආයතන, ගුරු මණ්ඩලය, පැවිදි/ගිහි ශිෂ්‍ය සංචිතය සහ දිස්ත්‍රික් වාර්තා.</p>
+                    </div>
+                    <button type="button" onclick="selectApp('census')" class="btn-portal mt-3" style="background-color: #8b5cf6;">සංගණන දත්ත වෙත පිවිසෙන්න</button>
+                </div>
+            </div>
 
-    st.sidebar.markdown("<hr style='border: 0.5px solid rgba(255,255,255,0.1); margin: 10px 0;'>", unsafe_allow_html=True)
+            <!-- 4. ඩිජිටල් බෝඩ් මොනිටරින් -->
+            <div class="col-md-6 col-lg-4">
+                <div class="card-custom card-board">
+                    <div>
+                        <h5><i class="fa-solid fa-desktop text-warning"></i> 4. ඩිජිටල් බෝඩ් මොනිටරින්</h5>
+                        <p class="text-muted small mt-2">අමාත්‍යාංශ මට්ටමේ සජීවී සිතියම් ලුහුබැඳීම, විකාශන (Broadcast) සහ ටිකට් පද්ධතිය.</p>
+                    </div>
+                    <button type="button" onclick="selectApp('board')" class="btn-portal mt-3" style="background-color: #f59e0b;">අමාත්‍‍යාංශ මොනිටරින් වෙත පිවිසෙන්න</button>
+                </div>
+            </div>
 
-    # 1. විභාග ප්‍රතිඵල විශ්ලේෂණය
-    if st.session_state.active_module == "exam":
-        exam_path = os.path.join(BASE_DIR, "result_app.py")
-        if os.path.exists(exam_path):
-            with open(exam_path, "r", encoding="utf-8") as f:
-                exec(f.read(), {"__name__": "__main__"})
-        else:
-            st.warning("result_app.py ගොනුව හමු නොවීය.")
+            <!-- 5. ඉන්වෙන්ට්‍රි පාලනය -->
+            <div class="col-md-6 col-lg-4">
+                <div class="card-custom card-inv">
+                    <div>
+                        <h5><i class="fa-solid fa-boxes-stacked text-danger"></i> 5. ඉන්වෙන්ට්‍රි සහ සම්පත් කළමනාකරණය</h5>
+                        <p class="text-muted small mt-2">මූල්‍ය ප්‍රතිපාදන, බඩු වට්ටෝරු (පොදු 44), තොග පොත් (පොදු 198) සහ නිකුත් කිරීම්.</p>
+                    </div>
+                    <button type="button" onclick="selectApp('inventory')" class="btn-portal mt-3" style="background-color: #ef4444;">ඉන්වෙන්ට්‍රි පද්ධතියට පිවිසෙන්න</button>
+                </div>
+            </div>
 
-    # 2. AIP මූල්‍ය හා ප්‍රගති පාලනය
-    elif st.session_state.active_module == "aip":
-        aip_path = os.path.join(BASE_DIR, "aip_financial")
-        if aip_path not in sys.path:
-            sys.path.append(aip_path)
-        try:
-            from aip_financial.modules import dashboard
-            from aip_financial import db
-            db.init_db()
-            user = st.session_state.get("user", {
-                "name": "ප්‍රධාන පරිපාලක", "role": "Super Admin",
-                "access_level": "All", "username": "admin"
-            })
-            dashboard.render_dashboard(user)
-        except Exception as e:
-            st.error(f"AIP මූල්‍ය පද්ධතිය පූරණය කිරීමේ දෝෂයකි: {e}")
+            <!-- 6. PEQI මොඩියුලය -->
+            <div class="col-md-6 col-lg-4">
+                <div class="card-custom card-peqi">
+                    <div>
+                        <h5><i class="fa-solid fa-clipboard-check text-info"></i> 6. පිරිවෙන් ප්‍රමිති (PEQI) ලකුණු</h5>
+                        <p class="text-muted small mt-2">පිරිවෙන්වල ප්‍රමිති 10 සඳහා නව ලකුණු ඇතුළත් කිරීම, වාර 5 ලුහුබැඳීම සහ PDF වාර්තා.</p>
+                    </div>
+                    <button type="button" onclick="selectApp('peqi')" class="btn-portal mt-3" style="background-color: #06b6d4;">PEQI පද්ධතියට පිවිසෙන්න</button>
+                </div>
+            </div>
+        </div>
 
-    # 3. සංගණන දත්ත
-    elif st.session_state.active_module == "census":
-        st.title("👥 පිරිවෙන් සංගණන දත්ත පද්ධතිය")
-        st.info("පද්ධතිය සූදානම් වෙමින් පවතී...")
+        <footer class="text-center mt-5 mb-4 text-muted small">
+            <hr>
+            <p>© 2026 Piriven Development Branch | Ministry of Education - Sri Lanka</p>
+        </footer>
+    </div>
 
-    # 4. ඩිජිටල් බෝඩ්
-    elif st.session_state.active_module == "board":
-        b_path = os.path.join(BASE_DIR, "digital_boards", "app.py")
-        if not os.path.exists(b_path):
-            b_path = os.path.join(BASE_DIR, "digital_boards", "ministry_dashboard.py")
-        if os.path.exists(b_path):
-            with open(b_path, "r", encoding="utf-8") as f:
-                exec(f.read(), {"__name__": "__main__"})
-        else:
-            st.info("ඩිජිටල් බෝඩ් පද්ධතිය සූදානම් වෙමින් පවතී...")
-
-    # 5. ඉන්වෙන්ට්‍රි
-    elif st.session_state.active_module == "inventory":
-        i_path = os.path.join(BASE_DIR, "inventory_management", "app.py")
-        if not os.path.exists(i_path):
-            i_path = os.path.join(BASE_DIR, "inventory_management", "inventory_app.py")
-        if os.path.exists(i_path):
-            with open(i_path, "r", encoding="utf-8") as f:
-                exec(f.read(), {"__name__": "__main__"})
-        else:
-            st.info("ඉන්වෙන්ට්‍රි පද්ධතිය සූදානම් වෙමින් පවතී...")
-
-    # 6. PEQI
-    elif st.session_state.active_module == "peqi":
-        p_path = os.path.join(BASE_DIR, "peqi_module", "app.py")
-        if not os.path.exists(p_path):
-            p_path = os.path.join(BASE_DIR, "peqi_module", "peqi_app.py")
-        if os.path.exists(p_path):
-            with open(p_path, "r", encoding="utf-8") as f:
-                exec(f.read(), {"__name__": "__main__"})
-        else:
-            st.info("PEQI පද්ධතිය සූදානම් වෙමින් පවතී...")
+    <script>
+        function selectApp(moduleName) {
+            // Streamlit Custom Component එක වෙත සෘජුවම දත්ත යැවීම
+            window.parent.postMessage({
+                isStreamlitMessage: true,
+                type: "streamlit:setComponentValue",
+                value: moduleName
+            }, "*");
+        }
+    </script>
+</body>
+</html>
