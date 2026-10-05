@@ -148,14 +148,10 @@
         </footer>
     </div>
 
-    <script>
+   <script>
         function selectApp(moduleName) {
-            // Streamlit Custom Component එක වෙත සෘජුවම දත්ත යැවීම
-            window.parent.postMessage({
-                isStreamlitMessage: true,
-                type: "streamlit:setComponentValue",
-                value: moduleName
-            }, "*");
+            // Streamlit Iframe එකෙන් මිදී මුළු Browser Window එකේම පිටුව මාරු කිරීම
+            window.top.location.href = window.top.location.origin + window.top.location.pathname + '?module=' + moduleName;
         }
     </script>
 </body>
