@@ -14,7 +14,6 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Sub-module එකක් ආරක්ෂිතව දෝෂ නිවැරදි කර ධාවනය කිරීමේ ශ්‍රිතය
 def run_sub_module(file_path):
     if not os.path.exists(file_path):
         st.error(f"⚠️ ගොනුව හමු නොවීය: {os.path.basename(file_path)}")
@@ -30,15 +29,24 @@ def run_sub_module(file_path):
         with open(file_path, "r", encoding="utf-8") as f:
             code_content = f.read()
 
-        # 1. දෙවන st.set_page_config ඉවත් කිරීම
-        # 2. 149 පේළියේ unpack දෝෂය (expected 3, got 5) ස්වයංක්‍රීයව නිවැරදි කිරීම
         fixed_lines = []
         for line in code_content.splitlines(keepends=True):
             if "st.set_page_config(" in line:
                 fixed_lines.append("# " + line)
             elif "users_df, results_df, master_df = load_data()" in line:
-                # දෝෂය ඇති කරන පේළිය වෙනුවට ආරක්ෂිත unpacking කේතය ආදේශ කිරීම
-                fixed_lines.append("load_res = load_data(); users_df, results_df, master_df = load_res[0], load_res[1], load_res[2]\n")
+                # දත්ත නැතිනම් හේතුව පෙන්වන ආරක්ෂිත කේතය
+                replacement = (
+                    "load_res = load_data()\n"
+                    "users_df = load_res[0] if (load_res and len(load_res) > 0) else None\n"
+                    "results_df = load_res[1] if (load_res and len(load_res) > 1) else None\n"
+                    "master_df = load_res[2] if (load_res and len(load_res) > 2) else None\n"
+                    "if users_df is None:\n"
+                    "    st.warning('⚠️ Users data හමු නොවීය! (database.py පරීක්ෂා කරන්න)')\n"
+                )
+                fixed_lines.append(replacement)
+            elif "st.stop()" in line and "load_data" in code_content:
+                # st.stop() වෙනුවට Warning එකක් දී Login එක ඉදිරියට ගෙන යාම
+                fixed_lines.append("# " + line)
             else:
                 fixed_lines.append(line)
 
