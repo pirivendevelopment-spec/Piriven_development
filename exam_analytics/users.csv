@@ -1,0 +1,31 @@
+Username;Password;Role;Access;Name
+super_admin;Admin@2026;Super Admin;All;Kahagala Chandaloka Thero
+add_adm;AddAd@2025;Addisional Secratery;All summary View;K.C. Niroshan
+dir_dev;DirDev@26;Dierector Development;All summary View;Anura Abewikrama
+dep_dir1;Dep_dir1@26;Deputy Director (Evaluation);All summary View;Millawe Saranapala Thero
+dep_dir2;DepDir2@26;Deputy Director (Monitoring);All summary View;Nabadagaswewe Sudhamarathana Thero
+dep_dir3;DepDir3@2026;Deputy Director (Subject);SUB1,SUB2, SUB3, SUB4, SUB5, SUB6, SUB7, SUB8, SUB9, SUB10, SUB11, SUB12;Gamage Wikum Sampath
+prov_west;WestProv@2026;Deputy Director (Province);WESTERN;Madovita Wajirabuddhi Thero
+prov_cent;CentProv@2026;Deputy Director (Province);CENTRAL;Kirindigalle Ghanarathana Thero
+prov_south;SouthProv@2026;Deputy Director (Province);SOUTHERN;Thawalama Siddaththa Thero
+prov_north;NorthProv@2026;Deputy Director (Province);NORTHERN;Thammannewe Dhammrathnathero
+prov_east;EastProv@2026;Deputy Director (Province);EASTERN;Medirigiriye Vinitha Thero
+prov_nw;NWProv@2026;Deputy Director (Province);NORTH WESTERN;Menikhinne Dheerananda Thero
+prov_nc;NCProv@2026;Deputy Director (Province);NORTH CENTRAL;Mawathawawe Rathanawansa Thero
+prov_uva;UvaProv@2026;Deputy Director (Province);UVA;Mapakada Pemarathana Thero
+prov_sab;SabProv@2026;Deputy Director (Province);SABARAGAMUWA;Kanthale Vijithawansa Thero
+dir_sub1_sinh;Sinh@Sub1#2026;Subject Director (National/District);SUB1;Chaminda Jayawardhana
+dir_sub2_pali;Pali@Sub2#2026;Subject Director (National/District);SUB2;Matibambiye Sumanasara Thero
+dir_sub3_trip;Trip@Sub3#2026;Subject Director (National/District);SUB3;Palamugedra Sumanawansa Thero
+dir_sub4_sans;Sans@Sub4#2026;Subject Director (National/District);SUB4;Rammale Sumanarathana Thero
+dir_sub5_eng;Engl@Sub5#2026;Subject Director (National/District);SUB5;Sanjeewa Karunarathne
+dir_sub6_math;Math@Sub6#2026;Subject Director (National/District);SUB6;Nandana Indrajith
+dir_sub7_hist;Hist@Sub7#2026;Subject Director (National/District);SUB7;Angunakolapelesse Amithananda Thero
+dir_sub8_soc;Soci@Sub8#2026;Subject Director (National/District);SUB8;Gamage Wikum Sampath
+dir_sub9_heal;Heal@Sub9#2026;Subject Director (National/District);SUB9;
+dir_sub10_geo;Geog@Sub10#2026;Subject Director (National/District);SUB10;Mahesh Prasanna De soyza
+dir_sub11_sci;Scie@Sub11#2026;Subject Director (National/District);SUB11;
+dir_sub12_tam;Tami@Sub12#2026;Subject Director (National/District);SUB12;Lalith Kumara
+Dep_Dir5;DirDep5@2026;admin;All;
+Dir_Piriven;Dir@2026;Director (Piriven);All summary View;Madovita Wajirabuddhi Thero
+Ade_Dev02;Dev2@2026;Adnin;All;Dr. Bopitiye Siri Sumedha Thero
