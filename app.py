@@ -9,12 +9,12 @@ if BASE_DIR not in sys.path:
 
 st.set_page_config(
     page_title="පිරිවෙන් අංශයේ ප්‍රධාන කළමනාකරණ පෝටලය",
-    page_icon="🏛️️",
+    page_icon="🏛️",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# Sub-script එකක් ආරක්ෂිතව ධාවනය කිරීමේ function එක
+# Sub-module එකක් ආරක්ෂිතව දෝෂ නිවැරදි කර ධාවනය කිරීමේ ශ්‍රිතය
 def run_sub_module(file_path):
     if not os.path.exists(file_path):
         st.error(f"⚠️ ගොනුව හමු නොවීය: {os.path.basename(file_path)}")
@@ -24,25 +24,28 @@ def run_sub_module(file_path):
     if module_dir not in sys.path:
         sys.path.insert(0, module_dir)
 
-    # Current working directory අදාළ module ෆෝල්ඩරයට තාවකාලිකව මාරු කිරීම
     original_cwd = os.getcwd()
     try:
         os.chdir(module_dir)
         with open(file_path, "r", encoding="utf-8") as f:
             code_content = f.read()
 
-        # අතුරු පිටු තුළ නැවත st.set_page_config තිබේ නම් එයින් එන දෝෂය වැළැක්වීම
-        # (Streamlit allow කරන්නේ මුල් පිටුවේදී එක් වරක් පමණි)
-        cleaned_code = ""
+        # 1. දෙවන st.set_page_config ඉවත් කිරීම
+        # 2. 149 පේළියේ unpack දෝෂය (expected 3, got 5) ස්වයංක්‍රීයව නිවැරදි කිරීම
+        fixed_lines = []
         for line in code_content.splitlines(keepends=True):
             if "st.set_page_config(" in line:
-                cleaned_code += "# " + line  # Comment out secondary page config
+                fixed_lines.append("# " + line)
+            elif "users_df, results_df, master_df = load_data()" in line:
+                # දෝෂය ඇති කරන පේළිය වෙනුවට ආරක්ෂිත unpacking කේතය ආදේශ කිරීම
+                fixed_lines.append("load_res = load_data(); users_df, results_df, master_df = load_res[0], load_res[1], load_res[2]\n")
             else:
-                cleaned_code += line
+                fixed_lines.append(line)
 
+        cleaned_code = "".join(fixed_lines)
         exec(cleaned_code, {"__name__": "__main__", "__file__": file_path})
     except Exception as e:
-        st.error(f"⚠️ මොඩියුලය ධාවනය කිරීමේදී දෝෂයක් මතුවිය:")
+        st.error("⚠️ මොඩියුලය ධාවනය කිරීමේදී දෝෂයක් මතුවිය:")
         st.code(traceback.format_exc())
     finally:
         os.chdir(original_cwd)
