@@ -146,8 +146,17 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-users_df, results_df, master_df = load_data()
+# 149 වන පේළිය: load_data() මඟින් ලැබෙන අමතර අගයන්ගෙන් දෝෂ ඇති නොවන පරිදි නිවැරදි කර ඇත (*rest)
+load_result = load_data()
+if isinstance(load_result, (list, tuple)):
+    users_df = load_result[0] if len(load_result) > 0 else None
+    results_df = load_result[1] if len(load_result) > 1 else None
+    master_df = load_result[2] if len(load_result) > 2 else None
+else:
+    users_df, results_df, master_df = None, None, None
+
 if users_df is None or results_df is None or master_df is None:
+    st.error("⚠️ දත්ත සමුදාය (Database) සාර්ථකව පූරණය කළ නොහැක.")
     st.stop()
 
 # --- Session State & Persistent Login (3 Days Memory) ---
@@ -198,14 +207,12 @@ if not st.session_state.logged_in:
         st.markdown("<div style='height: 40px;'></div>", unsafe_allow_html=True)
         
         with st.form("login_form", clear_on_submit=False):
-            # ලාංඡනය තිබේ නම් මැදින් පෙන්වීම
             if os.path.exists("logo.png"):
                 import base64
                 with open("logo.png", "rb") as f:
                     b64_logo = base64.b64encode(f.read()).decode("utf-8")
                 st.markdown(f'<img src="data:image/png;base64,{b64_logo}" width="80" style="display:block; margin: 0 auto 15px auto; border-radius: 6px;">', unsafe_allow_html=True)
 
-            # පිරිසිදු Streamlit මාතෘකා භාවිතය (HTML දෝෂ මඟහරවා ගැනීමට)
             st.markdown("<h3 style='text-align: center; color: #0f766e; margin-bottom: 0px;'>පිරිවෙන් අධ්‍යාපන අංශය</h3>", unsafe_allow_html=True)
             st.markdown("<p style='text-align: center; color: #64748b; font-size: 14px; margin-bottom: 25px;'>විභාග ප්‍රතිඵල විශ්ලේෂණ පද්ධතිය - 2026</p>", unsafe_allow_html=True)
 
@@ -795,7 +802,7 @@ elif menu == "පිරිවෙන් විශ්ලේෂණය":
             k1.markdown(f'<div class="kpi-card"><div class="kpi-title">බර තැබූ ලකුණු (QS)</div><div class="kpi-value">{analysis_data["qs"]:.2f}</div></div>', unsafe_allow_html=True)
             k2.markdown(f'<div class="kpi-card"><div class="kpi-title">දිවයිනේ ස්ථානය</div><div class="kpi-value" style="color: #0284c7;">#{analysis_data["island_rank"]}</div></div>', unsafe_allow_html=True)
             k3.markdown(f'<div class="kpi-card"><div class="kpi-title">පළාත් ස්ථානය</div><div class="kpi-value" style="color: #0d9488;">#{analysis_data["province_rank"]}</div></div>', unsafe_allow_html=True)
-            k4.markdown(f'<div class="kpi-card"><div class="kpi-title">දිස්ත්‍රික් ස්ථානය</div><div class="kpi-value" style="color: #4f46e5;">#{analysis_data["district_rank"]}</div></div>', unsafe_allow_html=True)
+            k4.markdown(f'<div class="kpi-card"><div class="kpi-title">දිස්ත්‍‍රික් ස්ථානය</div><div class="kpi-value" style="color: #4f46e5;">#{analysis_data["district_rank"]}</div></div>', unsafe_allow_html=True)
 
             zone_colors = {"Green": "#198754", "Yellow": "#ffc107", "Orange": "#fd7e14", "Red": "#dc3545"}
             z_color = zone_colors.get(analysis_data["zone"], "#198754")
