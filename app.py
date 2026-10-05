@@ -14,10 +14,9 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Streamlit Multi-page Sidebar සම්පූර්ණයෙන්ම සැඟවීමට සහ Light Theme තහවුරු කිරීමට CSS
+# Streamlit Theme එක සහ Body එක පිරිසිදුව තබා ගැනීමට CSS
 st.markdown("""
 <style>
-    /* Dark Theme වෙනුවට මුළු පිටුවම පිරිසිදු පසුබිමක් කිරීම */
     .stApp {
         background-color: #f8fafc !important;
     }
@@ -30,7 +29,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# URL Query Parameter පරීක්ෂා කිරීම
+# URL එකෙන් module parameter එක කියවීම
 try:
     module = st.query_params.get("module")
 except Exception:
@@ -38,7 +37,7 @@ except Exception:
     module = params.get("module", [None])[0]
 
 # =========================================================================
-# 0. ප්‍රධාන ඩෑෂ්බෝඩ් එක (INDEX.HTML මුල් Bootstrap Design එක)
+# 0. ප්‍රධාන ඩෑෂ්බෝඩ් එක (INDEX.HTML මුල් Bootstrap Design එකම)
 # =========================================================================
 if not module:
     # Sidebar සැඟවීම
@@ -48,7 +47,7 @@ if not module:
     if os.path.exists(html_path):
         with open(html_path, "r", encoding="utf-8") as f:
             html_content = f.read()
-        components.html(html_content, height=950, scrolling=True)
+        components.html(html_content, height=1000, scrolling=True)
     else:
         st.error("⚠️ index.html ගොනුව හමු නොවීය!")
 
@@ -56,7 +55,7 @@ if not module:
 # මොඩියුල පිටු (AIP ඇතුළු උප පද්ධති)
 # =========================================================================
 else:
-    # ආපසු ප්‍රධාන පෝටලයට යාමට Sidebar Button
+    # ආපසු ප්‍රධාන පෝටලයට යාමට Sidebar Button එක
     st.sidebar.markdown("""
     <div style='padding-bottom: 12px; margin-bottom: 15px;'>
         <a href="?" target="_top" style="text-decoration: none;">
