@@ -155,4 +155,123 @@ color: white !important;
 <div class="card-custom card-board">
 <div>
 <h5><i class="fa-solid fa-desktop text-warning"></i> 4. ඩිජිටල් බෝඩ් මොනිටරින්</h5>
-<p class
+<p class="text-muted small mt-2">අමාත්‍යාංශ මට්ටමේ සජීවී සිතියම් ලුහුබැඳීම, විකාශන (Broadcast) සහ ටිකට් පද්ධතිය.</p>
+</div>
+<a href="?module=board" target="_self" class="btn-portal mt-3" style="background-color: #f59e0b;">අමාත්‍යාංශ මොනිටරින් වෙත පිවිසෙන්න</a>
+</div>
+</div>
+
+<!-- 5. ඉන්වෙන්ට්‍රි පාලනය -->
+<div class="col-md-6 col-lg-4">
+<div class="card-custom card-inv">
+<div>
+<h5><i class="fa-solid fa-boxes-stacked text-danger"></i> 5. ඉන්වෙන්ට්‍රි සහ සම්පත් කළමනාකරණය</h5>
+<p class="text-muted small mt-2">මූල්‍ය ප්‍රතිපාදන, බඩු වට්ටෝරු (පොදු 44), තොග පොත් (පොදු 198) සහ නිකුත් කිරීම්.</p>
+</div>
+<a href="?module=inventory" target="_self" class="btn-portal mt-3" style="background-color: #ef4444;">ඉන්වෙන්ට්‍රි පද්ධතියට පිවිසෙන්න</a>
+</div>
+</div>
+
+<!-- 6. PEQI මොඩියුලය -->
+<div class="col-md-6 col-lg-4">
+<div class="card-custom card-peqi">
+<div>
+<h5><i class="fa-solid fa-clipboard-check text-info"></i> 6. පිරිවෙන් ප්‍රමිති (PEQI) ලකුණු</h5>
+<p class="text-muted small mt-2">පිරිවෙන්වල ප්‍රමිති 10 සඳහා නව ලකුණු ඇතුළත් කිරීම, වාර 5 ලුහුබැඳීම සහ PDF වාර්තා.</p>
+</div>
+<a href="?module=peqi" target="_self" class="btn-portal mt-3" style="background-color: #06b6d4;">PEQI පද්ධතියට පිවිසෙන්න</a>
+</div>
+</div>
+</div>
+
+<footer class="text-center mt-5 mb-4 text-muted small">
+<hr>
+<p>© 2026 Piriven Development Branch | Ministry of Education - Sri Lanka</p>
+</footer>
+</div>
+</div>
+"""
+    st.markdown(dashboard_html, unsafe_allow_html=True)
+
+# =========================================================================
+# 2. මොඩියුල පිටු (AIP ඇතුළු අනෙකුත් සියල්ල)
+# =========================================================================
+else:
+    # ආපසු ප්‍රධාන Dashboard එකට යාමට Sidebar එකේ Button එක
+    st.sidebar.markdown("""
+<div style='padding-bottom: 12px; margin-bottom: 15px;'>
+<a href="?" target="_self" style="text-decoration: none;">
+<button style="
+background: linear-gradient(135deg, #0f766e, #115e59);
+color: white; border: none; padding: 10px 16px; border-radius: 8px;
+font-weight: 700; width: 100%; cursor: pointer;">
+⬅️ ප්‍රධාන පෝටලයට ආපසු
+</button>
+</a>
+</div>
+<hr style="border: 0.5px solid rgba(255,255,255,0.1); margin: 10px 0;">
+""", unsafe_allow_html=True)
+
+    # 1. විභාග ප්‍රතිඵල විශ්ලේෂණය
+    if active_module == "exam":
+        exam_path = os.path.join(BASE_DIR, "result_app.py")
+        if os.path.exists(exam_path):
+            with open(exam_path, "r", encoding="utf-8") as f:
+                exec(f.read(), {"__name__": "__main__"})
+        else:
+            st.warning("result_app.py ගොනුව හමු නොවීය.")
+
+    # 2. AIP මූල්‍ය හා ප්‍රගති පාලනය
+    elif active_module == "aip":
+        aip_path = os.path.join(BASE_DIR, "aip_financial")
+        if aip_path not in sys.path:
+            sys.path.append(aip_path)
+        try:
+            from aip_financial.modules import dashboard
+            from aip_financial import db
+            db.init_db()
+            user = st.session_state.get("user", {
+                "name": "ප්‍රධාන පරිපාලක", "role": "Super Admin",
+                "access_level": "All", "username": "admin"
+            })
+            dashboard.render_dashboard(user)
+        except Exception as e:
+            st.error(f"AIP මූල්‍ය පද්ධතිය පූරණය කිරීමේ දෝෂයකි: {e}")
+
+    # 3. සංගණන දත්ත
+    elif active_module == "census":
+        st.title("👥 පිරිවෙන් සංගණන දත්ත පද්ධතිය")
+        st.info("පද්ධතිය සූදානම් වෙමින් පවතී...")
+
+    # 4. ඩිජිටල් බෝඩ්
+    elif active_module == "board":
+        b_path = os.path.join(BASE_DIR, "digital_boards", "app.py")
+        if not os.path.exists(b_path):
+            b_path = os.path.join(BASE_DIR, "digital_boards", "ministry_dashboard.py")
+        if os.path.exists(b_path):
+            with open(b_path, "r", encoding="utf-8") as f:
+                exec(f.read(), {"__name__": "__main__"})
+        else:
+            st.info("ඩිජිටල් බෝඩ් පද්ධතිය සූදානම් වෙමින් පවතී...")
+
+    # 5. ඉන්වෙන්ට්‍රි
+    elif active_module == "inventory":
+        i_path = os.path.join(BASE_DIR, "inventory_management", "app.py")
+        if not os.path.exists(i_path):
+            i_path = os.path.join(BASE_DIR, "inventory_management", "inventory_app.py")
+        if os.path.exists(i_path):
+            with open(i_path, "r", encoding="utf-8") as f:
+                exec(f.read(), {"__name__": "__main__"})
+        else:
+            st.info("ඉන්වෙන්ට්‍රි පද්ධතිය සූදානම් වෙමින් පවතී...")
+
+    # 6. PEQI
+    elif active_module == "peqi":
+        p_path = os.path.join(BASE_DIR, "peqi_module", "app.py")
+        if not os.path.exists(p_path):
+            p_path = os.path.join(BASE_DIR, "peqi_module", "peqi_app.py")
+        if os.path.exists(p_path):
+            with open(p_path, "r", encoding="utf-8") as f:
+                exec(f.read(), {"__name__": "__main__"})
+        else:
+            st.info("PEQI පද්ධතිය සූදානම් වෙමින් පවතී...")
