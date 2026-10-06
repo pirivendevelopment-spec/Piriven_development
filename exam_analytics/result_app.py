@@ -114,7 +114,7 @@ st.markdown("""
                 display: none !important; 
             }
             table {
-                background-color: #ffffff !important;
+                background-color: #ffffff !important; 
                 color: #000000 !important; 
                 border: 1px solid #94a3b8 !important;
                 box-shadow: none !important;
@@ -179,83 +179,80 @@ if not st.session_state.logged_in and "auth_user" in queryParams:
             }
             break
 
-def main():
-    # -------------------------------------------------------------
-    # 1. LOGIN SCREEN (ලොග් වී නැතිනම් මෙතැනින් නවතී)
-    # -------------------------------------------------------------
-    if not st.session_state.logged_in or not st.session_state.user:
-        st.markdown("""
-            <style>
-                .stApp {
-                    background-color: #eef2f5 !important;
-                }
-                [data-testid="stSidebar"] {
-                    display: none !important;
-                }
-                header { visibility: hidden !important; }
-                div[data-testid="stForm"] {
-                    background-color: #ffffff !important;
-                    padding: 40px 30px !important;
-                    border-radius: 18px !important;
-                    border: 1px solid #cbd5e1 !important;
-                    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08) !important;
-                }
-            </style>
-        """, unsafe_allow_html=True)
+# -------------------------------------------------------------
+# 1. LOGIN SCREEN (ලොග් වී නැතිනම් පමණි)
+# -------------------------------------------------------------
+if not st.session_state.logged_in or not st.session_state.user:
+    st.markdown("""
+        <style>
+            .stApp {
+                background-color: #eef2f5 !important;
+            }
+            [data-testid="stSidebar"] {
+                display: none !important;
+            }
+            header { visibility: hidden !important; }
+            div[data-testid="stForm"] {
+                background-color: #ffffff !important;
+                padding: 40px 30px !important;
+                border-radius: 18px !important;
+                border: 1px solid #cbd5e1 !important;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08) !important;
+            }
+        </style>
+    """, unsafe_allow_html=True)
 
-        left_gap, center_col, right_gap = st.columns([1, 1.3, 1])
-        
-        with center_col:
-            st.markdown("<div style='height: 40px;'></div>", unsafe_allow_html=True)
-            with st.form("login_form", clear_on_submit=False):
-                logo_path = os.path.join(CURRENT_DIR, "logo.png")
-                if os.path.exists(logo_path):
-                    import base64
-                    with open(logo_path, "rb") as f:
-                        b64_logo = base64.b64encode(f.read()).decode("utf-8")
-                    st.markdown(f'<img src="data:image/png;base64,{b64_logo}" width="80" style="display:block; margin: 0 auto 15px auto; border-radius: 6px;">', unsafe_allow_html=True)
+    left_gap, center_col, right_gap = st.columns([1, 1.3, 1])
+    
+    with center_col:
+        st.markdown("<div style='height: 40px;'></div>", unsafe_allow_html=True)
+        with st.form("login_form", clear_on_submit=False):
+            logo_path = os.path.join(CURRENT_DIR, "logo.png")
+            if os.path.exists(logo_path):
+                import base64
+                with open(logo_path, "rb") as f:
+                    b64_logo = base64.b64encode(f.read()).decode("utf-8")
+                st.markdown(f'<img src="data:image/png;base64,{b64_logo}" width="80" style="display:block; margin: 0 auto 15px auto; border-radius: 6px;">', unsafe_allow_html=True)
 
-                st.markdown("<h3 style='text-align: center; color: #0f766e; margin-bottom: 0px;'>පිරිවෙන් අධ්‍යාපන අංශය</h3>", unsafe_allow_html=True)
-                st.markdown("<p style='text-align: center; color: #64748b; font-size: 14px; margin-bottom: 25px;'>විභාග ප්‍රතිඵල විශ්ලේෂණ පද්ධතිය - 2026</p>", unsafe_allow_html=True)
+            st.markdown("<h3 style='text-align: center; color: #0f766e; margin-bottom: 0px;'>පිරිවෙන් අධ්‍යාපන අංශය</h3>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align: center; color: #64748b; font-size: 14px; margin-bottom: 25px;'>විභාග ප්‍රතිඵල විශ්ලේෂණ පද්ධතිය - 2026</p>", unsafe_allow_html=True)
 
-                username = st.text_input("👤 පරිශීලක නාමය (Username)")
-                password = st.text_input("🔑 මුරපදය (Password)", type="password")
-                remember_me = st.checkbox("🔄 දින 3ක් පුරා මා මතක තබා ගන්න (Remember Me)")
-                
-                st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
-                submit_btn = st.form_submit_button("පද්ධතියට ඇතුල් වන්න", use_container_width=True)
+            username = st.text_input("👤 පරිශීලක නාමය (Username)")
+            password = st.text_input("🔑 මුරපදය (Password)", type="password")
+            remember_me = st.checkbox("🔄 දින 3ක් පුරා මා මතක තබා ගන්න (Remember Me)")
+            
+            st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+            submit_btn = st.form_submit_button("පද්ධතියට ඇතුල් වන්න", use_container_width=True)
 
-                if submit_btn:
-                    u_clean = username.strip().lower()
-                    p_clean = password.strip()
-                    matched_user = None
-                    for _, row in users_df.iterrows():
-                        db_user = str(row.get("Username", row.get("username", ""))).strip().lower()
-                        db_pass = str(row.get("Password", row.get("password", ""))).strip()
-                        if db_user == u_clean and db_pass == p_clean:
-                            matched_user = row.to_dict()
-                            break
+            if submit_btn:
+                u_clean = username.strip().lower()
+                p_clean = password.strip()
+                matched_user = None
+                for _, row in users_df.iterrows():
+                    db_user = str(row.get("Username", row.get("username", ""))).strip().lower()
+                    db_pass = str(row.get("Password", row.get("password", ""))).strip()
+                    if db_user == u_clean and db_pass == p_clean:
+                        matched_user = row.to_dict()
+                        break
 
-                    if matched_user:
-                        st.session_state.logged_in = True
-                        st.session_state.user = {
-                            "username": u_clean,
-                            "name": matched_user.get("Name", "පරිශීලකයා"),
-                            "role": str(matched_user.get("Role", "Guest")).strip(),
-                            "access": str(matched_user.get("Access", "")).strip()
-                        }
-                        if remember_me:
-                            st.query_params["auth_user"] = u_clean
-                        st.rerun()
-                    else:
-                        st.error("⚠️ පරිශීලක නාමය හෝ මුරපදය වැරදියි!")
+                if matched_user:
+                    st.session_state.logged_in = True
+                    st.session_state.user = {
+                        "username": u_clean,
+                        "name": matched_user.get("Name", "පරිශීලකයා"),
+                        "role": str(matched_user.get("Role", "Guest")).strip(),
+                        "access": str(matched_user.get("Access", "")).strip()
+                    }
+                    if remember_me:
+                        st.query_params["auth_user"] = u_clean
+                    st.rerun()
+                else:
+                    st.error("⚠️ පරිශීලක නාමය හෝ මුරපදය වැරදියි!")
 
-        # මෙතැනින් පහළට කේතය යාම නවතී (AttributeError මඟහැරේ)
-        return
-
-    # -------------------------------------------------------------
-    # 2. LOGGED IN DASHBOARD
-    # -------------------------------------------------------------
+# -------------------------------------------------------------
+# 2. MAIN LOGGED-IN VIEW (ලොග් වූ පසු සෘජුවම ක්‍රියාත්මක වේ)
+# -------------------------------------------------------------
+else:
     user = st.session_state.user
     role = user.get("role", "Guest")
     access = user.get("access", "")
@@ -382,12 +379,47 @@ def main():
                 st.plotly_chart(fig, use_container_width=True)
                 
             with col_dist:
-                st.subheader("📍 දිස්ත්‍රික් ප්‍රගතිය")
+                st.subheader("📍 දිස්ත්‍‍රික් ප්‍රගතිය")
                 dist_df = pd.DataFrame(ranking_data)
                 if not dist_df.empty:
                     dist_summary = dist_df.groupby("දිස්ත්‍රික්කය")["සමත් ප්‍රතිශතය (%)"].mean().reset_index()
                     dist_summary = dist_summary.sort_values(by="සමත් ප්‍රතිශතය (%)", ascending=False)
                     st.dataframe(dist_summary, use_container_width=True, height=350, hide_index=True)
+
+            st.markdown("<br>", unsafe_allow_html=True)
+            formula_html = """
+            <div style="background: white; padding: 25px; border-radius: 14px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border-left: 6px solid #198754; border: 1px solid #cbd5e1;">
+                <h4 style="color: #1e293b; margin-top: 0; font-size: 18px;">📐 ශ්‍රේණිගත කිරීමේ විද්‍යාත්මක පදනම (Scientific Ranking Formula)</h4>
+                <p style="color: #475569; font-size: 14px; line-height: 1.6;">
+                    මෙම පද්ධතියේ පිරිවෙන් ශ්‍රේණිගත කරනු ලබන්නේ එක් එක් සිසුවා ලබාගන්නා සාමාර්ථයන්හි ගුණාත්මක අගය (Quality Score) මත පදනම් වූ සාමාන්‍ය අගයෙනි. මෙහිදී භාවිත වන මූලික සමීකරණය පහත පරිදි වේ:
+                </p>
+                <div style="background: #f8fafc; padding: 15px; border-radius: 10px; text-align: center; border: 1px solid #e2e8f0; margin: 15px 0;">
+                    <span style="font-size: 20px; font-weight: bold; color: #0f766e;">Quality Score (QS) = Σ (G<sub>w</sub>) / N</span>
+                    <div style="font-size: 13px; color: #64748b; margin-top: 5px;">මෙහි: G<sub>w</sub> = සාමාර්ථයට අදාළ බර තැබීම | N = පෙනී සිටි මුළු සිසුන් සංඛ්‍යාව</div>
+                </div>
+                <div style="display: flex; gap: 30px; margin-top: 20px; flex-wrap: wrap;">
+                    <div style="flex: 1; min-width: 250px;">
+                        <strong style="color: #1e293b; font-size: 15px;">සාමාර්ථ බර තැබීම් (Weightage):</strong>
+                        <ul style="color: #475569; font-size: 14px; margin-top: 8px; padding-left: 20px; line-height: 1.8;">
+                            <li><strong>A (විශිෂ්ට):</strong> 10.0</li>
+                            <li><strong>B (ඉතා හොඳ):</strong> 8.0</li>
+                            <li><strong>C (හොඳ):</strong> 6.5</li>
+                            <li><strong>S (සාමාන්‍ය):</strong> 5.0</li>
+                            <li><strong>W (අසමත්):</strong> 0.0</li>
+                        </ul>
+                    </div>
+                    <div style="flex: 2; min-width: 300px;">
+                        <strong style="color: #1e293b; font-size: 15px;">විශේෂ සටහන:</strong>
+                        <ul style="color: #475569; font-size: 14px; margin-top: 8px; padding-left: 20px; line-height: 1.8;">
+                            <li>පිරිවෙනක ශිෂ්‍ය සංඛ්‍යාව කුඩා වුවත් විශාල වුවත්, සෑම ආයතනයක්ම එකම සාಧಾರණ මිනුම් දණ්ඩකින් (Scale 0-100) මෙහිදී මැනුම් ලබයි.</li>
+                            <li>මෙහිදී පිරිවෙනක සමූහික ශාස්ත්‍රීය දක්ෂතාවය මෙන්ම එක් එක් සිසුවා කෙරෙහි දක්වන අවධානය මනාව නිරූපණය වේ.</li>
+                            <li>සමත්විමේ ප්‍රතිශතය ගණනය කරනු ලබන්නේ පෙනී සිටි (Sat) සිසුන් සංඛ්‍යාව මත පමණි.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            """
+            st.markdown(formula_html, unsafe_allow_html=True)
 
     # VIEW 2: පළාත් හා ශ්‍රේණිගත කිරීම් (Rankings)
     elif menu == "පළාත් හා ශ්‍රේණිගත කිරීම් (Rankings)":
@@ -427,7 +459,7 @@ def main():
                 else:
                     available_districts = df_rank["දිස්ත්‍රික්කය"].dropna().unique().tolist()
                 
-                districts = ["සියලුම දිස්ත්‍රික්ක"] + sorted([d for d in available_districts if d and d.lower() != 'nan'])
+                districts = ["සියලුම දිස්ත්‍‍රික්ක"] + sorted([d for d in available_districts if d and d.lower() != 'nan'])
                 sel_dist = st.selectbox("දිස්ත්‍රික්කය අනුව පෙරන්න", districts)
                 
             with f_col3:
@@ -779,14 +811,14 @@ def main():
                 
                 zc1, zc2 = st.columns(2)
                 zc1.markdown(f"""
-                    <div style="background: #ffffff; padding: 20px; border-radius: 12px; border: 1px solid #cbd5e1; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.03); margin-top: 15px;">
+                    <div style="background: #ffffff; padding: 20px; border-radius: 12px; border-left: 5px solid {z_color}; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.03); margin-top: 15px;">
                         <div style="font-size: 14px; font-weight: bold; color: #334155; text-transform: uppercase;">ප්‍රගති කලාපය ({analysis_year})</div>
                         <div style="font-size: 26px; font-weight: bold; color: {z_color}; margin-top: 8px;">{analysis_data['zone']} Zone</div>
                     </div>
                 """, unsafe_allow_html=True)
                 
                 zc2.markdown(f"""
-                    <div style="background: #ffffff; padding: 20px; border-radius: 12px; border: 1px solid #cbd5e1; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.03); margin-top: 15px;">
+                    <div style="background: #ffffff; padding: 20px; border-radius: 12px; border-left: 5px solid #0f766e; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.03); margin-top: 15px;">
                         <div style="font-size: 14px; font-weight: bold; color: #334155; text-transform: uppercase;">{analysis_year} සමත් වීමේ ප්‍රතිශතය</div>
                         <div style="font-size: 26px; font-weight: bold; color: #0f766e; margin-top: 8px;">{analysis_data['pass_rate']}</div>
                     </div>
@@ -843,6 +875,3 @@ def main():
             Copyright © සංවර්ධන ශාඛාව - පිරිවෙන් අධ්‍යාපන අංශය - විභාග දෙපාර්තමේන්තුව නිකුත් කළ පිරිවෙන් සාමාන්‍ය පෙළ විභාගය 2025 (2026) දත්ත පදනම් කරගත් විශ්ලේෂණ වාර්තාවකි.
         </div>
     """, unsafe_allow_html=True)
-
-if __name__ == "__main__":
-    main()
