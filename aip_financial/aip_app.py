@@ -1,6 +1,7 @@
 import streamlit as st
 import sys
 import os
+import pandas as pd
 
 # Sub-folder path නිවැරදිව තහවුරු කිරීම
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -53,9 +54,108 @@ if not st.session_state.logged_in:
             st.session_state.logged_in = True
             st.session_state.user = dict(user_data)
 
+# =========================================================================
+# මෑතකාලීන වියදම් ලොගය සඳහා Edit / Delete Actions Render කරන ශ්‍රිතය
+# =========================================================================
+def render_inline_expense_actions(user):
+    st.markdown("<br><hr style='border-color: #cbd5e1;'>", unsafe_allow_html=True)
+    st.markdown("<h4 style='color: #0f172a; font-weight: 800;'>📋 මෑතකාලීන වියදම් කළමනාකරණය (Recent Expense Actions)</h4>", unsafe_allow_html=True)
+
+    is_super_admin = str(user.get("role", "")).lower() in ["super admin", "admin", "ප්‍රධාන පරිපාලක"]
+
+    conn = db.get_connection()
+    try:
+        vouchers_df = pd.read_sql_query("""
+            SELECT rowid as id, timestamp, vote_number, action_no, description, 
+                   voucher_no, voucher_date, amount, delete_requested, delete_reason, username
+            FROM voucher_log 
+            ORDER BY rowid DESC LIMIT 10
+        """, conn)
+    except Exception:
+        vouchers_df = pd.read_sql_query("SELECT rowid as id, * FROM voucher_log ORDER BY rowid DESC LIMIT 10", conn)
+    conn.close()
+
+    if vouchers_df.empty:
+        st.info("මෑතකාලීන වියදම් කිසිවක් හමු නොවීය.")
+        return
+
+    for _, row in vouchers_df.iterrows():
+        v_id = row['id']
+        is_del_pending = bool(row.get('delete_requested', 0) == 1)
+        border_color = "#ef4444" if is_del_pending else "#e2e8f0"
+        bg_color = "#fef2f2" if is_del_pending else "#ffffff"
+
+        with st.container():
+            st.markdown(f"""
+            <div style="background-color: {bg_color}; border: 1px solid {border_color}; border-radius: 12px; padding: 14px 18px; margin-bottom: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.02);">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <strong style="color: #0f172a; font-size: 15px;">වවුචර අංකය: {row.get('voucher_no', 'N/A')}</strong> 
+                        <span style="color: #64748b; font-size: 12px; margin-left: 10px;">({row.get('voucher_date', 'N/A')})</span>
+                        <div style="color: #334155; font-size: 13.5px; margin-top: 4px;">
+                            වැය ශීර්ෂය: <b>{row.get('vote_number', 'N/A')}</b> | විස්තරය: {row.get('description', '')}
+                        </div>
+                        {f"<div style='color: #dc2626; font-size: 12px; margin-top: 4px;'><b>⚠️ ඉවත් කිරීමට ඉල්ලුම් කර ඇත:</b> {row.get('delete_reason', '')}</div>" if is_del_pending else ""}
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="font-size: 16px; font-weight: 800; color: #0f766e;">රු. {float(row.get('amount', 0)):,.2f}</span>
+                        <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">ඇතුළත් කළේ: {row.get('username', 'N/A')}</div>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            col_btn1, col_btn2, col_btn3, _ = st.columns([1.2, 1.6, 1.6, 6])
+            
+            # 1. Edit Popover
+            with col_btn1:
+                with st.popover("✏️ Edit"):
+                    with st.form(key=f"edit_v_{v_id}"):
+                        st.write(f"**වවුචරය සංස්කරණය (#{row.get('voucher_no')})**")
+                        e_vno = st.text_input("වවුචර අංකය", value=str(row.get('voucher_no', '')))
+                        e_desc = st.text_input("විස්තරය", value=str(row.get('description', '')))
+                        e_amount = st.number_input("මුදල (රු.)", value=float(row.get('amount', 0)), step=500.0)
+                        e_date = st.text_input("දිනය (YYYY-MM-DD)", value=str(row.get('voucher_date', '')))
+                        
+                        if st.form_submit_button("💾 සුරකින්න"):
+                            db.update_voucher(v_id, row.get('vote_number'), row.get('action_no'), e_desc, e_vno, e_date, e_amount)
+                            st.toast("වවුචරය සාර්ථකව සංස්කරණය කරන ලදී!")
+                            st.rerun()
+
+            # 2. Officer Delete Request
+            if not is_super_admin:
+                with col_btn2:
+                    if not is_del_pending:
+                        with st.popover("⚠️ Delete Request"):
+                            with st.form(key=f"del_v_form_{v_id}"):
+                                reason = st.text_input("හේතුව", placeholder="දත්ත වැරදීමක්")
+                                if st.form_submit_button("ඉල්ලීම යවන්න"):
+                                    if reason.strip():
+                                        db.request_voucher_delete(v_id, reason)
+                                        st.toast("ඉල්ලීම Admin වෙත යොමු විය!")
+                                        st.rerun()
+                                    else:
+                                        st.error("හේතුව දක්වන්න.")
+
+            # 3. Super Admin Approve / Reject
+            if is_super_admin and is_del_pending:
+                with col_btn2:
+                    if st.button("🗑️ Approve Delete", key=f"app_d_{v_id}", type="primary"):
+                        db.delete_voucher_permanent(v_id)
+                        st.toast("වවුචරය ස්ථිරවම මකා දමන ලදී!")
+                        st.rerun()
+                with col_btn3:
+                    if st.button("❌ Reject", key=f"rej_d_{v_id}"):
+                        db.cancel_voucher_delete_request(v_id)
+                        st.toast("ඉල්ලීම ප්‍රතික්ෂේප විය.")
+                        st.rerun()
+
+            st.markdown("<div style='height: 6px;'></div>", unsafe_allow_html=True)
+
+
 def main():
     # =========================================================================
-    # 1. PREMIUM LOGIN SCREEN (තනිකර සුදු පාට වෙනුවට Dark Navy + Glass Card)
+    # 1. PREMIUM LOGIN SCREEN
     # =========================================================================
     if not st.session_state.logged_in:
         st.markdown("""
@@ -278,8 +378,12 @@ def main():
         "පද්ධති වාර්තා": reports.render_reports
     }
 
-    # තෝරාගත් මොඩියුලය ධාවනය කිරීම
+    # තෝරාගත් මොඩියුලය (Charts සහිත Dashboard එක) ධාවනය කිරීම
     modules_map[st.session_state.selected_menu](user)
+
+    # ප්‍රධාන පාලක පුවරුවේදී පමණක් මෑතකාලීන වියදම් වලට Edit / Delete Controls පහළින් එක් කිරීම
+    if st.session_state.selected_menu == "පාලක පුවරුව":
+        render_inline_expense_actions(user)
 
 if __name__ == "__main__":
     main()
