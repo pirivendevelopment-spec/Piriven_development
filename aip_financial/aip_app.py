@@ -4,6 +4,30 @@ import plotly.express as px
 from datetime import datetime
 import sys
 import os
+# Database එකට අලුත් තීරු (Columns) ස්වයංක්‍රීයව එක් කිරීම
+try:
+    _conn = db.get_connection()
+    _cur = _conn.cursor()
+    try:
+        _cur.execute("ALTER TABLE voucher_log ADD COLUMN delete_requested INTEGER DEFAULT 0")
+    except Exception:
+        pass
+    try:
+        _cur.execute("ALTER TABLE voucher_log ADD COLUMN delete_reason TEXT")
+    except Exception:
+        pass
+    try:
+        _cur.execute("ALTER TABLE data_log ADD COLUMN delete_requested INTEGER DEFAULT 0")
+    except Exception:
+        pass
+    try:
+        _cur.execute("ALTER TABLE data_log ADD COLUMN delete_reason TEXT")
+    except Exception:
+        pass
+    _conn.commit()
+    _conn.close()
+except Exception:
+    pass
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 if CURRENT_DIR not in sys.path:
