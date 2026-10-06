@@ -80,6 +80,7 @@ def calculate_piriven_rankings(results_df, master_df, year, user_role, user_acce
             # සිසුවෙකු විෂයයන් 6ක් හෝ ඊට වැඩි ගණනකට පෙනී සිටි විට පමණක් විභාගයට පෙනී සිටි (Sat) ලෙස සැලකීම
             if student_actual_sat >= 6:
                 p_stats[p_no]["sat"] += 1
+                # සිසුවා ලබාගත් සාමාන්‍ය ලකුණ (0-10 පරිමාණයෙන්)
                 p_stats[p_no]["totalStudentAverages"] += (student_points / student_actual_sat)
                 
                 # පිරිවෙන් සා.පෙළ සමත් නීතිය: (ත්‍රිපිටකය + සිංහල/පාලි + විෂයයන් 6ක් සමත්)
@@ -91,9 +92,10 @@ def calculate_piriven_rankings(results_df, master_df, year, user_role, user_acce
         sat = data["sat"]
         pass_cnt = data["pass"]
         pass_rate = round((pass_cnt / sat * 100), 1) if sat > 0 else 0.0
+        # පිරිවෙනේ සාමාන්‍ය Quality Score අගය (0.00 - 10.00)
         avg_score = round((data["totalStudentAverages"] / sat), 2) if sat > 0 else 0.0
         
-        # විභාග සමත්වීමේ ප්‍රතිශතය මත පදනම්ව ප්‍රගති කලාප (Zones) තීරණය කිරීම
+        # 1. ප්‍රමිති කලාප: සමත් වීමේ ප්‍රතිශතය (Pass Rate %) මත තීරණය වේ
         if sat == 0:
             zone_color = "Red"
         elif pass_rate >= 75.0: 
@@ -123,17 +125,24 @@ def calculate_piriven_rankings(results_df, master_df, year, user_role, user_acce
             "zoneColor": zone_color
         })
 
-    # ශ්‍රේණිගත කිරීම: ප්‍රධාන වශයෙන් සමත් ප්‍රතිශතය (Pass %), දෙවනුව Quality Score (QS)
-    sorted_ranking = sorted(ranking_list, key=lambda x: (x["සමත් ප්‍රතිශතය (%)"], x["Quality Score (QS)"]), reverse=True)
-    for i, p in enumerate(sorted_ranking):
-        p["දිවයිනේ ස්ථානය"] = i + 1
-
-    # පළාත් සහ දිස්ත්‍රික් මට්ටමේ ශ්‍රේණිගත කිරීම
-    df_temp = pd.DataFrame(sorted_ranking)
+    # 2. ශ්‍රේණිගත කිරීම: ප්‍රධාන වශයෙන් බර තැබීම් ලකුණු (Quality Score - QS) මත, දෙවනුව සමත් ප්‍රතිශතය මත
+    df_temp = pd.DataFrame(ranking_list)
     if not df_temp.empty:
-        df_temp["පළාත් ස්ථානය"] = df_temp.groupby("පළාත")["සමත් ප්‍රතිශතය (%)"].rank(ascending=False, method="min").astype(int)
-        df_temp["දිස්ත්‍රික් ස්ථානය"] = df_temp.groupby("දිස්ත්‍රික්කය")["සමත් ප්‍රතිශතය (%)"].rank(ascending=False, method="min").astype(int)
+        # Quality Score එක වැඩිම සිට අඩුම දක්වා sort කිරීම
+        df_temp = df_temp.sort_values(by=["Quality Score (QS)", "සමත් ප්‍රතිශතය (%)"], ascending=[False, False]).reset_index(drop=True)
+        
+        # දිවයිනේ ස්ථානය (#1, #2, #3...)
+        df_temp["දිවයිනේ ස්ථානය"] = df_temp.index + 1
+        
+        # පළාත් ස්ථානය (එක් එක් පළාත ඇතුළත QS අගය අනුව #1, #2, #3...)
+        df_temp["පළාත් ස්ථානය"] = df_temp.groupby("පළාත").cumcount() + 1
+        
+        # දිස්ත්‍රික් ස්ථානය (එක් එක් දිස්ත්‍රික්කය ඇතුළත QS අගය අනුව #1, #2, #3...)
+        df_temp["දිස්ත්‍රික් ස්ථානය"] = df_temp.groupby("දිස්ත්‍‍රික්කය").cumcount() + 1
+        
         sorted_ranking = df_temp.to_dict(orient="records")
+    else:
+        sorted_ranking = []
 
     filtered_ranking = []
     u_role_lower = user_role.lower()
@@ -517,7 +526,7 @@ def get_single_pirivena_full_analysis(results_df, master_df, pirivena_key, year,
                 if g in ["A", "1"]: gk = "A"
                 elif g in ["B", "2"]: gk = "B"
                 elif g in ["C", "3"]: gk = "C"
-                elif g == "S": gk = "S"
+                elif g in ["S"]: gk = "S"
                 elif g in ["W", "F"]: gk = "W"
                 
                 if gk:
