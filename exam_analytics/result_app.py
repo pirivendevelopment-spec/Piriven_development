@@ -124,7 +124,7 @@ st.markdown("""
                 color: #ffffff !important;
             }
             td {
-                background-color: #ffffff !important;
+                background-color: #ffffff !important; 
                 color: #000000 !important; 
             }
             .print-footer-global {
@@ -180,7 +180,7 @@ if not st.session_state.logged_in and "auth_user" in queryParams:
             break
 
 # -------------------------------------------------------------
-# 1. LOGIN SCREEN (ලොග් වී නැතිනම් පමණි)
+# 1. LOGIN SCREEN
 # -------------------------------------------------------------
 if not st.session_state.logged_in or not st.session_state.user:
     st.markdown("""
@@ -250,7 +250,7 @@ if not st.session_state.logged_in or not st.session_state.user:
                     st.error("⚠️ පරිශීලක නාමය හෝ මුරපදය වැරදියි!")
 
 # -------------------------------------------------------------
-# 2. MAIN LOGGED-IN VIEW (ලොග් වූ පසු සෘජුවම ක්‍රියාත්මක වේ)
+# 2. MAIN LOGGED-IN VIEW
 # -------------------------------------------------------------
 else:
     user = st.session_state.user
@@ -321,7 +321,9 @@ else:
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
+    # =========================================================================
     # VIEW 1: සාරාංශ පුවරුව (Summary)
+    # =========================================================================
     if menu == "සාරාංශ පුවරුව (Summary)":
         st.markdown("### 📊 සාරාංශ පුවරුව")
         st.markdown(f"<p style='color: #334155; font-size: 16px;'>පිරිවෙන් සාමාන්‍ය පෙළ විභාග ප්‍රතිඵල විශ්ලේෂණය - <b>{selected_year}</b></p>", unsafe_allow_html=True)
@@ -342,6 +344,11 @@ else:
             orange_count = sum(1 for d in ranking_data if d["zoneColor"] == "Orange")
             red_count = sum(1 for d in ranking_data if d["zoneColor"] == "Red")
             
+            green_passed_students = sum(d["සමත්"] for d in ranking_data if d["zoneColor"] == "Green")
+            yellow_passed_students = sum(d["සමත්"] for d in ranking_data if d["zoneColor"] == "Yellow")
+            orange_passed_students = sum(d["සමත්"] for d in ranking_data if d["zoneColor"] == "Orange")
+            red_passed_students = sum(d["සමත්"] for d in ranking_data if d["zoneColor"] == "Red")
+
             k1, k2, k3, k4 = st.columns(4)
             k1.markdown(f'<div class="kpi-card"><div class="kpi-title">අයදුම් කළ සංඛ්‍යාව</div><div class="kpi-value">{tot_applied:,}</div></div>', unsafe_allow_html=True)
             k2.markdown(f'<div class="kpi-card"><div class="kpi-title">පෙනී සිටි සංඛ්‍යාව</div><div class="kpi-value">{tot_sat:,}</div></div>', unsafe_allow_html=True)
@@ -351,10 +358,37 @@ else:
             st.markdown("<br>", unsafe_allow_html=True)
             
             z1, z2, z3, z4 = st.columns(4)
-            z1.markdown(f'<div class="zone-green"><div class="zone-title">🟢 GREEN ZONE (QS 7.5+)</div><div class="zone-count">{green_count}</div></div>', unsafe_allow_html=True)
-            z2.markdown(f'<div class="zone-yellow"><div class="zone-title">🟡 YELLOW ZONE (QS 5.0+)</div><div class="zone-count">{yellow_count}</div></div>', unsafe_allow_html=True)
-            z3.markdown(f'<div class="zone-orange"><div class="zone-title">🟠 ORANGE ZONE (QS 3.5+)</div><div class="zone-count">{orange_count}</div></div>', unsafe_allow_html=True)
-            z4.markdown(f'<div class="zone-red"><div class="zone-title">🔴 RED ZONE (QS < 3.5)</div><div class="zone-count">{red_count}</div></div>', unsafe_allow_html=True)
+            z1.markdown(f'''
+                <div class="zone-green">
+                    <div class="zone-title">🟢 GREEN ZONE (75%+)</div>
+                    <div class="zone-count">{green_count} <span style="font-size: 13px; font-weight: normal; color: #1e293b;">පිරිවෙන්</span></div>
+                    <div style="font-size: 11.5px; color: #15803d; margin-top: 4px; font-weight: 600;">සමත් සිසුන්: {green_passed_students:,}</div>
+                </div>
+            ''', unsafe_allow_html=True)
+
+            z2.markdown(f'''
+                <div class="zone-yellow">
+                    <div class="zone-title">🟡 YELLOW ZONE (50%+)</div>
+                    <div class="zone-count">{yellow_count} <span style="font-size: 13px; font-weight: normal; color: #1e293b;">පිරිවෙන්</span></div>
+                    <div style="font-size: 11.5px; color: #b45309; margin-top: 4px; font-weight: 600;">සමත් සිසුන්: {yellow_passed_students:,}</div>
+                </div>
+            ''', unsafe_allow_html=True)
+
+            z3.markdown(f'''
+                <div class="zone-orange">
+                    <div class="zone-title">🟠 ORANGE ZONE (35%+)</div>
+                    <div class="zone-count">{orange_count} <span style="font-size: 13px; font-weight: normal; color: #1e293b;">පිරිවෙන්</span></div>
+                    <div style="font-size: 11.5px; color: #c2410c; margin-top: 4px; font-weight: 600;">සමත් සිසුන්: {orange_passed_students:,}</div>
+                </div>
+            ''', unsafe_allow_html=True)
+
+            z4.markdown(f'''
+                <div class="zone-red">
+                    <div class="zone-title">🔴 RED ZONE (< 35%)</div>
+                    <div class="zone-count">{red_count} <span style="font-size: 13px; font-weight: normal; color: #1e293b;">පිරිවෙන්</span></div>
+                    <div style="font-size: 11.5px; color: #b91c1c; margin-top: 4px; font-weight: 600;">සමත් සිසුන්: {red_passed_students:,}</div>
+                </div>
+            ''', unsafe_allow_html=True)
             
             st.markdown("---")
             col_chart, col_dist = st.columns([2, 1])
@@ -386,42 +420,9 @@ else:
                     dist_summary = dist_summary.sort_values(by="සමත් ප්‍රතිශතය (%)", ascending=False)
                     st.dataframe(dist_summary, use_container_width=True, height=350, hide_index=True)
 
-            st.markdown("<br>", unsafe_allow_html=True)
-            formula_html = """
-            <div style="background: white; padding: 25px; border-radius: 14px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border-left: 6px solid #198754; border: 1px solid #cbd5e1;">
-                <h4 style="color: #1e293b; margin-top: 0; font-size: 18px;">📐 ශ්‍රේණිගත කිරීමේ විද්‍යාත්මක පදනම (Scientific Ranking Formula)</h4>
-                <p style="color: #475569; font-size: 14px; line-height: 1.6;">
-                    මෙම පද්ධතියේ පිරිවෙන් ශ්‍රේණිගත කරනු ලබන්නේ එක් එක් සිසුවා ලබාගන්නා සාමාර්ථයන්හි ගුණාත්මක අගය (Quality Score) මත පදනම් වූ සාමාන්‍ය අගයෙනි. මෙහිදී භාවිත වන මූලික සමීකරණය පහත පරිදි වේ:
-                </p>
-                <div style="background: #f8fafc; padding: 15px; border-radius: 10px; text-align: center; border: 1px solid #e2e8f0; margin: 15px 0;">
-                    <span style="font-size: 20px; font-weight: bold; color: #0f766e;">Quality Score (QS) = Σ (G<sub>w</sub>) / N</span>
-                    <div style="font-size: 13px; color: #64748b; margin-top: 5px;">මෙහි: G<sub>w</sub> = සාමාර්ථයට අදාළ බර තැබීම | N = පෙනී සිටි මුළු සිසුන් සංඛ්‍යාව</div>
-                </div>
-                <div style="display: flex; gap: 30px; margin-top: 20px; flex-wrap: wrap;">
-                    <div style="flex: 1; min-width: 250px;">
-                        <strong style="color: #1e293b; font-size: 15px;">සාමාර්ථ බර තැබීම් (Weightage):</strong>
-                        <ul style="color: #475569; font-size: 14px; margin-top: 8px; padding-left: 20px; line-height: 1.8;">
-                            <li><strong>A (විශිෂ්ට):</strong> 10.0</li>
-                            <li><strong>B (ඉතා හොඳ):</strong> 8.0</li>
-                            <li><strong>C (හොඳ):</strong> 6.5</li>
-                            <li><strong>S (සාමාන්‍ය):</strong> 5.0</li>
-                            <li><strong>W (අසමත්):</strong> 0.0</li>
-                        </ul>
-                    </div>
-                    <div style="flex: 2; min-width: 300px;">
-                        <strong style="color: #1e293b; font-size: 15px;">විශේෂ සටහන:</strong>
-                        <ul style="color: #475569; font-size: 14px; margin-top: 8px; padding-left: 20px; line-height: 1.8;">
-                            <li>පිරිවෙනක ශිෂ්‍ය සංඛ්‍යාව කුඩා වුවත් විශාල වුවත්, සෑම ආයතනයක්ම එකම සාಧಾರණ මිනුම් දණ්ඩකින් (Scale 0-100) මෙහිදී මැනුම් ලබයි.</li>
-                            <li>මෙහිදී පිරිවෙනක සමූහික ශාස්ත්‍රීය දක්ෂතාවය මෙන්ම එක් එක් සිසුවා කෙරෙහි දක්වන අවධානය මනාව නිරූපණය වේ.</li>
-                            <li>සමත්විමේ ප්‍රතිශතය ගණනය කරනු ලබන්නේ පෙනී සිටි (Sat) සිසුන් සංඛ්‍යාව මත පමණි.</li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-            """
-            st.markdown(formula_html, unsafe_allow_html=True)
-
-    # VIEW 2: පළාත් හා ශ්‍රේණිගත කිරීම් (Rankings)
+    # =========================================================================
+    # VIEW 2: පළාත් හා ශ්‍රේණිගත කිරීම් (Rankings - 100% Fixed Local Ranking Logic)
+    # =========================================================================
     elif menu == "පළාත් හා ශ්‍රේණිගත කිරීම් (Rankings)":
         col_h1, col_h2 = st.columns([3, 1])
         with col_h1:
@@ -430,7 +431,7 @@ else:
             components.html("""
                 <div style="text-align: right; margin-top: 5px;">
                     <button onclick="parent.window.print()" style="background-color: #0f766e; color: white; padding: 10px 18px; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; font-weight: bold; font-family: 'Segoe UI', sans-serif; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
-                        🖨️ ප්‍රින්ට් සෙටින්ග්ස් / PDF
+                        🖨️️ ප්‍රින්ට් සෙටින්ග්ස් / PDF
                     </button>
                 </div>
             """, height=50)
@@ -443,10 +444,20 @@ else:
         else:
             df_rank = pd.DataFrame(ranking_data)
             
-            # තීරු වල ඇති සියලු අගයන් string කර හිස්තැන් ඉවත් කිරීම
+            # String trimming to prevent formatting issues
             for col in ["පළාත", "දිස්ත්‍රික්කය", "zoneColor", "කලාපය"]:
                 if col in df_rank.columns:
                     df_rank[col] = df_rank[col].astype(str).str.strip()
+
+            # Numeric columns type conversion for accurate sorting
+            df_rank["Quality Score (QS)"] = pd.to_numeric(df_rank["Quality Score (QS)"], errors='coerce').fillna(0.0)
+            df_rank["සමත් ප්‍රතිශතය (%)"] = pd.to_numeric(df_rank["සමත් ප්‍රතිශතය (%)"], errors='coerce').fillna(0.0)
+
+            # Global & Provincial dynamic ranking calculation
+            df_rank = df_rank.sort_values(by=["Quality Score (QS)", "සමත් ප්‍රතිශතය (%)"], ascending=[False, False]).reset_index(drop=True)
+            df_rank["දිවයිනේ ස්ථානය"] = df_rank.index + 1
+            df_rank["පළාත් ස්ථානය"] = df_rank.groupby("පළාත").cumcount() + 1
+            df_rank["දිස්ත්‍රික් ස්ථානය"] = df_rank.groupby("දිස්ත්‍‍රික්කය").cumcount() + 1
 
             f_col1, f_col2, f_col3, f_col4 = st.columns(4)
             
@@ -456,7 +467,6 @@ else:
                 sel_prov = st.selectbox("පළාත අනුව පෙරන්න", provinces)
                 
             with f_col2:
-                # පළාත අනුව අදාළ දිස්ත්‍රික්ක තෝරාගැනීම (සියලුම නම් මුළු ලැයිස්තුවම)
                 is_all_prov = (sel_prov == "සියලුම පළාත්") or sel_prov.startswith("සියලුම")
                 if not is_all_prov:
                     avail_raw = df_rank[df_rank["පළාත"] == sel_prov]["දිස්ත්‍රික්කය"].unique().tolist()
@@ -474,24 +484,19 @@ else:
             with f_col4:
                 search_query = st.text_input("පිරිවෙන සෙවීම", placeholder="නම හෝ අංකය...")
 
-            # පෙරීම් ක්‍රියාවලිය (100% Safe Boolean Filtering)
             filtered_df = df_rank.copy()
             
-            # පළාත් පෙරීම
             if not is_all_prov:
                 filtered_df = filtered_df[filtered_df["පළාත"] == sel_prov]
             
-            # දිස්ත්‍රික් පෙරීම
             is_all_dist = (sel_dist == "සියලුම දිස්ත්‍රික්ක") or sel_dist.startswith("සියලුම")
             if not is_all_dist:
                 filtered_df = filtered_df[filtered_df["දිස්ත්‍රික්කය"] == sel_dist]
                 
-            # කලාප පෙරීම
             is_all_zone = (sel_zone == "සියලුම කලාප") or sel_zone.startswith("සියලුම")
             if not is_all_zone:
                 filtered_df = filtered_df[filtered_df["zoneColor"] == sel_zone]
                 
-            # සෙවුම් පද පෙරීම
             if search_query:
                 query = search_query.lower().strip()
                 filtered_df = filtered_df[
@@ -508,7 +513,7 @@ else:
                 for idx, row in filtered_df.reset_index(drop=True).iterrows():
                     island_rank = row.get("දිවයිනේ ස්ථානය", "-")
                     prov_rank = row.get("පළාත් ස්ථානය", "-")
-                    dist_rank = row.get("දිස්ත්‍රික් ස්ථානය", "-")
+                    dist_rank = row.get("දිස්ත්‍‍රික් ස්ථානය", "-")
                     name = row.get("පිරිවෙනේ නම", "")
                     p_no = row.get("පිරිවෙන් අංකය", "")
                     dist = row.get("දිස්ත්‍රික්කය", "")
@@ -524,7 +529,7 @@ else:
                         f'<tr class="rank-row">'
                         f'<td class="rank-cell" style="text-align: center;">'
                         f'<div class="badge-rank">#{island_rank}</div>'
-                        f'<div class="badge-sub">දිවයින: #{island_rank} | පළාත: #{prov_rank} | දිස්ත්‍රික්: #{dist_rank}</div>'
+                        f'<div class="badge-sub">දිවයින: #{island_rank} | පළාත: #{prov_rank} | දිස්ත්‍‍රික්: #{dist_rank}</div>'
                         f'</td>'
                         f'<td class="rank-cell">'
                         f'<div class="p-name">{name}</div>'
@@ -591,7 +596,9 @@ else:
 
                 st.markdown(table_component, unsafe_allow_html=True)
 
+    # =========================================================================
     # VIEW 3: විෂය සාරාංශය (Subjects)
+    # =========================================================================
     elif menu == "විෂය සාරාංශය (Subjects)":
         sub_h1, sub_h2 = st.columns([3, 1])
         with sub_h1:
@@ -668,7 +675,9 @@ else:
         else:
             st.info("තෝරාගත් වර්ෂය සඳහා දත්ත නොමැත.")
 
+    # =========================================================================
     # VIEW 4: වාර්ෂික වාර්තාව (Yearly Report)
+    # =========================================================================
     elif menu == "වාර්ෂික වාර්තාව (Yearly Report)":
         col_h1, col_h2 = st.columns([3, 1])
         with col_h1:
@@ -779,7 +788,9 @@ else:
         else:
             st.info("වාර්තාගත දත්ත කිසිවක් හමු නොවීය.")
 
+    # =========================================================================
     # VIEW 5: පිරිවෙන් විශ්ලේෂණය (Single Pirivena Analysis)
+    # =========================================================================
     elif menu == "පිරිවෙන් විශ්ලේෂණය":
         st.markdown("### 🔍 තනි පිරිවෙන් දත්ත  විශ්ලේෂණය")
         st.markdown("<p style='color: #334155;'>පිරිවෙන් අංකය, සංගණන අංකය හෝ නම ඇතුළත් කර අදාළ ආයතනයේ විෂය ප්‍රගතිය පරීක්ෂා කරන්න</p>", unsafe_allow_html=True)
@@ -845,7 +856,6 @@ else:
 
                 st.markdown("<br>", unsafe_allow_html=True)
 
-                # සුදු පසුබිම සහිත Plots (Clean Light Layout)
                 ch_col1, ch_col2 = st.columns(2)
                 
                 with ch_col1:
@@ -891,6 +901,6 @@ else:
 
     st.markdown("""
         <div class="print-footer-global">
-            Copyright © සංවර්ධන ශාඛාව - පිරිවෙන් අධ්‍යාපන අංශය - විභාග දෙපාර්තමේන්තුව නිකුත් කළ පිරිවෙන් සාමාන්‍ය පෙළ විභාගය 2025 (2026) දත්ත පදනම් කරගත් විශ්ලේෂණ වාර්තාවකි.
+            Copyright © සංවර්ධන ශාඛාව - පිරිවෙන් අධ්‍යාපන අංශය - විභාග දෙපාර්තමේන්තුව නිකුත් කළ පිරිවෙන් සාමාන්‍‍ය පෙළ විභාගය 2025 (2026) දත්ත පදනම් කරගත් විශ්ලේෂණ වාර්තාවකි.
         </div>
     """, unsafe_allow_html=True)
