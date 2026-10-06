@@ -305,3 +305,182 @@ def main():
         col_c1, col_c2 = st.columns([1.6, 1])
         with col_c1:
             st.markdown("#### 📈 වැය ශීර්ෂ අනුව වියදම් විශ්ලේෂණය")
+            if not v_df.empty:
+                chart_df = v_df.groupby("vote_number")["amount"].sum().reset_index()
+                fig = px.bar(chart_df, x="vote_number", y="amount", color="amount", 
+                             color_continuous_scale="Blues", labels={"vote_number": "වැය ශීර්ෂය", "amount": "මුදල (රු.)"})
+                fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", margin=dict(t=10, b=10, l=10, r=10))
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("වියදම් දත්ත නොමැත.")
+
+        with col_c2:
+            st.markdown("#### 📝 මෑතකාලීන වැඩසටහන්")
+            if not a_df.empty:
+                st.dataframe(a_df[["activity_name", "location", "actual_cost"]].tail(5), use_container_width=True, hide_index=True)
+            else:
+                st.info("වැඩසටහන් දත්ත නොමැත.")
+
+    # VIEW 2: වවුචර විස්තර
+    elif selected == "වවුචර විස්තර":
+        st.markdown("<h2 style='color: #0f172a; font-weight: 800; margin-bottom: 20px;'>📑 නව වවුචරයක් ඇතුළත් කිරීම</h2>", unsafe_allow_html=True)
+        ref_df = db.get_reference_options(user)
+
+        with st.form("voucher_form", clear_on_submit=True):
+            col1, col2 = st.columns(2)
+            with col1:
+                vote_opts = ref_df["vote_number"].dropna().unique().tolist()
+                sel_vote = st.selectbox("වැය ශීර්ෂය (Vote Number)", vote_opts if vote_opts else ["N/A"])
+                act_opts = ref_df[ref_df["vote_number"] == sel_vote]["action_no"].dropna().unique().tolist() if vote_opts else ["N/A"]
+                sel_act = st.selectbox("ක්‍රියාකාරකම් අංකය (Action No)", act_opts)
+                v_no = st.text_input("වවුචර අංකය (Voucher No)")
+
+            with col2:
+                v_date = st.date_input("වවුචර දිනය", value=datetime.today())
+                amount = st.number_input("වියදම් මුදල (රු.)", min_value=0.0, step=100.0)
+                desc = st.text_area("වියදම් විස්තරය (Description)")
+
+            if st.form_submit_button("💾 වවුචරය සුරකින්න", use_container_width=True):
+                if v_no and amount > 0:
+                    db.save_voucher(user["username"], sel_vote, sel_act, desc, v_no, v_date, amount)
+                    st.toast("✅ වවුචරය සාර්ථකව සුරකින ලදී!")
+                    st.rerun()
+                else:
+                    st.error("කරුණාකර වවුචර අංකය සහ මුදල නිවැරදිව ඇතුළත් කරන්න.")
+
+    # VIEW 3: වැඩසටහන් එක් කරන්න
+    elif selected == "වැඩසටහන් එක් කරන්න":
+        st.markdown("<h2 style='color: #0f172a; font-weight: 800; margin-bottom: 20px;'>📝 නව වැඩසටහනක් ඇතුළත් කිරීම</h2>", unsafe_allow_html=True)
+        ref_df = db.get_reference_options(user)
+
+        with st.form("activity_form", clear_on_submit=True):
+            col1, col2 = st.columns(2)
+            with col1:
+                vote_opts = ref_df["vote_number"].dropna().unique().tolist()
+                a_vote = st.selectbox("වැය ශීර්ෂය", vote_opts if vote_opts else ["N/A"])
+                act_opts = ref_df[ref_df["vote_number"] == a_vote]["action_no"].dropna().unique().tolist() if vote_opts else ["N/A"]
+                a_act_no = st.selectbox("ක්‍රියාකාරකම් අංකය", act_opts)
+                act_name = st.text_input("වැඩසටහනේ නම (Activity Name)")
+                location = st.text_input("පැවැත්වූ ස්ථානය (Location)")
+
+            with col2:
+                act_date = st.date_input("පැවැත්වූ දිනය", value=datetime.today())
+                beneficiaries = st.number_input("ප්‍රතිලාභීන් සංඛ්‍යාව", min_value=0, step=1)
+                estimate = st.number_input("ඇස්තමේන්තු මුදල (රු.)", min_value=0.0, step=500.0)
+                actual_cost = st.number_input("සැබෑ වියදම (රු.)", min_value=0.0, step=500.0)
+
+            if st.form_submit_button("💾 වැඩසටහන සුරකින්න", use_container_width=True):
+                if act_name:
+                    db.save_activity(user["username"], a_vote, a_act_no, act_name, location, act_date, beneficiaries, estimate, actual_cost)
+                    st.toast("✅ වැඩසටහන සාර්ථකව ඇතුළත් කරන ලදී!")
+                    st.rerun()
+                else:
+                    st.error("කරුණාකර වැඩසටහනේ නම ඇතුළත් කරන්න.")
+
+    # VIEW 4: පද්ධති වාර්තා
+    elif selected == "පද්ධති වාර්තා":
+        st.markdown("<h2 style='color: #0f172a; font-weight: 800; margin-bottom: 20px;'>🖨️ පද්ධති වාර්තා සහ සාරාංශ</h2>", unsafe_allow_html=True)
+        conn = db.get_connection()
+        rep_v = pd.read_sql_query("SELECT * FROM voucher_log WHERE delete_requested = 0 OR delete_requested IS NULL", conn)
+        rep_a = pd.read_sql_query("SELECT * FROM data_log WHERE delete_requested = 0 OR delete_requested IS NULL", conn)
+        conn.close()
+
+        st.subheader("📑 සියලුම වවුචර වාර්තාව")
+        st.dataframe(rep_v, use_container_width=True)
+
+        st.subheader("📝 සියලුම වැඩසටහන් වාර්තාව")
+        st.dataframe(rep_a, use_container_width=True)
+
+    # =========================================================================
+    # 4. මෑතකාලීන වියදම් ලොගය (Clean Cards + Popover Edit / Delete Request)
+    # =========================================================================
+    st.markdown("<br><hr style='border-color: #cbd5e1;'>", unsafe_allow_html=True)
+    st.markdown("<h4 style='color: #0f172a; font-weight: 800;'>📋 මෑතකාලීන වියදම් ලොගය (Recent Expense Log)</h4>", unsafe_allow_html=True)
+
+    conn = db.get_connection()
+    vouchers_df = pd.read_sql_query("""
+        SELECT rowid as id, timestamp, vote_number, action_no, description, 
+               voucher_no, voucher_date, amount, delete_requested, delete_reason, username
+        FROM voucher_log 
+        ORDER BY rowid DESC LIMIT 10
+    """, conn)
+    conn.close()
+
+    if vouchers_df.empty:
+        st.info("මෑතකාලීන වියදම් කිසිවක් හමු නොවීය.")
+    else:
+        for _, row in vouchers_df.iterrows():
+            v_id = row['id']
+            is_del_pending = bool(row.get('delete_requested') == 1)
+            border_color = "#ef4444" if is_del_pending else "#e2e8f0"
+            bg_color = "#fef2f2" if is_del_pending else "#ffffff"
+
+            with st.container():
+                st.markdown(f"""
+                <div style="background-color: {bg_color}; border: 1px solid {border_color}; border-radius: 12px; padding: 14px 18px; margin-bottom: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.02);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong style="color: #0f172a; font-size: 15px;">වවුචර අංකය: {row['voucher_no']}</strong> 
+                            <span style="color: #64748b; font-size: 12px; margin-left: 10px;">({row['voucher_date']})</span>
+                            <div style="color: #334155; font-size: 13.5px; margin-top: 4px;">
+                                වැය ශීර්ෂය: <b>{row['vote_number']}</b> | විස්තරය: {row['description']}
+                            </div>
+                            {f"<div style='color: #dc2626; font-size: 12px; margin-top: 4px;'><b>⚠️ ඉවත් කිරීමට ඉල්ලුම් කර ඇත:</b> {row.get('delete_reason')}</div>" if is_del_pending else ""}
+                        </div>
+                        <div style="text-align: right;">
+                            <span style="font-size: 16px; font-weight: 800; color: #0f766e;">රු. {float(row['amount']):,.2f}</span>
+                            <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">ඇතුළත් කළේ: {row.get('username', 'N/A')}</div>
+                        </div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                col_btn1, col_btn2, col_btn3, _ = st.columns([1.2, 1.6, 1.6, 6])
+                
+                # 1. Edit Popover
+                with col_btn1:
+                    with st.popover("✏️ Edit"):
+                        with st.form(key=f"edit_v_{v_id}"):
+                            st.write(f"**වවුචරය සංස්කරණය (#{row['voucher_no']})**")
+                            e_vno = st.text_input("වවුචර අංකය", value=str(row['voucher_no']))
+                            e_desc = st.text_input("විස්තරය", value=str(row['description']))
+                            e_amount = st.number_input("මුදල (රු.)", value=float(row['amount']), step=500.0)
+                            e_date = st.text_input("දිනය (YYYY-MM-DD)", value=str(row['voucher_date']))
+                            
+                            if st.form_submit_button("💾 සුරකින්න"):
+                                db.update_voucher(v_id, row['vote_number'], row['action_no'], e_desc, e_vno, e_date, e_amount)
+                                st.toast("වවුචරය සංස්කරණය කරන ලදී!")
+                                st.rerun()
+
+                # 2. Officer Delete Request
+                if not is_super_admin:
+                    with col_btn2:
+                        if not is_del_pending:
+                            with st.popover("⚠️ Delete Request"):
+                                with st.form(key=f"del_v_form_{v_id}"):
+                                    reason = st.text_input("හේතුව", placeholder="දත්ත වැරදීමක්")
+                                    if st.form_submit_button("ඉල්ලීම යවන්න"):
+                                        if reason.strip():
+                                            db.request_voucher_delete(v_id, reason)
+                                            st.toast("ඉල්ලීම Admin වෙත යොමු විය!")
+                                            st.rerun()
+                                        else:
+                                            st.error("හේතුව දක්වන්න.")
+
+                # 3. Super Admin Approve / Reject
+                if is_super_admin and is_del_pending:
+                    with col_btn2:
+                        if st.button("🗑️ Approve Delete", key=f"app_d_{v_id}", type="primary"):
+                            db.delete_voucher_permanent(v_id)
+                            st.toast("වවුචරය ස්ථිරවම මකා දමන ලදී!")
+                            st.rerun()
+                    with col_btn3:
+                        if st.button("❌ Reject", key=f"rej_d_{v_id}"):
+                            db.cancel_voucher_delete_request(v_id)
+                            st.toast("ඉල්ලීම ප්‍රතික්ෂේප විය.")
+                            st.rerun()
+
+                st.markdown("<div style='height: 6px;'></div>", unsafe_allow_html=True)
+
+if __name__ == "__main__":
+    main()
