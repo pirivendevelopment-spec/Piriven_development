@@ -1,15 +1,14 @@
 import pandas as pd
 from database import get_pirivena_map
 
-# විභාග සමත්වීමේ නීති (ත්‍රිපිටකය + සිංහල/පාලි අනිවාර්ය වීම සමඟ) සහ QS ගණනය කිරීම
+# විභාග සමත්වීමේ නීති සහ ප්‍රතිශතය මත පදනම් වූ ශ්‍රේණිගත කිරීම
 def calculate_piriven_rankings(results_df, master_df, year, user_role, user_access):
     p_map = get_pirivena_map(master_df)
     
     pass_grades = ["A", "B", "C", "S", "1", "2", "3"]
-    # W සාමාර්ථය සූත්‍රයේ පරිදි 0.0 කර ඇත
     weightage = {"A": 10.0, "B": 8.0, "C": 6.5, "S": 5.0, "W": 0.0, "1": 10.0, "2": 8.0, "3": 6.5}
     
-    is_sub_director = "subject director" in user_role.lower() or "විෂය අධ්‍යක්ෂ" in user_role.lower()
+    is_sub_director = "subject director" in user_role.lower() or "විෂය අධ්‍‍යක්ෂ" in user_role.lower()
     sub_num = None
     if is_sub_director:
         import re
@@ -25,7 +24,7 @@ def calculate_piriven_rankings(results_df, master_df, year, user_role, user_acce
             "applied": 0, 
             "sat": 0, 
             "pass": 0, 
-            "totalStudentAverages": 0.0  # එක් එක් සිසුවාගේ සාමාන්‍‍ය ලකුණුවල එකතුව
+            "totalStudentAverages": 0.0
         }
 
     yr_df = results_df[results_df["Year"].astype(str) == str(year).strip()]
@@ -74,14 +73,10 @@ def calculate_piriven_rankings(results_df, master_df, year, user_role, user_acce
                         if s in ["1", "2"]:
                             sinhala_or_pali_passed = True
             
-            # සිසුවෙකු විෂයයන් 6ක් හෝ ඊට වැඩි ගණනකට පෙනී සිටි විට
             if student_actual_sat >= 6:
                 p_stats[p_no]["sat"] += 1
-                
-                # නිවැරදි කිරීම: එක් එක් සිසුවාගේ ලකුණු එකතුව ඔහු පෙනී සිටි විෂයයන් ගණනින් බෙදා (Scale 0-10) එකතු කිරීම
-                student_avg_score = student_points / student_actual_sat
-                p_stats[p_no]["totalStudentAverages"] += student_avg_score
-                
+                p_stats[p_no]["totalStudentAverages"] += (student_points / student_actual_sat)
+                # O/L සමත්වීමේ නීතිය (ත්‍රිපිටකය + සිංහල/පාලි + විෂයයන් 6ක් සමත්)
                 if tripitaka_passed and sinhala_or_pali_passed and pass_count >= 6:
                     p_stats[p_no]["pass"] += 1
 
@@ -89,20 +84,17 @@ def calculate_piriven_rankings(results_df, master_df, year, user_role, user_acce
     for p_no, data in p_stats.items():
         sat = data["sat"]
         pass_cnt = data["pass"]
-        pass_rate = (pass_cnt / sat * 100) if sat > 0 else 0.0
+        pass_rate = round((pass_cnt / sat * 100), 1) if sat > 0 else 0.0
+        avg_score = round((data["totalStudentAverages"] / sat), 2) if sat > 0 else 0.0
         
-        # පිරිවෙනේ අවසාන සාමාන්‍ය ලකුණ (Quality Score: 0.0 - 10.0)
-        avg_score = (data["totalStudentAverages"] / sat) if sat > 0 else 0.0
-        quality_score = round(avg_score, 2)
-        
-        # නිවැරදි ප්‍රගති කලාප වෙන්කිරීම (Scale 0-10)
+        # විභාග සමත්වීමේ ප්‍රතිශතය මත පදනම්ව Zone තීරණය කිරීම
         if sat == 0:
             zone_color = "Red"
-        elif quality_score >= 7.5: 
+        elif pass_rate >= 75.0: 
             zone_color = "Green"
-        elif quality_score >= 5.0: 
+        elif pass_rate >= 50.0: 
             zone_color = "Yellow"
-        elif quality_score >= 3.5: 
+        elif pass_rate >= 35.0: 
             zone_color = "Orange"
         else: 
             zone_color = "Red"
@@ -120,20 +112,20 @@ def calculate_piriven_rankings(results_df, master_df, year, user_role, user_acce
             "අයදුම් කළ": data["applied"],
             "පෙනී සිටි": sat,
             "සමත්": pass_cnt,
-            "සමත් ප්‍රතිශතය (%)": round(pass_rate, 1),
-            "Quality Score (QS)": quality_score,
+            "සමත් ප්‍රතිශතය (%)": pass_rate,
+            "Quality Score (QS)": avg_score,
             "zoneColor": zone_color
         })
 
-    # දිවයිනේ ස්ථානය පිළිවෙළ කිරීම
-    sorted_ranking = sorted(ranking_list, key=lambda x: (x["Quality Score (QS)"], x["සමත් ප්‍රතිශතය (%)"]), reverse=True)
+    # ප්‍රධාන ශ්‍රේණිගත කිරීම: 1. සමත් ප්‍රතිශතය (Pass %), 2. Quality Score (QS)
+    sorted_ranking = sorted(ranking_list, key=lambda x: (x["සමත් ප්‍රතිශතය (%)"], x["Quality Score (QS)"]), reverse=True)
     for i, p in enumerate(sorted_ranking):
         p["දිවයිනේ ස්ථානය"] = i + 1
 
     df_temp = pd.DataFrame(sorted_ranking)
     if not df_temp.empty:
-        df_temp["පළාත් ස්ථානය"] = df_temp.groupby("පළාත")["Quality Score (QS)"].rank(ascending=False, method="min").astype(int)
-        df_temp["දිස්ත්‍රික් ස්ථානය"] = df_temp.groupby("දිස්ත්‍රික්කය")["Quality Score (QS)"].rank(ascending=False, method="min").astype(int)
+        df_temp["පළාත් ස්ථානය"] = df_temp.groupby("පළාත")["සමත් ප්‍රතිශතය (%)"].rank(ascending=False, method="min").astype(int)
+        df_temp["දිස්ත්‍රික් ස්ථානය"] = df_temp.groupby("දිස්ත්‍රික්කය")["සමත් ප්‍රතිශතය (%)"].rank(ascending=False, method="min").astype(int)
         sorted_ranking = df_temp.to_dict(orient="records")
 
     filtered_ranking = []
@@ -361,9 +353,9 @@ def get_yearly_report_data(results_df, master_df, year, user_role, user_access):
         
         if total_sat_2025 == 0:
             zone = "Red"
-        elif pass_pct >= 80: zone = "Green"
-        elif pass_pct >= 60: zone = "Yellow"
-        elif pass_pct >= 40: zone = "Orange"
+        elif pass_pct >= 75.0: zone = "Green"
+        elif pass_pct >= 50.0: zone = "Yellow"
+        elif pass_pct >= 35.0: zone = "Orange"
         else: zone = "Red"
         
         d["pass_pct"] = f"{pass_pct:.1f}%"
@@ -420,7 +412,6 @@ def get_single_pirivena_full_analysis(results_df, master_df, pirivena_key, year,
         if match:
             sub_num = match.group()
 
-    # වර්ෂ 4ක ඉතිහාසය (2022 - 2025)
     years = ["2022", "2023", "2024", "2025"]
     history_rows = []
     pass_grades = ["A", "B", "C", "S", "1", "2", "3"]
