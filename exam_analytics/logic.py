@@ -1,17 +1,20 @@
 import pandas as pd
+import re
 from database import get_pirivena_map
 
-# විභාග සමත්වීමේ නීති සහ ප්‍රතිශතය මත පදනම් වූ ශ්‍රේණිගත කිරීම
+# =========================================================================
+# 1. පිරිවෙන් ශ්‍රේණිගත කිරීම් සහ ප්‍රගති කලාප ගණනය (Rankings & Zones)
+# =========================================================================
 def calculate_piriven_rankings(results_df, master_df, year, user_role, user_access):
     p_map = get_pirivena_map(master_df)
     
     pass_grades = ["A", "B", "C", "S", "1", "2", "3"]
     weightage = {"A": 10.0, "B": 8.0, "C": 6.5, "S": 5.0, "W": 0.0, "1": 10.0, "2": 8.0, "3": 6.5}
+    invalid_grades = ["-", "AB", "ABSENT", "+", "", "NONE", "NAN"]
     
-    is_sub_director = "subject director" in user_role.lower() or "විෂය අධ්‍‍යක්ෂ" in user_role.lower()
+    is_sub_director = "subject director" in user_role.lower() or "විෂය අධ්‍යක්ෂ" in user_role.lower()
     sub_num = None
     if is_sub_director:
-        import re
         match = re.search(r'\d+', str(user_access))
         if match:
             sub_num = match.group()
@@ -42,15 +45,16 @@ def calculate_piriven_rankings(results_df, master_df, year, user_role, user_acce
         
         p_stats[p_no]["applied"] += 1
         
+        # විෂය අධ්‍යක්ෂවරයෙකු නම් අදාළ විෂය පමණක් ගණනය කිරීම
         if is_sub_director and sub_num:
             g = str(row.get("GRD" + sub_num, "")).upper().strip()
-            if g and g not in ["+", "-", "AB", "ABSENT", ""] and "#ERR" not in g:
+            if g and g not in invalid_grades and "#ERR" not in g:
                 p_stats[p_no]["sat"] += 1
                 p_stats[p_no]["totalStudentAverages"] += weightage.get(g, 0.0)
                 if g in pass_grades:
                     p_stats[p_no]["pass"] += 1
         else:
-            student_points = 0
+            student_points = 0.0
             student_actual_sat = 0
             pass_count = 0
             tripitaka_passed = False
@@ -58,25 +62,27 @@ def calculate_piriven_rankings(results_df, master_df, year, user_role, user_acce
             
             for i in range(1, 13):
                 g = str(row.get(f"GRD{i}", "")).upper().strip()
-                s_raw = row.get(f"SUB{i}", "")
-                s = str(s_raw).strip()
-                if s.endswith(".0"):
-                    s = s[:-2]
+                s_raw = str(row.get(f"SUB{i}", "")).strip()
+                if s_raw.endswith(".0"):
+                    s_raw = s_raw[:-2]
                 
-                if g and g not in ["-", "AB", "ABSENT", "+", ""] and "#ERR" not in g:
+                # AB හෝ Absent නොවී විභාගයට පෙනී සිටි විෂයන් පමණක් ගණනය
+                if g and g not in invalid_grades and "#ERR" not in g:
                     student_actual_sat += 1
                     student_points += weightage.get(g, 0.0)
                     if g in pass_grades:
                         pass_count += 1
-                        if s == "3": 
+                        if s_raw == "3": 
                             tripitaka_passed = True
-                        if s in ["1", "2"]:
+                        if s_raw in ["1", "2"]:
                             sinhala_or_pali_passed = True
             
+            # සිසුවෙකු විෂයයන් 6ක් හෝ ඊට වැඩි ගණනකට පෙනී සිටි විට පමණක් විභාගයට පෙනී සිටි (Sat) ලෙස සැලකීම
             if student_actual_sat >= 6:
                 p_stats[p_no]["sat"] += 1
                 p_stats[p_no]["totalStudentAverages"] += (student_points / student_actual_sat)
-                # O/L සමත්වීමේ නීතිය (ත්‍රිපිටකය + සිංහල/පාලි + විෂයයන් 6ක් සමත්)
+                
+                # පිරිවෙන් සා.පෙළ සමත් නීතිය: (ත්‍රිපිටකය + සිංහල/පාලි + විෂයයන් 6ක් සමත්)
                 if tripitaka_passed and sinhala_or_pali_passed and pass_count >= 6:
                     p_stats[p_no]["pass"] += 1
 
@@ -87,7 +93,7 @@ def calculate_piriven_rankings(results_df, master_df, year, user_role, user_acce
         pass_rate = round((pass_cnt / sat * 100), 1) if sat > 0 else 0.0
         avg_score = round((data["totalStudentAverages"] / sat), 2) if sat > 0 else 0.0
         
-        # විභාග සමත්වීමේ ප්‍රතිශතය මත පදනම්ව Zone තීරණය කිරීම
+        # විභාග සමත්වීමේ ප්‍රතිශතය මත පදනම්ව ප්‍රගති කලාප (Zones) තීරණය කිරීම
         if sat == 0:
             zone_color = "Red"
         elif pass_rate >= 75.0: 
@@ -117,11 +123,12 @@ def calculate_piriven_rankings(results_df, master_df, year, user_role, user_acce
             "zoneColor": zone_color
         })
 
-    # ප්‍රධාන ශ්‍රේණිගත කිරීම: 1. සමත් ප්‍රතිශතය (Pass %), 2. Quality Score (QS)
+    # ශ්‍රේණිගත කිරීම: ප්‍රධාන වශයෙන් සමත් ප්‍රතිශතය (Pass %), දෙවනුව Quality Score (QS)
     sorted_ranking = sorted(ranking_list, key=lambda x: (x["සමත් ප්‍රතිශතය (%)"], x["Quality Score (QS)"]), reverse=True)
     for i, p in enumerate(sorted_ranking):
         p["දිවයිනේ ස්ථානය"] = i + 1
 
+    # පළාත් සහ දිස්ත්‍රික් මට්ටමේ ශ්‍රේණිගත කිරීම
     df_temp = pd.DataFrame(sorted_ranking)
     if not df_temp.empty:
         df_temp["පළාත් ස්ථානය"] = df_temp.groupby("පළාත")["සමත් ප්‍රතිශතය (%)"].rank(ascending=False, method="min").astype(int)
@@ -144,6 +151,9 @@ def calculate_piriven_rankings(results_df, master_df, year, user_role, user_acce
     return filtered_ranking
 
 
+# =========================================================================
+# 2. සමස්ත විෂය සාරාංශය (Overall Subject Summary)
+# =========================================================================
 def get_subject_summary(results_df, year):
     yr_df = results_df[results_df["Year"].astype(str) == str(year)]
     subject_names = {
@@ -152,29 +162,38 @@ def get_subject_summary(results_df, year):
         "9": "සෞඛ්‍ය විද්‍යාව", "10": "භූගෝල විද්‍යාව", "11": "සාමාන්‍ය විද්‍යාව", "12": "දෙමළ"
     }
     
-    sub_stats = {k: {"විෂයය": v, "පෙනී සිටි සංඛ්‍යාව": 0, "සමත් (A-S/1-3) සංඛ්‍යාව": 0} for k, v in subject_names.items()}
+    sub_stats = {k: {"විෂයය": v, "පෙනී සිටි සංඛ්‍යාව": 0, "සමත් (A-S/1-3) සංඛ්‍යාව": 0, "සමත් ප්‍රතිශතය (%)": 0.0} for k, v in subject_names.items()}
     pass_grades = ["A", "B", "C", "S", "1", "2", "3"]
+    invalid_grades = ["-", "AB", "ABSENT", "+", "", "NONE", "NAN"]
 
     for _, row in yr_df.iterrows():
         for i in range(1, 13):
             g = str(row.get(f"GRD{i}", "")).upper().strip()
-            s_raw = row.get(f"SUB{i}", "")
-            s = str(s_raw).strip()
-            if s.endswith(".0"):
-                s = s[:-2]
+            s_raw = str(row.get(f"SUB{i}", "")).strip()
+            if s_raw.endswith(".0"):
+                s_raw = s_raw[:-2]
                 
-            if s in sub_stats and g and g not in ["-", "AB", "ABSENT", "+", ""] and "#ERR" not in g:
-                sub_stats[s]["පෙනී සිටි සංඛ්‍යාව"] += 1
+            if s_raw in sub_stats and g and g not in invalid_grades and "#ERR" not in g:
+                sub_stats[s_raw]["පෙනී සිටි සංඛ්‍යාව"] += 1
                 if g in pass_grades:
-                    sub_stats[s]["සමත් (A-S/1-3) සංඛ්‍යාව"] += 1
+                    sub_stats[s_raw]["සමත් (A-S/1-3) සංඛ්‍යාව"] += 1
+
+    for k in sub_stats:
+        sat = sub_stats[k]["පෙනී සිටි සංඛ්‍යාව"]
+        pas = sub_stats[k]["සමත් (A-S/1-3) සංඛ්‍යාව"]
+        sub_stats[k]["සමත් ප්‍රතිශතය (%)"] = round((pas / sat * 100), 1) if sat > 0 else 0.0
 
     return pd.DataFrame(list(sub_stats.values()))
 
 
+# =========================================================================
+# 3. වසර 4ක ප්‍රතිඵල ඉතිහාසය (Four-Year History)
+# =========================================================================
 def get_four_year_history(results_df):
     years = ["2022", "2023", "2024", "2025"]
     history_data = []
     pass_grades = ["A", "B", "C", "S", "1", "2", "3"]
+    invalid_grades = ["-", "AB", "ABSENT", "+", "", "NONE", "NAN"]
     
     for yr in years:
         yr_df = results_df[results_df["Year"].astype(str) == yr]
@@ -190,18 +209,17 @@ def get_four_year_history(results_df):
             
             for i in range(1, 13):
                 g = str(row.get(f"GRD{i}", "")).upper().strip()
-                s_raw = row.get(f"SUB{i}", "")
-                s = str(s_raw).strip()
-                if s.endswith(".0"):
-                    s = s[:-2]
+                s_raw = str(row.get(f"SUB{i}", "")).strip()
+                if s_raw.endswith(".0"):
+                    s_raw = s_raw[:-2]
                     
-                if g and g not in ["-", "AB", "ABSENT", "+", ""] and "#ERR" not in g:
+                if g and g not in invalid_grades and "#ERR" not in g:
                     actual_sat += 1
                     if g in pass_grades:
                         p_cnt += 1
-                        if s == "3": 
+                        if s_raw == "3": 
                             tripitaka_passed = True
-                        if s in ["1", "2"]:
+                        if s_raw in ["1", "2"]:
                             sinhala_or_pali_passed = True
                             
             if actual_sat >= 6:
@@ -214,35 +232,47 @@ def get_four_year_history(results_df):
     return pd.DataFrame(history_data)
 
 
+# =========================================================================
+# 4. විෂය සහ දිස්ත්‍රික් මට්ටමේ විස්තරාත්මක විශ්ලේෂණය
+# =========================================================================
 def get_detailed_subject_analysis(results_df, master_df, year, selected_subject_code):
     p_map = get_pirivena_map(master_df)
     yr_df = results_df[results_df["Year"].astype(str) == str(year)]
     
     grade_counts = {"A": 0, "B": 0, "C": 0, "S": 0, "W": 0}
     district_data = {}
+    invalid_grades = ["-", "AB", "ABSENT", "+", "", "NONE", "NAN"]
+    
+    sel_code_str = str(selected_subject_code).strip()
+    if sel_code_str.endswith(".0"):
+        sel_code_str = sel_code_str[:-2]
     
     for _, row in yr_df.iterrows():
         p_no = str(row.get("Pirivena_No", "")).strip()
         p_info = p_map.get(p_no, {"district": "Unknown", "province": "Unknown"})
-        dist = p_info["district"]
+        dist = str(p_info.get("district", "Unknown")).strip()
         
         if dist not in district_data:
             district_data[dist] = {"A": 0, "B": 0, "C": 0, "S": 0, "W": 0, "sat": 0, "pass": 0}
             
         for i in range(1, 13):
-            s_raw = row.get(f"SUB{i}", "")
-            s = str(s_raw).strip()
-            if s.endswith(".0"):
-                s = s[:-2]
+            s_raw = str(row.get(f"SUB{i}", "")).strip()
+            if s_raw.endswith(".0"):
+                s_raw = s_raw[:-2]
                 
-            if s == str(selected_subject_code):
+            if s_raw == sel_code_str:
                 g = str(row.get(f"GRD{i}", "")).upper().strip()
+                
+                # AB හෝ Absent අය විභාගයට පෙනී සිටි ලෙස නොගැනීම
+                if not g or g in invalid_grades or "#ERR" in g:
+                    continue
+                    
+                grade_key = None
                 if g in ["A", "1"]: grade_key = "A"
                 elif g in ["B", "2"]: grade_key = "B"
                 elif g in ["C", "3"]: grade_key = "C"
                 elif g in ["S"]: grade_key = "S"
-                elif g in ["W", "F", "AB"]: grade_key = "W"
-                else: grade_key = None
+                elif g in ["W", "F"]: grade_key = "W"
                 
                 if grade_key:
                     grade_counts[grade_key] += 1
@@ -254,8 +284,10 @@ def get_detailed_subject_analysis(results_df, master_df, year, selected_subject_
     dist_list = []
     for dist, d in district_data.items():
         sat = d["sat"]
+        if sat == 0:
+            continue
         pas = d["pass"]
-        rate = (pas / sat * 100) if sat > 0 else 0
+        rate = (pas / sat * 100) if sat > 0 else 0.0
         dist_list.append({
             "දිස්ත්‍රික්කය": dist,
             "A": d["A"],
@@ -263,23 +295,27 @@ def get_detailed_subject_analysis(results_df, master_df, year, selected_subject_
             "C": d["C"],
             "S": d["S"],
             "W": d["W"],
-            "සමත්විමේ %": round(rate, 1)
+            "පෙනී සිටි": sat,
+            "සමත්": pas,
+            "සමත් ප්‍රතිශතය (%)": round(rate, 1)
         })
         
     df_dist = pd.DataFrame(dist_list)
     if not df_dist.empty:
-        df_dist = df_dist.sort_values(by="සමත්විමේ %", ascending=False)
+        df_dist = df_dist.sort_values(by="සමත් ප්‍රතිශතය (%)", ascending=False)
         
     return grade_counts, df_dist
 
 
+# =========================================================================
+# 5. වාර්ෂික වාර්තා දත්ත (Yearly Report Data)
+# =========================================================================
 def get_yearly_report_data(results_df, master_df, year, user_role, user_access):
     p_map = get_pirivena_map(master_df)
     
     is_sub_director = "subject director" in user_role.lower() or "විෂය අධ්‍යක්ෂ" in user_role.lower()
     sub_num = None
     if is_sub_director:
-        import re
         match = re.search(r'\d+', str(user_access))
         if match:
             sub_num = match.group()
@@ -325,7 +361,7 @@ def get_yearly_report_data(results_df, master_df, year, user_role, user_access):
             elif g in ["2", "B"]: g_key = "B"
             elif g in ["3", "C"]: g_key = "C"
             elif g == "S": g_key = "S"
-            elif g in ["W", "F", "AB"]: g_key = "W"
+            elif g in ["W", "F"]: g_key = "W"
             else: g_key = None
             
             if g_key:
@@ -337,7 +373,7 @@ def get_yearly_report_data(results_df, master_df, year, user_role, user_access):
                 elif g in ["2", "B"]: g_key = "B"
                 elif g in ["3", "C"]: g_key = "C"
                 elif g == "S": g_key = "S"
-                elif g in ["W", "F", "AB"]: g_key = "W"
+                elif g in ["W", "F"]: g_key = "W"
                 else: g_key = None
                 
                 if g_key:
@@ -367,6 +403,9 @@ def get_yearly_report_data(results_df, master_df, year, user_role, user_access):
     return pd.DataFrame(final_rows)
 
 
+# =========================================================================
+# 6. තනි පිරිවෙන් විශ්ලේෂණය (Single Pirivena Full Analysis)
+# =========================================================================
 def get_single_pirivena_full_analysis(results_df, master_df, pirivena_key, year, user_role, user_access):
     p_map = get_pirivena_map(master_df)
     
@@ -407,14 +446,15 @@ def get_single_pirivena_full_analysis(results_df, master_df, pirivena_key, year,
     is_sub_director = "subject director" in user_role.lower() or "විෂය අධ්‍යක්ෂ" in user_role.lower()
     sub_num = None
     if is_sub_director:
-        import re
         match = re.search(r'\d+', str(user_access))
         if match:
             sub_num = match.group()
 
+    # වර්ෂ 4ක ඉතිහාසය (2022 - 2025)
     years = ["2022", "2023", "2024", "2025"]
     history_rows = []
     pass_grades = ["A", "B", "C", "S", "1", "2", "3"]
+    invalid_grades = ["-", "AB", "ABSENT", "+", "", "NONE", "NAN"]
     
     for yr in years:
         yr_df = results_df[(results_df["Pirivena_No"].astype(str).str.strip() == target_p_no) & 
@@ -424,7 +464,7 @@ def get_single_pirivena_full_analysis(results_df, master_df, pirivena_key, year,
         for _, row in yr_df.iterrows():
             if is_sub_director and sub_num:
                 g = str(row.get("GRD" + sub_num, "")).upper().strip()
-                if g and g not in ["-", "AB", "ABSENT", "+", ""] and "#ERR" not in g:
+                if g and g not in invalid_grades and "#ERR" not in g:
                     sat_cnt += 1
                     if g in pass_grades:
                         pass_cnt += 1
@@ -437,7 +477,7 @@ def get_single_pirivena_full_analysis(results_df, master_df, pirivena_key, year,
                     g = str(row.get(f"GRD{i}", "")).upper().strip()
                     s_raw = str(row.get(f"SUB{i}", "")).strip()
                     if s_raw.endswith(".0"): s_raw = s_raw[:-2]
-                    if g and g not in ["-", "AB", "ABSENT", "+", ""] and "#ERR" not in g:
+                    if g and g not in invalid_grades and "#ERR" not in g:
                         actual_sat += 1
                         if g in pass_grades:
                             p_c += 1
@@ -470,12 +510,15 @@ def get_single_pirivena_full_analysis(results_df, master_df, pirivena_key, year,
             if s_raw.endswith(".0"): s_raw = s_raw[:-2]
             if s_raw in sub_stats:
                 g = str(row.get(f"GRD{i}", "")).upper().strip()
+                if not g or g in invalid_grades or "#ERR" in g:
+                    continue
+
+                gk = None
                 if g in ["A", "1"]: gk = "A"
                 elif g in ["B", "2"]: gk = "B"
                 elif g in ["C", "3"]: gk = "C"
                 elif g == "S": gk = "S"
-                elif g in ["W", "F", "AB"]: gk = "W"
-                else: gk = None
+                elif g in ["W", "F"]: gk = "W"
                 
                 if gk:
                     sub_stats[s_raw][gk] += 1
@@ -494,6 +537,8 @@ def get_single_pirivena_full_analysis(results_df, master_df, pirivena_key, year,
         subject_rows.append({
             "විෂය කේතය": f"SUB{s_code} - {d['name']}",
             "A": d["A"], "B": d["B"], "C": d["C"], "S": d["S"], "W": d["W"],
+            "පෙනී සිටි": sat,
+            "සමත්": pas,
             "සමත් %": f"{rate:.1f}%"
         })
 
