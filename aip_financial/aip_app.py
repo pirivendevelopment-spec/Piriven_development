@@ -65,18 +65,45 @@ def render_inline_expense_actions(user):
 
     conn = db.get_connection()
     try:
-        vouchers_df = pd.read_sql_query("""
-            SELECT rowid as id, timestamp, vote_number, action_no, description, 
-                   voucher_no, voucher_date, amount, delete_requested, delete_reason, username
-            FROM voucher_log 
-            ORDER BY rowid DESC LIMIT 10
-        """, conn)
+        # පරිශීලකයාගේ අවසර මට්ටම (access_level) පරීක්ෂා කිරීම
+        acc = user.get("access_level", "")
+        user_access = [x.strip() for x in acc.split(',')] if acc and acc != "All" else []
+
+        # Super Admin හෝ Access Level "All" නම් සියලුම වවුචර පෙන්වීම
+        if is_super_admin or acc == "All":
+            vouchers_df = pd.read_sql_query("""
+                SELECT rowid as id, timestamp, vote_number, action_no, description, 
+                       voucher_no, voucher_date, amount, delete_requested, delete_reason, username
+                FROM voucher_log 
+                ORDER BY rowid DESC LIMIT 15
+            """, conn)
+        else:
+            # සාමාන්‍ය නිලධාරියාට අදාළ action_no (විෂයන්) හෝ තමන් ඇතුළත් කළ ඒවා පමණක් පෙන්වීම
+            if user_access:
+                placeholders = ",".join(["?"] * len(user_access))
+                query = f"""
+                    SELECT rowid as id, timestamp, vote_number, action_no, description, 
+                           voucher_no, voucher_date, amount, delete_requested, delete_reason, username
+                    FROM voucher_log 
+                    WHERE action_no IN ({placeholders}) OR username = ?
+                    ORDER BY rowid DESC LIMIT 15
+                """
+                vouchers_df = pd.read_sql_query(query, conn, params=user_access + [user.get("username")])
+            else:
+                query = """
+                    SELECT rowid as id, timestamp, vote_number, action_no, description, 
+                           voucher_no, voucher_date, amount, delete_requested, delete_reason, username
+                    FROM voucher_log 
+                    WHERE username = ?
+                    ORDER BY rowid DESC LIMIT 15
+                """
+                vouchers_df = pd.read_sql_query(query, conn, params=[user.get("username")])
     except Exception:
         vouchers_df = pd.read_sql_query("SELECT rowid as id, * FROM voucher_log ORDER BY rowid DESC LIMIT 10", conn)
     conn.close()
 
     if vouchers_df.empty:
-        st.info("මෑතකාලීන වියදම් කිසිවක් හමු නොවීය.")
+        st.info("ඔබගේ විෂයට අදාළ මෑතකාලීන වියදම් කිසිවක් හමු නොවීය.")
         return
 
     for _, row in vouchers_df.iterrows():
@@ -85,74 +112,75 @@ def render_inline_expense_actions(user):
         border_color = "#ef4444" if is_del_pending else "#cbd5e1"
         bg_color = "#fef2f2" if is_del_pending else "#ffffff"
 
-        # Streamlit Native Card Container
-        with st.container():
-            st.markdown(
-f"""<div style="background-color: {bg_color}; border: 1.5px solid {border_color}; border-radius: 12px; padding: 14px 18px; margin-bottom: 8px;">
-<table style="width: 100%; border-collapse: collapse; border: none;">
-<tr style="border: none;">
-<td style="text-align: left; vertical-align: top; border: none;">
-<strong style="color: #0f172a; font-size: 15px;">වවුචර අංකය: {row.get('voucher_no', 'N/A')}</strong>
-<span style="color: #64748b; font-size: 12px; margin-left: 8px;">({str(row.get('voucher_date', 'N/A'))[:10]})</span>
-<div style="color: #334155; font-size: 13.5px; margin-top: 4px;">
-වැය ශීර්ෂය: <b>{row.get('vote_number', 'N/A')}</b> | විස්තරය: {row.get('description', '')}
-</div>
-{"<div style='color: #dc2626; font-size: 12px; margin-top: 4px;'><b>⚠️ ඉවත් කිරීමට ඉල්ලුම් කර ඇත:</b> " + str(row.get('delete_reason', '')) + "</div>" if is_del_pending else ""}
-</td>
-<td style="text-align: right; vertical-align: top; border: none;">
-<span style="font-size: 17px; font-weight: 800; color: #0f766e;">රු. {float(row.get('amount', 0)):,.2f}</span>
-<div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">ඇතුළත් කළේ: {row.get('username', 'N/A')}</div>
-</td>
-</tr>
-</table>
-</div>""", unsafe_allow_html=True)
+        # Indentation දෝෂ මඟහරින ලද HTML Card Container
+        card_html = (
+            f'<div style="background-color: {bg_color}; border: 1.5px solid {border_color}; border-radius: 12px; padding: 14px 18px; margin-bottom: 8px;">'
+            f'<table style="width: 100%; border-collapse: collapse; border: none;">'
+            f'<tr style="border: none;">'
+            f'<td style="text-align: left; vertical-align: top; border: none;">'
+            f'<strong style="color: #0f172a; font-size: 15px;">වවුචර අංකය: {row.get("voucher_no", "N/A")}</strong>'
+            f'<span style="color: #64748b; font-size: 12px; margin-left: 8px;">({str(row.get("voucher_date", "N/A"))[:10]})</span>'
+            f'<div style="color: #334155; font-size: 13.5px; margin-top: 4px;">'
+            f'වැය ශීර්ෂය: <b>{row.get("vote_number", "N/A")}</b> | විෂය/ක්‍‍රියාකාරකම: <b>#{row.get("action_no", "N/A")}</b> | විස්තරය: {row.get("description", "")}'
+            f'</div>'
+            + (f'<div style="color: #dc2626; font-size: 12px; margin-top: 4px;"><b>⚠️ ඉවත් කිරීමට ඉල්ලුම් කර ඇත:</b> {row.get("delete_reason", "")}</div>' if is_del_pending else '') +
+            f'</td>'
+            f'<td style="text-align: right; vertical-align: top; border: none;">'
+            f'<span style="font-size: 17px; font-weight: 800; color: #0f766e;">රු. {float(row.get("amount", 0)):,.2f}</span>'
+            f'<div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">ඇතුළත් කළේ: {row.get("username", "N/A")}</div>'
+            f'</td>'
+            f'</tr>'
+            f'</table>'
+            f'</div>'
+        )
+        st.markdown(card_html, unsafe_allow_html=True)
 
-            col_btn1, col_btn2, col_btn3, _ = st.columns([1.2, 1.8, 1.8, 6])
-            
-            # 1. Edit Popover
-            with col_btn1:
-                with st.popover("✏️ Edit"):
-                    with st.form(key=f"edit_v_{v_id}"):
-                        st.write(f"**වවුචරය සංස්කරණය (#{row.get('voucher_no')})**")
-                        e_vno = st.text_input("වවුචර අංකය", value=str(row.get('voucher_no', '')))
-                        e_desc = st.text_input("විස්තරය", value=str(row.get('description', '')))
-                        e_amount = st.number_input("මුදල (රු.)", value=float(row.get('amount', 0)), step=500.0)
-                        e_date = st.text_input("දිනය (YYYY-MM-DD)", value=str(row.get('voucher_date', ''))[:10])
-                        
-                        if st.form_submit_button("💾 සුරකින්න"):
-                            db.update_voucher(v_id, row.get('vote_number'), row.get('action_no'), e_desc, e_vno, e_date, e_amount)
-                            st.toast("වවුචරය සාර්ථකව සංස්කරණය කරන ලදී!")
-                            st.rerun()
-
-            # 2. Officer Delete Request
-            if not is_super_admin:
-                with col_btn2:
-                    if not is_del_pending:
-                        with st.popover("⚠️ Delete Request"):
-                            with st.form(key=f"del_v_form_{v_id}"):
-                                reason = st.text_input("හේතුව", placeholder="දත්ත වැරදීමක්")
-                                if st.form_submit_button("ඉල්ලීම යවන්න"):
-                                    if reason.strip():
-                                        db.request_voucher_delete(v_id, reason)
-                                        st.toast("ඉල්ලීම Admin වෙත යොමු විය!")
-                                        st.rerun()
-                                    else:
-                                        st.error("හේතුව දක්වන්න.")
-
-            # 3. Super Admin Approve / Reject
-            if is_super_admin and is_del_pending:
-                with col_btn2:
-                    if st.button("🗑️ Approve Delete", key=f"app_d_{v_id}", type="primary"):
-                        db.delete_voucher_permanent(v_id)
-                        st.toast("වවුචරය ස්ථිරවම මකා දමන ලදී!")
-                        st.rerun()
-                with col_btn3:
-                    if st.button("❌ Reject", key=f"rej_d_{v_id}"):
-                        db.cancel_voucher_delete_request(v_id)
-                        st.toast("ඉල්ලීම ප්‍රතික්ෂේප විය.")
+        col_btn1, col_btn2, col_btn3, _ = st.columns([1.2, 1.8, 1.8, 6])
+        
+        # 1. Edit Popover
+        with col_btn1:
+            with st.popover("✏️ Edit"):
+                with st.form(key=f"edit_v_{v_id}"):
+                    st.write(f"**වවුචරය සංස්කරණය (#{row.get('voucher_no')})**")
+                    e_vno = st.text_input("වවුචර අංකය", value=str(row.get('voucher_no', '')))
+                    e_desc = st.text_input("විස්තරය", value=str(row.get('description', '')))
+                    e_amount = st.number_input("මුදල (රු.)", value=float(row.get('amount', 0)), step=500.0)
+                    e_date = st.text_input("දිනය (YYYY-MM-DD)", value=str(row.get('voucher_date', ''))[:10])
+                    
+                    if st.form_submit_button("💾 සුරකින්න"):
+                        db.update_voucher(v_id, row.get('vote_number'), row.get('action_no'), e_desc, e_vno, e_date, e_amount)
+                        st.toast("වවුචරය සාර්ථකව සංස්කරණය කරන ලදී!")
                         st.rerun()
 
-            st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
+        # 2. Officer Delete Request
+        if not is_super_admin:
+            with col_btn2:
+                if not is_del_pending:
+                    with st.popover("⚠️ Delete Request"):
+                        with st.form(key=f"del_v_form_{v_id}"):
+                            reason = st.text_input("හේතුව", placeholder="දත්ත වැරදීමක්")
+                            if st.form_submit_button("ඉල්ලීම යවන්න"):
+                                if reason.strip():
+                                    db.request_voucher_delete(v_id, reason)
+                                    st.toast("ඉල්ලීම Admin වෙත යොමු විය!")
+                                    st.rerun()
+                                else:
+                                    st.error("හේතුව දක්වන්න.")
+
+        # 3. Super Admin Approve / Reject
+        if is_super_admin and is_del_pending:
+            with col_btn2:
+                if st.button("🗑️ Approve Delete", key=f"app_d_{v_id}", type="primary"):
+                    db.delete_voucher_permanent(v_id)
+                    st.toast("වවුචරය ස්ථිරවම මකා දමන ලදී!")
+                    st.rerun()
+            with col_btn3:
+                if st.button("❌ Reject", key=f"rej_d_{v_id}"):
+                    db.cancel_voucher_delete_request(v_id)
+                    st.toast("ඉල්ලීම ප්‍රතික්ෂේප විය.")
+                    st.rerun()
+
+        st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
 
 
 def main():
@@ -250,7 +278,7 @@ def main():
                             st.query_params["aip_auth"] = user["username"]
                         st.rerun()
                     else:
-                        st.error("පරිශීලක නාමය හෝ මුරපදය වැරදියි!")
+                        st.error("පරිශීලක නාමය හෝ මුරපදය වැරදියයි!")
         return
 
     # =========================================================================
