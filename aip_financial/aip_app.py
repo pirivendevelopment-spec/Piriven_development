@@ -38,6 +38,7 @@ def main():
                 background: radial-gradient(circle at top right, #1e1b4b 0%, #0f172a 100%) !important;
                 font-family: 'Inter', 'Noto Sans Sinhala', sans-serif !important;
             }
+            /* Login අවස්ථාවේදී පමණක් Sidebar සැඟවීම */
             section[data-testid="stSidebar"] { display: none !important; }
             div[data-testid="stForm"] {
                 background: #ffffff !important;
@@ -99,7 +100,7 @@ def main():
         return
 
     # =========================================================================
-    # 2. MAIN DASHBOARD SHELL & SIDEBAR
+    # 2. MAIN DASHBOARD SHELL & SIDEBAR THEME
     # =========================================================================
     st.markdown("""
     <style>
@@ -108,9 +109,29 @@ def main():
             background-color: #f1f5f9 !important;
             font-family: 'Inter', 'Noto Sans Sinhala', sans-serif !important;
         }
+        /* Sidebar එක පැහැදිලිව දර්ශනය කරවීම */
         section[data-testid="stSidebar"] {
+            display: block !important;
             background-color: #1e1b4b !important;
             padding-top: 1rem !important;
+        }
+        div[data-testid="stSidebar"] div.stButton > button {
+            background-color: #272757 !important;
+            color: #ffffff !important;
+            border: 1px solid rgba(255, 255, 255, 0.12) !important;
+            text-align: left !important;
+            justify-content: flex-start !important;
+            padding: 12px 18px !important;
+            border-radius: 10px !important;
+            font-weight: 700 !important;
+            font-size: 14.5px !important;
+            margin-bottom: 8px !important;
+            width: 100% !important;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2) !important;
+        }
+        div[data-testid="stSidebar"] div.stButton > button:hover {
+            background-color: #1e40af !important;
+            transform: translateX(4px);
         }
         .logout-btn-container button {
             background-color: #b91c1c !important;
@@ -137,7 +158,7 @@ def main():
     u_title = user.get('title') or "විෂය භාර නිලධාරී"
     u_role = user.get('role', 'Officer')
 
-    # Sidebar Header
+    # Sidebar Header & User Card
     st.sidebar.markdown(f"""
     <div style='text-align: center; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.1);'>
         <h2 style='color: #fbbf24; margin: 0; font-size: 22px; font-weight: 800;'>AIP 2026</h2>
@@ -156,6 +177,11 @@ def main():
     </div>
     """, unsafe_allow_html=True)
 
+    # Sidebar Navigation Buttons
+    st.sidebar.markdown("<p style='color: #94a3b8; font-size: 12px; font-weight: bold; margin-bottom: 8px;'>ප්‍රධාන අංශ</p>", unsafe_allow_html=True)
+    if st.sidebar.button("📊 ප්‍රධාන පාලක පුවරුව", key="btn_dash", use_container_width=True):
+        st.rerun()
+
     # Logout Button
     st.sidebar.markdown("<div class='logout-btn-container'>", unsafe_allow_html=True)
     if st.sidebar.button("🚪 පද්ධතියෙන් ඉවත් වන්න", key="logout_btn", use_container_width=True):
@@ -166,7 +192,7 @@ def main():
         st.rerun()
     st.sidebar.markdown("</div>", unsafe_allow_html=True)
 
-    # ප්‍රධාන Dashboard එක සෘජුවම render කිරීම
+    # ප්‍රධාන Dashboard එක පූරණය කිරීම (සියලුම Forms සහ Recent Log ඇත්තේ මෙහිය)
     dashboard.render_dashboard(user)
 
 if __name__ == "__main__":
