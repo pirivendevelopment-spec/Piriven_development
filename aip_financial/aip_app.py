@@ -8,7 +8,7 @@ if CURRENT_DIR not in sys.path:
     sys.path.insert(0, CURRENT_DIR)
 
 import db
-from modules import dashboard, vouchers, activities, reports
+from modules import dashboard
 
 st.set_page_config(page_title="AIP 2026 - පිරිවෙන් ඒකකය", layout="wide", initial_sidebar_state="expanded")
 
@@ -16,9 +16,6 @@ st.set_page_config(page_title="AIP 2026 - පිරිවෙන් ඒකකය"
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.user = None
-
-if "selected_menu" not in st.session_state:
-    st.session_state.selected_menu = "පාලක පුවරුව"
 
 # Browser එක Refresh කළ විට පෙර ලොග් වූ තොරතුරු ස්වයංක්‍රීයව පූරණය කිරීම
 if not st.session_state.logged_in:
@@ -28,76 +25,6 @@ if not st.session_state.logged_in:
         if user_data:
             st.session_state.logged_in = True
             st.session_state.user = dict(user_data)
-
-def render_delete_requests_panel():
-    st.markdown("### 🗑️ දත්ත ඉවත්කිරීමේ ඉල්ලීම් කළමනාකරණය")
-    st.markdown("<p style='color: #64748b;'>දත්ත ඇතුළත් කිරීමේදී සිදු වූ වැරදීම් හේතුවෙන් නිලධාරීන් විසින් ඉවත් කිරීමට ඉල්ලූ ලැයිස්තුව මෙතැනින් ස්ථිරවම ඉවත් කරන්න.</p>", unsafe_allow_html=True)
-    st.markdown("---")
-
-    pending_vouchers = db.get_pending_delete_vouchers()
-    pending_activities = db.get_pending_delete_activities()
-
-    tab1, tab2 = st.tabs(["📑 වවුචර ඉල්ලීම්", "📝 වැඩසටහන් ඉල්ලීම්"])
-
-    # 1. වවුචර ඉල්ලීම්
-    with tab1:
-        if pending_vouchers.empty:
-            st.info("✅ ඉවත් කිරීමට ඉල්ලුම් කළ වවුචර කිසිවක් නොමැත.")
-        else:
-            for _, r in pending_vouchers.iterrows():
-                with st.container():
-                    st.markdown(f"""
-                    <div style='background: white; border-radius: 12px; padding: 18px; border: 1px solid #e2e8f0; border-left: 5px solid #ef4444; margin-bottom: 12px;'>
-                        <div style='display: flex; justify-content: space-between;'>
-                            <h5 style='color: #0f172a; margin: 0;'>වවුචර අංකය: {r.get('voucher_no')} | වැය ශීර්ෂය: {r.get('vote_number')}</h5>
-                            <span style='color: #ef4444; font-weight: bold; font-size: 16px;'>රු. {float(r.get('amount', 0)):,.2f}</span>
-                        </div>
-                        <p style='color: #334155; font-size: 13.5px; margin: 6px 0 0 0;'><b>විස්තරය:</b> {r.get('description')}</p>
-                        <p style='color: #b91c1c; font-size: 13px; margin: 4px 0 0 0;'><b>ඉවත් කිරීමට හේතුව:</b> {r.get('delete_reason', 'හේතුවක් දක්වා නැත')}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                    c1, c2, _ = st.columns([1.5, 1.5, 5])
-                    with c1:
-                        if st.button("🗑️ ස්ථිරවම ඉවත් කරන්න", key=f"del_v_{r['id']}", type="primary"):
-                            db.delete_voucher_permanent(r['id'])
-                            st.toast("වවුචරය ස්ථිරවම ඉවත් කරන ලදී!")
-                            st.rerun()
-                    with c2:
-                        if st.button("❌ ඉල්ලීම අවලංගු කරන්න", key=f"cnl_v_{r['id']}"):
-                            db.cancel_voucher_delete_request(r['id'])
-                            st.toast("ඉල්ලීම ප්‍රතික්ෂේප කර වවුචරය නැවත සක්‍රීය කරන ලදී.")
-                            st.rerun()
-
-    # 2. වැඩසටහන් ඉල්ලීම්
-    with tab2:
-        if pending_activities.empty:
-            st.info("✅ ඉවත් කිරීමට ඉල්ලුම් කළ වැඩසටහන් කිසිවක් නොමැත.")
-        else:
-            for _, r in pending_activities.iterrows():
-                with st.container():
-                    st.markdown(f"""
-                    <div style='background: white; border-radius: 12px; padding: 18px; border: 1px solid #e2e8f0; border-left: 5px solid #f59e0b; margin-bottom: 12px;'>
-                        <div style='display: flex; justify-content: space-between;'>
-                            <h5 style='color: #0f172a; margin: 0;'>වැඩසටහන: {r.get('activity_name')}</h5>
-                            <span style='color: #0f766e; font-weight: bold;'>ඇස්තමේන්තුව: රු. {float(r.get('estimate', 0)):,.2f}</span>
-                        </div>
-                        <p style='color: #334155; font-size: 13.5px; margin: 6px 0 0 0;'><b>ස්ථානය:</b> {r.get('location')} | <b>දිනය:</b> {r.get('activity_date')}</p>
-                        <p style='color: #b91c1c; font-size: 13px; margin: 4px 0 0 0;'><b>ඉවත් කිරීමට හේතුව:</b> {r.get('delete_reason', 'හේතුවක් දක්වා නැත')}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                    c1, c2, _ = st.columns([1.5, 1.5, 5])
-                    with c1:
-                        if st.button("🗑️ ස්ථිරවම ඉවත් කරන්න", key=f"del_a_{r['id']}", type="primary"):
-                            db.delete_activity_permanent(r['id'])
-                            st.toast("වැඩසටහන ස්ථිරවම ඉවත් කරන ලදී!")
-                            st.rerun()
-                    with c2:
-                        if st.button("❌ ඉල්ලීම අවලංගු කරන්න", key=f"cnl_a_{r['id']}"):
-                            db.cancel_activity_delete_request(r['id'])
-                            st.toast("ඉල්ලීම ප්‍රතික්ෂේප කර වැඩසටහන නැවත සක්‍රීය කරන ලදී.")
-                            st.rerun()
 
 def main():
     # =========================================================================
@@ -164,7 +91,6 @@ def main():
                     if user:
                         st.session_state.logged_in = True
                         st.session_state.user = dict(user)
-                        st.session_state.selected_menu = "පාලක පුවරුව"
                         if remember_me:
                             st.query_params["aip_auth"] = user["username"]
                         st.rerun()
@@ -186,29 +112,22 @@ def main():
             background-color: #1e1b4b !important;
             padding-top: 1rem !important;
         }
-        div[data-testid="stSidebar"] div.stButton > button {
-            background-color: #272757 !important;
-            color: #ffffff !important;
-            border: 1px solid rgba(255, 255, 255, 0.12) !important;
-            text-align: left !important;
-            justify-content: flex-start !important;
-            padding: 12px 18px !important;
-            border-radius: 10px !important;
-            font-weight: 700 !important;
-            font-size: 14.5px !important;
-            margin-bottom: 8px !important;
-            width: 100% !important;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2) !important;
-        }
-        div[data-testid="stSidebar"] div.stButton > button:hover {
-            background-color: #1e40af !important;
-            transform: translateX(4px);
-        }
         .logout-btn-container button {
             background-color: #b91c1c !important;
+            color: #ffffff !important;
+            border: 1px solid #ef4444 !important;
+            font-weight: 800 !important;
+            font-size: 14px !important;
             justify-content: center !important;
             text-align: center !important;
             margin-top: 25px !important;
+            width: 100% !important;
+            border-radius: 10px !important;
+            padding: 10px !important;
+        }
+        .logout-btn-container button:hover {
+            background-color: #dc2626 !important;
+            box-shadow: 0 4px 15px rgba(220, 38, 38, 0.5) !important;
         }
     </style>
     """, unsafe_allow_html=True)
@@ -217,7 +136,6 @@ def main():
     u_name = user.get('name') or user.get('username') or "පරිශීලක"
     u_title = user.get('title') or "විෂය භාර නිලධාරී"
     u_role = user.get('role', 'Officer')
-    is_super_admin = str(u_role).lower() in ["super admin", "admin", "ප්‍රධාන පරිපාලක"]
 
     # Sidebar Header
     st.sidebar.markdown(f"""
@@ -238,53 +156,18 @@ def main():
     </div>
     """, unsafe_allow_html=True)
 
-    # Super Admin සතු Pending Delete ගණන පරීක්ෂාව
-    pending_v = db.get_pending_delete_vouchers()
-    pending_a = db.get_pending_delete_activities()
-    total_pending = len(pending_v) + len(pending_a)
-
-    nav_items = [
-        ("📊 පාලක පුවරුව", "පාලක පුවරුව"),
-        ("📑 වවුචර විස්තර", "වවුචර විස්තර"),
-        ("📝 වැඩසටහන් එක් කරන්න", "වැඩසටහන් එක් කරන්න"),
-        ("🖨️ පද්ධති වාර්තා", "පද්ධති වාර්තා")
-    ]
-
-    if is_super_admin:
-        del_label = f"🗑️ ඉවත්කිරීමේ ඉල්ලීම් ({total_pending})" if total_pending > 0 else "🗑️ ඉවත්කිරීමේ ඉල්ලීම්"
-        nav_items.append((del_label, "ඉවත්කිරීමේ ඉල්ලීම්"))
-
-    for label, key in nav_items:
-        if st.sidebar.button(label, key=f"nav_{key}", use_container_width=True):
-            st.session_state.selected_menu = key
-            st.rerun()
-
-    # Logout
+    # Logout Button
     st.sidebar.markdown("<div class='logout-btn-container'>", unsafe_allow_html=True)
     if st.sidebar.button("🚪 පද්ධතියෙන් ඉවත් වන්න", key="logout_btn", use_container_width=True):
         st.session_state.logged_in = False
         st.session_state.user = None
-        st.session_state.selected_menu = "පාලක පුවරුව"
         if "aip_auth" in st.query_params:
             del st.query_params["aip_auth"]
         st.rerun()
     st.sidebar.markdown("</div>", unsafe_allow_html=True)
 
-    # Super Admin පාලක පුවරුවේ සිටින විට ක්ෂණික Alert පෙන්වීම
-    if is_super_admin and total_pending > 0 and st.session_state.selected_menu == "පාලක පුවරුව":
-        st.warning(f"⚠️ නිලධාරීන් විසින් ඉදිරිපත් කරන ලද දත්ත ඉවත්කිරීමේ ඉල්ලීම් **{total_pending}** ක් පවතී. කරුණාකර Sidebar හි **'ඉවත්කිරීමේ ඉල්ලීම්'** මෙනුවෙන් පරීක්ෂා කරන්න.")
-
-    # View Routing
-    if st.session_state.selected_menu == "ඉවත්කිරීමේ ඉල්ලීම්" and is_super_admin:
-        render_delete_requests_panel()
-    else:
-        modules_map = {
-            "පාලක පුවරුව": dashboard.render_dashboard,
-            "වවුචර විස්තර": vouchers.render_vouchers,
-            "වැඩසටහන් එක් කරන්න": activities.render_activities,
-            "පද්ධති වාර්තා": reports.render_reports
-        }
-        modules_map[st.session_state.selected_menu](user)
+    # ප්‍රධාන Dashboard එක සෘජුවම render කිරීම
+    dashboard.render_dashboard(user)
 
 if __name__ == "__main__":
     main()
