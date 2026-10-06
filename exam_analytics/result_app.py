@@ -125,7 +125,7 @@ st.markdown("""
             }
             td {
                 background-color: #ffffff !important;
-                color: #000000 !important;
+                color: #000000 !important; 
             }
             .print-footer-global {
                 display: block !important;
@@ -379,7 +379,7 @@ else:
                 st.plotly_chart(fig, use_container_width=True)
                 
             with col_dist:
-                st.subheader("📍 දිස්ත්‍‍රික් ප්‍රගතිය")
+                st.subheader("📍 දිස්ත්‍රික් ප්‍රගතිය")
                 dist_df = pd.DataFrame(ranking_data)
                 if not dist_df.empty:
                     dist_summary = dist_df.groupby("දිස්ත්‍රික්කය")["සමත් ප්‍රතිශතය (%)"].mean().reset_index()
@@ -443,47 +443,55 @@ else:
         else:
             df_rank = pd.DataFrame(ranking_data)
             
-            # දත්තවල ඇති හිස්තැන් ඉවත් කිරීම
+            # තීරු වල ඇති සියලු අගයන් string කර හිස්තැන් ඉවත් කිරීම
             for col in ["පළාත", "දිස්ත්‍රික්කය", "zoneColor", "කලාපය"]:
                 if col in df_rank.columns:
                     df_rank[col] = df_rank[col].astype(str).str.strip()
 
-            ALL_PROV = "සියලුම පළාත්"
-            ALL_DIST = "සියලුම දිස්ත්‍රික්ක"
-            ALL_ZONE = "සියලුම කලාප"
-
             f_col1, f_col2, f_col3, f_col4 = st.columns(4)
             
             with f_col1:
-                prov_list = sorted([p for p in df_rank["පළාත"].dropna().unique().tolist() if p and p.lower() != 'nan'])
-                provinces = [ALL_PROV] + prov_list
+                prov_list = sorted([p for p in df_rank["පළාත"].unique().tolist() if p and p.lower() != 'nan' and p.strip() != ''])
+                provinces = ["සියලුම පළාත්"] + prov_list
                 sel_prov = st.selectbox("පළාත අනුව පෙරන්න", provinces)
                 
             with f_col2:
-                if sel_prov != ALL_PROV:
-                    available_districts = df_rank[df_rank["පළාත"] == sel_prov]["දිස්ත්‍රික්කය"].dropna().unique().tolist()
+                # පළාත අනුව අදාළ දිස්ත්‍රික්ක තෝරාගැනීම (සියලුම නම් මුළු ලැයිස්තුවම)
+                is_all_prov = (sel_prov == "සියලුම පළාත්") or sel_prov.startswith("සියලුම")
+                if not is_all_prov:
+                    avail_raw = df_rank[df_rank["පළාත"] == sel_prov]["දිස්ත්‍රික්කය"].unique().tolist()
                 else:
-                    available_districts = df_rank["දිස්ත්‍රික්කය"].dropna().unique().tolist()
+                    avail_raw = df_rank["දිස්ත්‍රික්කය"].unique().tolist()
                 
-                dist_list = sorted([d for d in available_districts if d and d.lower() != 'nan'])
-                districts = [ALL_DIST] + dist_list
+                dist_list = sorted([d for d in avail_raw if d and d.lower() != 'nan' and d.strip() != ''])
+                districts = ["සියලුම දිස්ත්‍රික්ක"] + dist_list
                 sel_dist = st.selectbox("දිස්ත්‍රික්කය අනුව පෙරන්න", districts)
                 
             with f_col3:
-                zones = [ALL_ZONE, "Green", "Yellow", "Orange", "Red"]
+                zones = ["සියලුම කලාප", "Green", "Yellow", "Orange", "Red"]
                 sel_zone = st.selectbox("ප්‍රගති කලාපය (Zone)", zones)
                 
             with f_col4:
                 search_query = st.text_input("පිරිවෙන සෙවීම", placeholder="නම හෝ අංකය...")
 
-            # පෙරීම් ක්‍රියාවලිය (Safe Filtering)
+            # පෙරීම් ක්‍රියාවලිය (100% Safe Boolean Filtering)
             filtered_df = df_rank.copy()
-            if sel_prov != ALL_PROV:
+            
+            # පළාත් පෙරීම
+            if not is_all_prov:
                 filtered_df = filtered_df[filtered_df["පළාත"] == sel_prov]
-            if sel_dist != ALL_DIST:
+            
+            # දිස්ත්‍රික් පෙරීම
+            is_all_dist = (sel_dist == "සියලුම දිස්ත්‍රික්ක") or sel_dist.startswith("සියලුම")
+            if not is_all_dist:
                 filtered_df = filtered_df[filtered_df["දිස්ත්‍රික්කය"] == sel_dist]
-            if sel_zone != ALL_ZONE:
+                
+            # කලාප පෙරීම
+            is_all_zone = (sel_zone == "සියලුම කලාප") or sel_zone.startswith("සියලුම")
+            if not is_all_zone:
                 filtered_df = filtered_df[filtered_df["zoneColor"] == sel_zone]
+                
+            # සෙවුම් පද පෙරීම
             if search_query:
                 query = search_query.lower().strip()
                 filtered_df = filtered_df[
@@ -582,6 +590,7 @@ else:
                 )
 
                 st.markdown(table_component, unsafe_allow_html=True)
+
     # VIEW 3: විෂය සාරාංශය (Subjects)
     elif menu == "විෂය සාරාංශය (Subjects)":
         sub_h1, sub_h2 = st.columns([3, 1])
@@ -683,7 +692,8 @@ else:
                 provinces = ["සියලුම පළාත්"] + sorted(yearly_df["province"].dropna().unique().tolist())
                 sel_rep_prov = st.selectbox("පළාත අනුව පෙරන්න", provinces, key="rep_prov_filter")
             with f_c2:
-                if sel_rep_prov != "සියලුම පළාත්":
+                is_all_rep_prov = (sel_rep_prov == "සියලුම පළාත්") or sel_rep_prov.startswith("සියලුම")
+                if not is_all_rep_prov:
                     avail_dists = yearly_df[yearly_df["province"] == sel_rep_prov]["district"].dropna().unique().tolist()
                 else:
                     avail_dists = yearly_df["district"].dropna().unique().tolist()
@@ -691,9 +701,11 @@ else:
                 sel_rep_dist = st.selectbox("දිස්ත්‍රික්කය අනුව පෙරන්න", districts, key="rep_dist_filter")
 
             filtered_report_df = yearly_df.copy()
-            if sel_rep_prov != "සියලුම පළාත්":
+            if not is_all_rep_prov:
                 filtered_report_df = filtered_report_df[filtered_report_df["province"] == sel_rep_prov]
-            if sel_rep_dist != "සියලුම දිස්ත්‍රික්ක":
+            
+            is_all_rep_dist = (sel_rep_dist == "සියලුම දිස්ත්‍රික්ක") or sel_rep_dist.startswith("සියලුම")
+            if not is_all_rep_dist:
                 filtered_report_df = filtered_report_df[filtered_report_df["district"] == sel_rep_dist]
 
             st.markdown(f"<p style='color: #0f766e;'><b>පෙන්වන ලද පිරිවෙන් සංඛ්‍යාව: {len(filtered_report_df)}</b></p>", unsafe_allow_html=True)
@@ -802,7 +814,7 @@ else:
                     components.html("""
                         <div style="text-align: right;">
                             <button onclick="parent.window.print()" style="background-color: #0f766e; color: white; padding: 8px 14px; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: bold; font-family: 'Segoe UI', sans-serif;">
-                                🖨️️ ප්‍රින්ට්
+                                🖨️ ප්‍රින්ට්
                             </button>
                         </div>
                     """, height=40)
