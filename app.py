@@ -255,8 +255,12 @@ font-weight: 700; width: 100%; cursor: pointer;">
 """, unsafe_allow_html=True)
 
     # 1. විභාග ප්‍රතිඵල විශ්ලේෂණය
+    # 1. විභාග ප්‍රතිඵල විශ්ලේෂණය
     if active_module == "exam":
-        run_sub_module(os.path.join(BASE_DIR, "result_app.py"))
+        exam_file = os.path.join(BASE_DIR, "exam_analytics", "result_app.py")
+        if not os.path.exists(exam_file):
+            exam_file = os.path.join(BASE_DIR, "result_app.py")
+        run_sub_module(exam_file)
 
     # 2. AIP මූල්‍ය හා ප්‍රගති පාලනය
     elif active_module == "aip":
