@@ -443,38 +443,46 @@ else:
         else:
             df_rank = pd.DataFrame(ranking_data)
             
+            # දත්තවල ඇති හිස්තැන් ඉවත් කිරීම
             for col in ["පළාත", "දිස්ත්‍රික්කය", "zoneColor", "කලාපය"]:
                 if col in df_rank.columns:
                     df_rank[col] = df_rank[col].astype(str).str.strip()
 
+            ALL_PROV = "සියලුම පළාත්"
+            ALL_DIST = "සියලුම දිස්ත්‍රික්ක"
+            ALL_ZONE = "සියලුම කලාප"
+
             f_col1, f_col2, f_col3, f_col4 = st.columns(4)
             
             with f_col1:
-                provinces = ["සියලුම පළාත්"] + sorted([p for p in df_rank["පළාත"].dropna().unique().tolist() if p and p.lower() != 'nan'])
+                prov_list = sorted([p for p in df_rank["පළාත"].dropna().unique().tolist() if p and p.lower() != 'nan'])
+                provinces = [ALL_PROV] + prov_list
                 sel_prov = st.selectbox("පළාත අනුව පෙරන්න", provinces)
                 
             with f_col2:
-                if sel_prov != "සියලුම පළාත්":
+                if sel_prov != ALL_PROV:
                     available_districts = df_rank[df_rank["පළාත"] == sel_prov]["දිස්ත්‍රික්කය"].dropna().unique().tolist()
                 else:
                     available_districts = df_rank["දිස්ත්‍රික්කය"].dropna().unique().tolist()
                 
-                districts = ["සියලුම දිස්ත්‍‍රික්ක"] + sorted([d for d in available_districts if d and d.lower() != 'nan'])
+                dist_list = sorted([d for d in available_districts if d and d.lower() != 'nan'])
+                districts = [ALL_DIST] + dist_list
                 sel_dist = st.selectbox("දිස්ත්‍රික්කය අනුව පෙරන්න", districts)
                 
             with f_col3:
-                zones = ["සියලුම කලාප", "Green", "Yellow", "Orange", "Red"]
+                zones = [ALL_ZONE, "Green", "Yellow", "Orange", "Red"]
                 sel_zone = st.selectbox("ප්‍රගති කලාපය (Zone)", zones)
                 
             with f_col4:
                 search_query = st.text_input("පිරිවෙන සෙවීම", placeholder="නම හෝ අංකය...")
 
+            # පෙරීම් ක්‍රියාවලිය (Safe Filtering)
             filtered_df = df_rank.copy()
-            if sel_prov != "සියලුම පළාත්":
+            if sel_prov != ALL_PROV:
                 filtered_df = filtered_df[filtered_df["පළාත"] == sel_prov]
-            if sel_dist != "සියලුම දිස්ත්‍රික්ක":
+            if sel_dist != ALL_DIST:
                 filtered_df = filtered_df[filtered_df["දිස්ත්‍රික්කය"] == sel_dist]
-            if sel_zone != "සියලුම කලාප":
+            if sel_zone != ALL_ZONE:
                 filtered_df = filtered_df[filtered_df["zoneColor"] == sel_zone]
             if search_query:
                 query = search_query.lower().strip()
@@ -574,7 +582,6 @@ else:
                 )
 
                 st.markdown(table_component, unsafe_allow_html=True)
-
     # VIEW 3: විෂය සාරාංශය (Subjects)
     elif menu == "විෂය සාරාංශය (Subjects)":
         sub_h1, sub_h2 = st.columns([3, 1])
