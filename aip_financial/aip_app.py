@@ -82,30 +82,32 @@ def render_inline_expense_actions(user):
     for _, row in vouchers_df.iterrows():
         v_id = row['id']
         is_del_pending = bool(row.get('delete_requested', 0) == 1)
-        border_color = "#ef4444" if is_del_pending else "#e2e8f0"
+        border_color = "#ef4444" if is_del_pending else "#cbd5e1"
         bg_color = "#fef2f2" if is_del_pending else "#ffffff"
 
+        # Streamlit Native Card Container
         with st.container():
-            st.markdown(f"""
-            <div style="background-color: {bg_color}; border: 1px solid {border_color}; border-radius: 12px; padding: 14px 18px; margin-bottom: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.02);">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <strong style="color: #0f172a; font-size: 15px;">වවුචර අංකය: {row.get('voucher_no', 'N/A')}</strong> 
-                        <span style="color: #64748b; font-size: 12px; margin-left: 10px;">({row.get('voucher_date', 'N/A')})</span>
-                        <div style="color: #334155; font-size: 13.5px; margin-top: 4px;">
-                            වැය ශීර්ෂය: <b>{row.get('vote_number', 'N/A')}</b> | විස්තරය: {row.get('description', '')}
-                        </div>
-                        {f"<div style='color: #dc2626; font-size: 12px; margin-top: 4px;'><b>⚠️ ඉවත් කිරීමට ඉල්ලුම් කර ඇත:</b> {row.get('delete_reason', '')}</div>" if is_del_pending else ""}
-                    </div>
-                    <div style="text-align: right;">
-                        <span style="font-size: 16px; font-weight: 800; color: #0f766e;">රු. {float(row.get('amount', 0)):,.2f}</span>
-                        <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">ඇතුළත් කළේ: {row.get('username', 'N/A')}</div>
-                    </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(
+f"""<div style="background-color: {bg_color}; border: 1.5px solid {border_color}; border-radius: 12px; padding: 14px 18px; margin-bottom: 8px;">
+<table style="width: 100%; border-collapse: collapse; border: none;">
+<tr style="border: none;">
+<td style="text-align: left; vertical-align: top; border: none;">
+<strong style="color: #0f172a; font-size: 15px;">වවුචර අංකය: {row.get('voucher_no', 'N/A')}</strong>
+<span style="color: #64748b; font-size: 12px; margin-left: 8px;">({str(row.get('voucher_date', 'N/A'))[:10]})</span>
+<div style="color: #334155; font-size: 13.5px; margin-top: 4px;">
+වැය ශීර්ෂය: <b>{row.get('vote_number', 'N/A')}</b> | විස්තරය: {row.get('description', '')}
+</div>
+{"<div style='color: #dc2626; font-size: 12px; margin-top: 4px;'><b>⚠️ ඉවත් කිරීමට ඉල්ලුම් කර ඇත:</b> " + str(row.get('delete_reason', '')) + "</div>" if is_del_pending else ""}
+</td>
+<td style="text-align: right; vertical-align: top; border: none;">
+<span style="font-size: 17px; font-weight: 800; color: #0f766e;">රු. {float(row.get('amount', 0)):,.2f}</span>
+<div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">ඇතුළත් කළේ: {row.get('username', 'N/A')}</div>
+</td>
+</tr>
+</table>
+</div>""", unsafe_allow_html=True)
 
-            col_btn1, col_btn2, col_btn3, _ = st.columns([1.2, 1.6, 1.6, 6])
+            col_btn1, col_btn2, col_btn3, _ = st.columns([1.2, 1.8, 1.8, 6])
             
             # 1. Edit Popover
             with col_btn1:
@@ -115,7 +117,7 @@ def render_inline_expense_actions(user):
                         e_vno = st.text_input("වවුචර අංකය", value=str(row.get('voucher_no', '')))
                         e_desc = st.text_input("විස්තරය", value=str(row.get('description', '')))
                         e_amount = st.number_input("මුදල (රු.)", value=float(row.get('amount', 0)), step=500.0)
-                        e_date = st.text_input("දිනය (YYYY-MM-DD)", value=str(row.get('voucher_date', '')))
+                        e_date = st.text_input("දිනය (YYYY-MM-DD)", value=str(row.get('voucher_date', ''))[:10])
                         
                         if st.form_submit_button("💾 සුරකින්න"):
                             db.update_voucher(v_id, row.get('vote_number'), row.get('action_no'), e_desc, e_vno, e_date, e_amount)
@@ -150,7 +152,7 @@ def render_inline_expense_actions(user):
                         st.toast("ඉල්ලීම ප්‍රතික්ෂේප විය.")
                         st.rerun()
 
-            st.markdown("<div style='height: 6px;'></div>", unsafe_allow_html=True)
+            st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
 
 
 def main():
