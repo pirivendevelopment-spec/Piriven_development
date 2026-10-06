@@ -260,21 +260,8 @@ font-weight: 700; width: 100%; cursor: pointer;">
 
     # 2. AIP මූල්‍ය හා ප්‍රගති පාලනය
     elif active_module == "aip":
-        aip_path = os.path.join(BASE_DIR, "aip_financial")
-        if aip_path not in sys.path:
-            sys.path.insert(0, aip_path)
-        try:
-            from aip_financial.modules import dashboard
-            from aip_financial import db
-            db.init_db()
-            user = st.session_state.get("user", {
-                "name": "ප්‍රධාන පරිපාලක", "role": "Super Admin",
-                "access_level": "All", "username": "admin"
-            })
-            dashboard.render_dashboard(user)
-        except Exception:
-            st.error("AIP පද්ධතිය ධාවනය කිරීමේ දෝෂයකි:")
-            st.code(traceback.format_exc())
+        aip_file = os.path.join(BASE_DIR, "aip_financial", "aip_app.py")
+        run_sub_module(aip_file)
 
     # 3. සංගණන දත්ත
     elif active_module == "census":
