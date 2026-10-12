@@ -406,7 +406,7 @@ else:
                     plot_bgcolor="#ffffff", 
                     paper_bgcolor="#ffffff", 
                     margin=dict(l=20, r=20, t=20, b=20),
-                    bargap=0.25,      
+                    bargap=0.25,     
                     bargroupgap=0.1    
                 )
                 fig.update_traces(marker=dict(cornerradius=6))
@@ -421,7 +421,7 @@ else:
                     st.dataframe(dist_summary, use_container_width=True, height=350, hide_index=True)
 
     # =========================================================================
-    # VIEW 2: පළාත් හා ශ්‍රේණිගත කිරීම් (Rankings - 100% Fixed Local Ranking Logic)
+    # VIEW 2: පළාත් හා ශ්‍රේණිගත කිරීම් (Rankings - Fixed District & Provincial Ranks)
     # =========================================================================
     elif menu == "පළාත් හා ශ්‍රේණිගත කිරීම් (Rankings)":
         col_h1, col_h2 = st.columns([3, 1])
@@ -431,7 +431,7 @@ else:
             components.html("""
                 <div style="text-align: right; margin-top: 5px;">
                     <button onclick="parent.window.print()" style="background-color: #0f766e; color: white; padding: 10px 18px; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; font-weight: bold; font-family: 'Segoe UI', sans-serif; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
-                        🖨️️ ප්‍රින්ට් සෙටින්ග්ස් / PDF
+                        🖨 ප්‍රින්ට් සෙටින්ග්ස් / PDF
                     </button>
                 </div>
             """, height=50)
@@ -444,8 +444,13 @@ else:
         else:
             df_rank = pd.DataFrame(ranking_data)
             df_rank.columns = df_rank.columns.str.strip()
+
+            # Dynamic column identification for Province and District to avoid any KeyError
+            prov_col = next((c for c in df_rank.columns if 'පළාත' in c or 'province' in c.lower()), 'පළාත')
+            dist_col = next((c for c in df_rank.columns if 'දිස්ත්‍රික්' in c or 'district' in c.lower()), 'දිස්ත්‍රික්කය')
+
             # String trimming to prevent formatting issues
-            for col in ["පළාත", "දිස්ත්‍රික්කය", "zoneColor", "කලාපය"]:
+            for col in [prov_col, dist_col, "zoneColor", "කලාපය"]:
                 if col in df_rank.columns:
                     df_rank[col] = df_rank[col].astype(str).str.strip()
 
@@ -453,25 +458,25 @@ else:
             df_rank["Quality Score (QS)"] = pd.to_numeric(df_rank["Quality Score (QS)"], errors='coerce').fillna(0.0)
             df_rank["සමත් ප්‍රතිශතය (%)"] = pd.to_numeric(df_rank["සමත් ප්‍රතිශතය (%)"], errors='coerce').fillna(0.0)
 
-           # Global & Provincial dynamic ranking calculation
+            # Global, Provincial & District dynamic ranking calculation
             df_rank = df_rank.sort_values(by=["Quality Score (QS)", "සමත් ප්‍රතිශතය (%)"], ascending=[False, False]).reset_index(drop=True)
             df_rank["දිවයිනේ ස්ථානය"] = df_rank.index + 1
-            df_rank["පළාත් ස්ථානය"] = df_rank.groupby("පළාත", observed=False).cumcount() + 1
-            df_rank["දිස්ත්‍රික් ස්ථානය"] = df_rank.groupby("දිස්ත්‍රික්කය", observed=False).cumcount() + 1
+            df_rank["පළාත් ස්ථානය"] = df_rank.groupby(prov_col, observed=False).cumcount() + 1
+            df_rank["දිස්ත්‍රික් ස්ථානය"] = df_rank.groupby(dist_col, observed=False).cumcount() + 1
 
             f_col1, f_col2, f_col3, f_col4 = st.columns(4)
             
             with f_col1:
-                prov_list = sorted([p for p in df_rank["පළාත"].unique().tolist() if p and p.lower() != 'nan' and p.strip() != ''])
+                prov_list = sorted([p for p in df_rank[prov_col].unique().tolist() if p and p.lower() != 'nan' and p.strip() != ''])
                 provinces = ["සියලුම පළාත්"] + prov_list
                 sel_prov = st.selectbox("පළාත අනුව පෙරන්න", provinces)
                 
             with f_col2:
                 is_all_prov = (sel_prov == "සියලුම පළාත්") or sel_prov.startswith("සියලුම")
                 if not is_all_prov:
-                    avail_raw = df_rank[df_rank["පළාත"] == sel_prov]["දිස්ත්‍රික්කය"].unique().tolist()
+                    avail_raw = df_rank[df_rank[prov_col] == sel_prov][dist_col].unique().tolist()
                 else:
-                    avail_raw = df_rank["දිස්ත්‍රික්කය"].unique().tolist()
+                    avail_raw = df_rank[dist_col].unique().tolist()
                 
                 dist_list = sorted([d for d in avail_raw if d and d.lower() != 'nan' and d.strip() != ''])
                 districts = ["සියලුම දිස්ත්‍රික්ක"] + dist_list
@@ -487,11 +492,11 @@ else:
             filtered_df = df_rank.copy()
             
             if not is_all_prov:
-                filtered_df = filtered_df[filtered_df["පළාත"] == sel_prov]
+                filtered_df = filtered_df[filtered_df[prov_col] == sel_prov]
             
             is_all_dist = (sel_dist == "සියලුම දිස්ත්‍රික්ක") or sel_dist.startswith("සියලුම")
             if not is_all_dist:
-                filtered_df = filtered_df[filtered_df["දිස්ත්‍රික්කය"] == sel_dist]
+                filtered_df = filtered_df[filtered_df[dist_col] == sel_dist]
                 
             is_all_zone = (sel_zone == "සියලුම කලාප") or sel_zone.startswith("සියලුම")
             if not is_all_zone:
@@ -513,11 +518,11 @@ else:
                 for idx, row in filtered_df.reset_index(drop=True).iterrows():
                     island_rank = row.get("දිවයිනේ ස්ථානය", "-")
                     prov_rank = row.get("පළාත් ස්ථානය", "-")
-                    dist_rank = row.get("දිස්ත්‍‍රික් ස්ථානය", "-")
+                    dist_rank = row.get("දිස්ත්‍රික් ස්ථානය", "-")
                     name = row.get("පිරිවෙනේ නම", "")
                     p_no = row.get("පිරිවෙන් අංකය", "")
-                    dist = row.get("දිස්ත්‍රික්කය", "")
-                    prov = row.get("පළාත", "")
+                    dist = row.get(dist_col, "")
+                    prov = row.get(prov_col, "")
                     zone = row.get("කලාපය", "")
                     sat = row.get("පෙනී සිටි", 0)
                     pas = row.get("සමත්", 0)
@@ -529,7 +534,7 @@ else:
                         f'<tr class="rank-row">'
                         f'<td class="rank-cell" style="text-align: center;">'
                         f'<div class="badge-rank">#{island_rank}</div>'
-                        f'<div class="badge-sub">දිවයින: #{island_rank} | පළාත: #{prov_rank} | දිස්ත්‍‍රික්: #{dist_rank}</div>'
+                        f'<div class="badge-sub">දිවයින: #{island_rank} | පළාත: #{prov_rank} | දිස්ත්‍රික්: #{dist_rank}</div>'
                         f'</td>'
                         f'<td class="rank-cell">'
                         f'<div class="p-name">{name}</div>'
@@ -561,346 +566,4 @@ else:
 
                 table_component = (
                     f'<style>'
-                    f'.rank-table {{ width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-top: 10px; }}'
-                    f'.rank-header {{ background-color: #1a252f; color: white; padding: 14px; font-size: 15px; text-align: center; }}'
-                    f'.rank-row {{ border-bottom: 1px solid #f0f2f5; }}'
-                    f'.rank-cell {{ padding: 18px 14px; vertical-align: middle; font-size: 15px; color: #1e293b; }}'
-                    f'.badge-rank {{ font-size: 20px; font-weight: bold; color: #0f766e; text-align: center; }}'
-                    f'.badge-sub {{ font-size: 12px; color: #475569; text-align: center; }}'
-                    f'.p-name {{ font-weight: bold; font-size: 16px; color: #0f172a; }}'
-                    f'.p-meta {{ font-size: 13px; color: #475569; margin-top: 4px; }}'
-                    f'.badge-tag {{ background: #f1f5f9; border: 1px solid #cbd5e1; padding: 3px 10px; border-radius: 6px; font-size: 13px; margin-right: 4px; display: inline-block; color: #1e293b; }}'
-                    f'.badge-zone-Green {{ background-color: #d1e7dd; color: #0f5132; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 13px; }}'
-                    f'.badge-zone-Yellow {{ background-color: #fff3cd; color: #664d03; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 13px; }}'
-                    f'.badge-zone-Orange {{ background-color: #ffe5d0; color: #854d0e; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 13px; }}'
-                    f'.badge-zone-Red {{ background-color: #f8d7da; color: #842029; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 13px; }}'
-                    f'</style>'
-                    f'<div class="printable-table-container">'
-                    f'<table class="rank-table">'
-                    f'<thead>'
-                    f'<tr style="background-color: #1a252f; color: white;">'
-                    f'<th class="rank-header">ස්ථානගතවීම</th>'
-                    f'<th class="rank-header" style="text-align: left;">පිරිවෙන සහ අනන්‍යතාවය</th>'
-                    f'<th class="rank-header" style="text-align: left;">ප්‍රදේශය</th>'
-                    f'<th class="rank-header">පෙනී සිටි/සමත්</th>'
-                    f'<th class="rank-header">QS සහ ප්‍රතිශතය</th>'
-                    f'<th class="rank-header">ප්‍රගති කලාපය</th>'
-                    f'</tr>'
-                    f'</thead>'
-                    f'<tbody>'
-                    f'{all_rows_str}'
-                    f'</tbody>'
-                    f'</table>'
-                    f'</div>'
-                )
-
-                st.markdown(table_component, unsafe_allow_html=True)
-
-    # =========================================================================
-    # VIEW 3: විෂය සාරාංශය (Subjects)
-    # =========================================================================
-    elif menu == "විෂය සාරාංශය (Subjects)":
-        sub_h1, sub_h2 = st.columns([3, 1])
-        with sub_h1:
-            st.markdown("### 📚 විෂය මට්ටමේ ප්‍රතිඵල විශ්ලේෂණය")
-        with sub_h2:
-            components.html("""
-                <div style="text-align: right; margin-top: 5px;">
-                    <button onclick="parent.window.print()" style="background-color: #0f766e; color: white; padding: 10px 18px; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; font-weight: bold; font-family: 'Segoe UI', sans-serif; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
-                        🖨️ ප්‍රින්ට් සෙටින්ග්ස් / PDF
-                    </button>
-                </div>
-            """, height=50)
-
-        st.markdown("---")
-        
-        sub_col1, sub_col2 = st.columns([2, 2])
-        with sub_col1:
-            sub_years = ["2025", "2024", "2023", "2022"]
-            default_year_idx = sub_years.index(selected_year) if selected_year in sub_years else 0
-            analysis_year = st.selectbox("විභාග වර්ෂය තෝරන්න", sub_years, index=default_year_idx, key="subj_year_picker")
-            
-        subjects_dict = {
-            "සිංහල (SUB1)": "1", "පාලි (SUB2)": "2", "ත්‍රිපිටක ධර්මය (SUB3)": "3", "සංස්කෘත (SUB4)": "4",
-            "ගණිතය (SUB5)": "5", "ඉංග්‍රීසි (SUB6)": "6", "ඉතිහාසය (SUB7)": "7", "සමාජ විද්‍යාව (SUB8)": "8",
-            "සෞඛ්‍ය විද්‍යාව (SUB9)": "9", "භූගෝල විද්‍යාව (SUB10)": "10", "සාමාන්‍ය විද්‍යාව (SUB11)": "11", "දෙමළ (SUB12)": "12"
-        }
-        
-        with sub_col2:
-            selected_sub_name = st.selectbox("විෂය තෝරන්න", list(subjects_dict.keys()), key="subj_name_picker")
-            sub_code = subjects_dict[selected_sub_name]
-            
-        st.markdown(f"<p style='color: #334155;'><b>{analysis_year}</b> වර්ෂයට අදාළ <b>{selected_sub_name}</b> විෂයෙහි ශ්‍රේණි ව්‍යාප්තිය සහ දිස්ත්‍රික් ප්‍රගතිය</p>", unsafe_allow_html=True)
-        st.markdown("---")
-        
-        grade_counts, df_dist = get_detailed_subject_analysis(results_df, master_df, analysis_year, sub_code)
-        total_grades = sum(grade_counts.values())
-        
-        c_chart, c_table = st.columns([1.3, 1])
-        
-        with c_chart:
-            st.markdown("##### ශ්‍රේණි ව්‍යාප්තිය (Grade Distribution)")
-            df_pie = pd.DataFrame(list(grade_counts.items()), columns=["ශ්‍රේණිය", "ගණන"])
-            fig = px.pie(
-                df_pie, names="ශ්‍රේණිය", values="ගණන", hole=0.6,
-                color="ශ්‍රේණිය",
-                template="plotly_white",
-                color_discrete_map={"A": "#198754", "B": "#20c997", "C": "#ffc107", "S": "#fd7e14", "W": "#dc3545"}
-            )
-            fig.update_layout(
-                plot_bgcolor="#ffffff", paper_bgcolor="#ffffff",
-                margin=dict(l=10, r=10, t=10, b=10), showlegend=True,
-                height=390
-            )
-            st.plotly_chart(fig, use_container_width=True)
-            
-        with c_table:
-            st.markdown("##### සාමාර්ථ සාරාංශය")
-            summary_data = []
-            for g, count in grade_counts.items():
-                pct = (count / total_grades * 100) if total_grades > 0 else 0
-                summary_data.append({
-                    "ශ්‍රේණිය": f"{g} සාමාර්ථය",
-                    "සංඛ්‍යාව": count,
-                    "ප්‍රතිශතය": f"{pct:.1f}%"
-                })
-            df_summary = pd.DataFrame(summary_data)
-            st.dataframe(df_summary, use_container_width=True, hide_index=True, height=230)
-
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("##### දිස්ත්‍රික් මට්ටමින් විෂය සාමාර්ථයන්")
-        
-        if not df_dist.empty:
-            st.dataframe(df_dist, use_container_width=True, height=450, hide_index=True)
-        else:
-            st.info("තෝරාගත් වර්ෂය සඳහා දත්ත නොමැත.")
-
-    # =========================================================================
-    # VIEW 4: වාර්ෂික වාර්තාව (Yearly Report)
-    # =========================================================================
-    elif menu == "වාර්ෂික වාර්තාව (Yearly Report)":
-        col_h1, col_h2 = st.columns([3, 1])
-        with col_h1:
-            st.markdown("### 📈 වාර්ෂික ප්‍රගති වාර්තාව (2022 - 2025)")
-        with col_h2:
-            components.html("""
-                <div style="text-align: right; margin-top: 5px;">
-                    <button onclick="parent.window.print()" style="background-color: #0f766e; color: white; padding: 10px 18px; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; font-weight: bold; font-family: 'Segoe UI', sans-serif; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
-                        🖨️ ප්‍රින්ට් සෙටින්ග්ස් / PDF
-                    </button>
-                </div>
-            """, height=50)
-            
-        st.markdown("---")
-
-        yearly_df = get_yearly_report_data(results_df, master_df, selected_year, role, access)
-
-        if not yearly_df.empty:
-            f_c1, f_c2 = st.columns(2)
-            with f_c1:
-                provinces = ["සියලුම පළාත්"] + sorted(yearly_df["province"].dropna().unique().tolist())
-                sel_rep_prov = st.selectbox("පළාත අනුව පෙරන්න", provinces, key="rep_prov_filter")
-            with f_c2:
-                is_all_rep_prov = (sel_rep_prov == "සියලුම පළාත්") or sel_rep_prov.startswith("සියලුම")
-                if not is_all_rep_prov:
-                    avail_dists = yearly_df[yearly_df["province"] == sel_rep_prov]["district"].dropna().unique().tolist()
-                else:
-                    avail_dists = yearly_df["district"].dropna().unique().tolist()
-                districts = ["සියලුම දිස්ත්‍රික්ක"] + sorted(avail_dists)
-                sel_rep_dist = st.selectbox("දිස්ත්‍රික්කය අනුව පෙරන්න", districts, key="rep_dist_filter")
-
-            filtered_report_df = yearly_df.copy()
-            if not is_all_rep_prov:
-                filtered_report_df = filtered_report_df[filtered_report_df["province"] == sel_rep_prov]
-            
-            is_all_rep_dist = (sel_rep_dist == "සියලුම දිස්ත්‍රික්ක") or sel_rep_dist.startswith("සියලුම")
-            if not is_all_rep_dist:
-                filtered_report_df = filtered_report_df[filtered_report_df["district"] == sel_rep_dist]
-
-            st.markdown(f"<p style='color: #0f766e;'><b>පෙන්වන ලද පිරිවෙන් සංඛ්‍යාව: {len(filtered_report_df)}</b></p>", unsafe_allow_html=True)
-
-            html_content = """
-            <!DOCTYPE html>
-            <html>
-            <head>
-            <meta charset="utf-8">
-            <style>
-                body { font-family: 'Segoe UI', sans-serif; background-color: #f4f7f6; margin: 0; padding: 5px; }
-                .yearly-table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); font-size: 13px; }
-                .yearly-table th, .yearly-table td { border: 1px solid #cbd5e1; padding: 8px 4px; text-align: center; vertical-align: middle; color: #1e293b; }
-                .yearly-table th { background-color: #1a252f; color: white; font-weight: bold; }
-                .p-cell { text-align: left !important; padding-left: 10px !important; font-weight: bold; width: 240px; }
-                .zone-Green { background-color: #d1e7dd; color: #0f5132; font-weight: bold; }
-                .zone-Yellow { background-color: #fff3cd; color: #664d03; font-weight: bold; }
-                .zone-Orange { background-color: #ffe5d0; color: #854d0e; font-weight: bold; }
-                .zone-Red { background-color: #f8d7da; color: #842029; font-weight: bold; }
-            </style>
-            </head>
-            <body>
-            <table class="yearly-table">
-                <thead>
-                    <tr>
-                        <th rowspan="2" class="p-cell">පිරිවෙනේ නම</th>
-                        <th colspan="5">2022</th>
-                        <th colspan="5">2023</th>
-                        <th colspan="5">2024</th>
-                        <th colspan="5">2025</th>
-                        <th rowspan="2">සමත් %</th>
-                        <th rowspan="2">අසමත් %</th>
-                        <th rowspan="2">ප්‍රගති කලාපය</th>
-                    </tr>
-                    <tr>
-                        <th>A</th><th>B</th><th>C</th><th>S</th><th>W</th>
-                        <th>A</th><th>B</th><th>C</th><th>S</th><th>W</th>
-                        <th>A</th><th>B</th><th>C</th><th>S</th><th>W</th>
-                        <th>A</th><th>B</th><th>C</th><th>S</th><th>W</th>
-                    </tr>
-                </thead>
-                <tbody>
-            """
-
-            for _, r in filtered_report_df.iterrows():
-                z_class = f"zone-{r['zone']}"
-                html_content += f"""
-                    <tr>
-                        <td class="p-cell">
-                            <div style="font-size: 13px; color: #0f172a;">{r['name']}</div>
-                            <div style="font-size: 11px; color: #64748b; font-weight: normal;">{r['p_no']} | {r['district']}</div>
-                        </td>
-                        <td>{r['2022_A']}</td><td>{r['2022_B']}</td><td>{r['2022_C']}</td><td>{r['2022_S']}</td><td>{r['2022_W']}</td>
-                        <td>{r['2023_A']}</td><td>{r['2023_B']}</td><td>{r['2023_C']}</td><td>{r['2023_S']}</td><td>{r['2023_W']}</td>
-                        <td>{r['2024_A']}</td><td>{r['2024_B']}</td><td>{r['2024_C']}</td><td>{r['2024_S']}</td><td>{r['2024_W']}</td>
-                        <td>{r['2025_A']}</td><td>{r['2025_B']}</td><td>{r['2025_C']}</td><td>{r['2025_S']}</td><td>{r['2025_W']}</td>
-                        <td><b>{r['pass_pct']}</b></td>
-                        <td>{r['fail_pct']}</td>
-                        <td class="{z_class}">{r['zone']} Zone</td>
-                    </tr>
-                """
-
-            html_content += """
-                </tbody>
-            </table>
-            </body>
-            </html>
-            """
-
-            components.html(html_content, height=650, scrolling=True)
-        else:
-            st.info("වාර්තාගත දත්ත කිසිවක් හමු නොවීය.")
-
-    # =========================================================================
-    # VIEW 5: පිරිවෙන් විශ්ලේෂණය (Single Pirivena Analysis)
-    # =========================================================================
-    elif menu == "පිරිවෙන් විශ්ලේෂණය":
-        st.markdown("### 🔍 තනි පිරිවෙන් දත්ත  විශ්ලේෂණය")
-        st.markdown("<p style='color: #334155;'>පිරිවෙන් අංකය, සංගණන අංකය හෝ නම ඇතුළත් කර අදාළ ආයතනයේ විෂය ප්‍රගතිය පරීක්ෂා කරන්න</p>", unsafe_allow_html=True)
-        st.markdown("---")
-
-        col_srch1, col_srch2 = st.columns([4, 1])
-        with col_srch1:
-            search_input = st.text_input("සෙවුම් පදය", placeholder="උදා: 1109 හෝ මහා විසුද්ධාරම හෝ 416013...", label_visibility="collapsed")
-        with col_srch2:
-            search_clicked = st.button("🔍 සොයන්න", use_container_width=True, type="primary")
-
-        if search_input or search_clicked:
-            analysis_data, err_msg = get_single_pirivena_full_analysis(results_df, master_df, search_input, selected_year, role, access)
-            
-            if err_msg:
-                st.error(err_msg)
-            elif analysis_data:
-                head_col1, head_col2, head_col3 = st.columns([6, 2, 1])
-                with head_col1:
-                    st.markdown(f"""
-                        <div style="background: #ffffff; padding: 20px; border-radius: 12px; border-left: 6px solid #0f766e; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px;">
-                            <h3 style="color: #0f172a; margin: 0; font-size: 22px;">{analysis_data['name']}</h3>
-                            <p style="color: #64748b; margin-top: 8px; font-size: 14px;">අංකය: <b>{analysis_data['p_no']}</b> | සංගණන: <b>{analysis_data['census_no']}</b> | දිස්ත්‍රික්කය: <b>{analysis_data['district']}</b> | පළාත: <b>{analysis_data['province']}</b></p>
-                        </div>
-                    """, unsafe_allow_html=True)
-                with head_col2:
-                    analysis_year = st.selectbox("විභාග වර්ෂය", ["2025", "2024", "2023", "2022"], key="single_ana_yr")
-                    if analysis_year != selected_year:
-                        analysis_data, err_msg = get_single_pirivena_full_analysis(results_df, master_df, search_input, analysis_year, role, access)
-                with head_col3:
-                    st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
-                    components.html("""
-                        <div style="text-align: right;">
-                            <button onclick="parent.window.print()" style="background-color: #0f766e; color: white; padding: 8px 14px; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: bold; font-family: 'Segoe UI', sans-serif;">
-                                🖨️ ප්‍රින්ට්
-                            </button>
-                        </div>
-                    """, height=40)
-
-                k1, k2, k3, k4 = st.columns(4)
-                k1.markdown(f'<div class="kpi-card"><div class="kpi-title">බර තැබූ ලකුණු (QS)</div><div class="kpi-value">{analysis_data["qs"]:.2f}</div></div>', unsafe_allow_html=True)
-                k2.markdown(f'<div class="kpi-card"><div class="kpi-title">දිවයිනේ ස්ථානය</div><div class="kpi-value" style="color: #0284c7;">#{analysis_data["island_rank"]}</div></div>', unsafe_allow_html=True)
-                k3.markdown(f'<div class="kpi-card"><div class="kpi-title">පළාත් ස්ථානය</div><div class="kpi-value" style="color: #0d9488;">#{analysis_data["province_rank"]}</div></div>', unsafe_allow_html=True)
-                k4.markdown(f'<div class="kpi-card"><div class="kpi-title">දිස්ත්‍රික් ස්ථානය</div><div class="kpi-value" style="color: #4f46e5;">#{analysis_data["district_rank"]}</div></div>', unsafe_allow_html=True)
-
-                zone_colors = {"Green": "#198754", "Yellow": "#ffc107", "Orange": "#fd7e14", "Red": "#dc3545"}
-                z_color = zone_colors.get(analysis_data["zone"], "#198754")
-                
-                zc1, zc2 = st.columns(2)
-                zc1.markdown(f"""
-                    <div style="background: #ffffff; padding: 20px; border-radius: 12px; border-left: 5px solid {z_color}; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.03); margin-top: 15px;">
-                        <div style="font-size: 14px; font-weight: bold; color: #334155; text-transform: uppercase;">ප්‍රගති කලාපය ({analysis_year})</div>
-                        <div style="font-size: 26px; font-weight: bold; color: {z_color}; margin-top: 8px;">{analysis_data['zone']} Zone</div>
-                    </div>
-                """, unsafe_allow_html=True)
-                
-                zc2.markdown(f"""
-                    <div style="background: #ffffff; padding: 20px; border-radius: 12px; border-left: 5px solid #0f766e; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.03); margin-top: 15px;">
-                        <div style="font-size: 14px; font-weight: bold; color: #334155; text-transform: uppercase;">{analysis_year} සමත් වීමේ ප්‍රතිශතය</div>
-                        <div style="font-size: 26px; font-weight: bold; color: #0f766e; margin-top: 8px;">{analysis_data['pass_rate']}</div>
-                    </div>
-                """, unsafe_allow_html=True)
-
-                st.markdown("<br>", unsafe_allow_html=True)
-
-                ch_col1, ch_col2 = st.columns(2)
-                
-                with ch_col1:
-                    st.markdown("<h5 style='text-align: center;'>වර්ෂ 4ක සාධන ඉතිහාසය</h5>", unsafe_allow_html=True)
-                    hist_df = pd.DataFrame(analysis_data["history"])
-                    if not hist_df.empty:
-                        fig_hist = px.bar(
-                            hist_df, x="වර්ෂය", y=["පෙනී සිටි", "සමත්"], barmode="group",
-                            template="plotly_white",
-                            color_discrete_sequence=["#20b2aa", "#008b8b"], text_auto=True
-                        )
-                        fig_hist.update_traces(textposition="outside")
-                        fig_hist.update_layout(
-                            plot_bgcolor="#ffffff", paper_bgcolor="#ffffff",
-                            margin=dict(t=20, b=20, l=20, r=20), height=300, legend_title=""
-                        )
-                        st.plotly_chart(fig_hist, use_container_width=True)
-
-                with ch_col2:
-                    st.markdown(f"<h5 style='text-align: center;'>විෂය සාධනය ({analysis_year})</h5>", unsafe_allow_html=True)
-                    subs_raw_df = pd.DataFrame(analysis_data["subjects"])
-                    if not subs_raw_df.empty:
-                        fig_sub = px.bar(
-                            subs_raw_df, x="විෂය කේතය", y=["A", "B", "C", "S", "W"], barmode="stack",
-                            template="plotly_white",
-                            color_discrete_sequence=["#013220", "#00563b", "#20b2aa", "#7fffd4", "#dc3545"], text_auto=True
-                        )
-                        fig_sub.update_traces(textposition="inside")
-                        fig_sub.update_layout(
-                            plot_bgcolor="#ffffff", paper_bgcolor="#ffffff",
-                            margin=dict(t=20, b=40, l=20, r=20), height=300, xaxis_tickangle=-30, legend_title=""
-                        )
-                        st.plotly_chart(fig_sub, use_container_width=True)
-
-                st.markdown("<br>", unsafe_allow_html=True)
-                st.markdown("##### 📚 විෂය මට්ටමේ සාමාර්ථ විශ්ලේෂණය")
-                
-                if not subs_raw_df.empty:
-                    display_df = subs_raw_df[["විෂය කේතය", "A", "B", "C", "S", "W", "සමත් %"]]
-                    st.dataframe(display_df, use_container_width=True, hide_index=True)
-                else:
-                    st.info("මෙම පිරිවෙන සඳහා තෝරාගත් වර්ෂයේ විෂය දත්ත හමු නොවීය.")
-
-    st.markdown("""
-        <div class="print-footer-global">
-            Copyright © සංවර්ධන ශාඛාව - පිරිවෙන් අධ්‍යාපන අංශය - විභාග දෙපාර්තමේන්තුව නිකුත් කළ පිරිවෙන් සාමාන්‍‍ය පෙළ විභාගය 2025 (2026) දත්ත පදනම් කරගත් විශ්ලේෂණ වාර්තාවකි.
-        </div>
-    """, unsafe_allow_html=True)
+                    f'.rank-table {{ width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 1
