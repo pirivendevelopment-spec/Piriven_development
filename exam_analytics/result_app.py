@@ -443,7 +443,7 @@ else:
             st.info("දත්ත නොමැත.")
         else:
             df_rank = pd.DataFrame(ranking_data)
-            
+            df_rank.columns = df_rank.columns.str.strip()
             # String trimming to prevent formatting issues
             for col in ["පළාත", "දිස්ත්‍රික්කය", "zoneColor", "කලාපය"]:
                 if col in df_rank.columns:
@@ -453,11 +453,11 @@ else:
             df_rank["Quality Score (QS)"] = pd.to_numeric(df_rank["Quality Score (QS)"], errors='coerce').fillna(0.0)
             df_rank["සමත් ප්‍රතිශතය (%)"] = pd.to_numeric(df_rank["සමත් ප්‍රතිශතය (%)"], errors='coerce').fillna(0.0)
 
-            # Global & Provincial dynamic ranking calculation
+           # Global & Provincial dynamic ranking calculation
             df_rank = df_rank.sort_values(by=["Quality Score (QS)", "සමත් ප්‍රතිශතය (%)"], ascending=[False, False]).reset_index(drop=True)
             df_rank["දිවයිනේ ස්ථානය"] = df_rank.index + 1
-            df_rank["පළාත් ස්ථානය"] = df_rank.groupby("පළාත").cumcount() + 1
-            df_rank["දිස්ත්‍රික් ස්ථානය"] = df_rank.groupby("දිස්ත්‍‍රික්කය").cumcount() + 1
+            df_rank["පළාත් ස්ථානය"] = df_rank.groupby("පළාත", observed=False).cumcount() + 1
+            df_rank["දිස්ත්‍රික් ස්ථානය"] = df_rank.groupby("දිස්ත්‍රික්කය", observed=False).cumcount() + 1
 
             f_col1, f_col2, f_col3, f_col4 = st.columns(4)
             
