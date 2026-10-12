@@ -138,7 +138,7 @@ def calculate_piriven_rankings(results_df, master_df, year, user_role, user_acce
         df_temp["පළාත් ස්ථානය"] = df_temp.groupby("පළාත").cumcount() + 1
         
         # දිස්ත්‍රික් ස්ථානය (එක් එක් දිස්ත්‍රික්කය ඇතුළත QS අගය අනුව #1, #2, #3...)
-        df_temp["දිස්ත්‍රික් ස්ථානය"] = df_temp.groupby("දිස්ත්‍‍රික්කය").cumcount() + 1
+        df_temp["දිස්ත්‍රික් ස්ථානය"] = df_temp.groupby("දිස්ත්‍රික්කය").cumcount() + 1
         
         sorted_ranking = df_temp.to_dict(orient="records")
     else:
