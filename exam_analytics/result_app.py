@@ -445,14 +445,14 @@ else:
             df_rank = pd.DataFrame(ranking_data)
             df_rank.columns = df_rank.columns.str.strip()
 
-            # Dynamic column identification for Province and District to avoid any KeyError
+            # Dynamic column identification
             prov_col = next((c for c in df_rank.columns if 'පළාත' in c or 'province' in c.lower()), 'පළාත')
             dist_col = next((c for c in df_rank.columns if 'දිස්ත්‍රික්' in c or 'district' in c.lower()), 'දිස්ත්‍රික්කය')
 
-            # String trimming to prevent formatting issues
+            # 💡 දෝෂය වළක්වා ගැනීමට සියලුම තීරු ආරක්ෂිතව string බවට හැරවීම
             for col in [prov_col, dist_col, "zoneColor", "කලාපය"]:
                 if col in df_rank.columns:
-                    df_rank[col] = df_rank[col].astype(str).str.strip()
+                    df_rank[col] = df_rank[col].fillna("").astype(str).str.strip()
 
             # Numeric columns type conversion for accurate sorting
             df_rank["Quality Score (QS)"] = pd.to_numeric(df_rank["Quality Score (QS)"], errors='coerce').fillna(0.0)
@@ -467,7 +467,8 @@ else:
             f_col1, f_col2, f_col3, f_col4 = st.columns(4)
             
             with f_col1:
-                prov_list = sorted([p for p in df_rank[prov_col].unique().tolist() if p and p.lower() != 'nan' and p.strip() != ''])
+                # 💡 .lower() දෝෂය සම්පූර්ණයෙන්ම වළක්වා ගැනීමට අගයන් string ලෙස පරීක්ෂා කිරීම
+                prov_list = sorted([str(p) for p in df_rank[prov_col].unique().tolist() if p and str(p).lower() != 'nan' and str(p).strip() != ''])
                 provinces = ["සියලුම පළාත්"] + prov_list
                 sel_prov = st.selectbox("පළාත අනුව පෙරන්න", provinces)
                 
@@ -478,7 +479,7 @@ else:
                 else:
                     avail_raw = df_rank[dist_col].unique().tolist()
                 
-                dist_list = sorted([d for d in avail_raw if d and d.lower() != 'nan' and d.strip() != ''])
+                dist_list = sorted([str(d) for d in avail_raw if d and str(d).lower() != 'nan' and str(d).strip() != ''])
                 districts = ["සියලුම දිස්ත්‍රික්ක"] + dist_list
                 sel_dist = st.selectbox("දිස්ත්‍රික්කය අනුව පෙරන්න", districts)
                 
