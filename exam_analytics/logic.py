@@ -120,26 +120,10 @@ def calculate_piriven_rankings(results_df, master_df, year, user_role, user_acce
     for i, p in enumerate(sorted_ranking):
         p["දිවයිනේ ස්ථානය"] = i + 1
 
-  df_temp = pd.DataFrame(ranking_list)
+    df_temp = pd.DataFrame(sorted_ranking)
     if not df_temp.empty:
-        # දිවයිනේ ස්ථානය
-        df_temp = df_temp.sort_values(by=["Quality Score (QS)", "සමත් ප්‍රතිශතය (%)"], ascending=[False, False]).reset_index(drop=True)
-        df_temp["දිවයිනේ ස්ථානය"] = df_temp.index + 1
-        
-        # පළාත් ස්ථානය (පළාත අනුව වෙනම sort කර නිවැරදි rank ලබා දීම)
-        df_temp["පළාත් ස්ථානය"] = (
-            df_temp.sort_values(by=["Quality Score (QS)", "සමත් ප්‍රතිශතය (%)"], ascending=[False, False])
-            .groupby("පළාත", observed=False)
-            .cumcount() + 1
-        )
-        
-        # දිස්ත්‍රික් ස්ථානය (දිස්ත්‍රික්කය අනුව වෙනම sort කර නිවැරදි rank ලබා දීම)
-        df_temp["දිස්ත්‍රික් ස්ථානය"] = (
-            df_temp.sort_values(by=["Quality Score (QS)", "සමත් ප්‍රතිශතය (%)"], ascending=[False, False])
-            .groupby("දිස්ත්‍රික්කය", observed=False)
-            .cumcount() + 1
-        )
-        
+        df_temp["පළාත් ස්ථානය"] = df_temp.groupby("පළාත")["Quality Score (QS)"].rank(ascending=False, method="min").astype(int)
+        df_temp["දිස්ත්‍රික් ස්ථානය"] = df_temp.groupby("දිස්ත්‍රික්කය")["Quality Score (QS)"].rank(ascending=False, method="min").astype(int)
         sorted_ranking = df_temp.to_dict(orient="records")
 
     filtered_ranking = []
