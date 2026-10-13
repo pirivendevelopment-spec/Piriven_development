@@ -1,7 +1,7 @@
 import pandas as pd
+import re
 from database import get_pirivena_map
 
-# විභාග සමත්වීමේ නීති (ත්‍රිපිටකය + සිංහල/පාලි අනිවාර්ය වීම සමඟ) සහ QS ගණනය කිරීම
 def calculate_piriven_rankings(results_df, master_df, year, user_role, user_access):
     p_map = get_pirivena_map(master_df)
     
@@ -11,7 +11,6 @@ def calculate_piriven_rankings(results_df, master_df, year, user_role, user_acce
     is_sub_director = "subject director" in user_role.lower() or "විෂය අධ්‍යක්ෂ" in user_role.lower()
     sub_num = None
     if is_sub_director:
-        import re
         match = re.search(r'\d+', str(user_access))
         if match:
             sub_num = match.group()
@@ -105,9 +104,9 @@ def calculate_piriven_rankings(results_df, master_df, year, user_role, user_acce
             "සංගණන අංකය": data["census_no"],
             "පිරිවෙන් අංකය": p_no,
             "පිරිවෙනේ නම": data["name"],
-            "දිස්ත්‍රික්කය": data["district"],
-            "පළාත": data["province"],
-            "කලාපය": data["zone"],
+            "දිස්ත්‍රික්කය": str(data["district"]).strip().title(),
+            "පළාත": str(data["province"]).strip().title(),
+            "කලාපය": str(data["zone"]).strip().title(),
             "අයදුම් කළ": data["applied"],
             "පෙනී සිටි": sat,
             "සමත්": pass_cnt,
@@ -116,15 +115,24 @@ def calculate_piriven_rankings(results_df, master_df, year, user_role, user_acce
             "zoneColor": zone_color
         })
 
-    sorted_ranking = sorted(ranking_list, key=lambda x: x["Quality Score (QS)"], reverse=True)
-    for i, p in enumerate(sorted_ranking):
-        p["දිවයිනේ ස්ථානය"] = i + 1
-
-    df_temp = pd.DataFrame(sorted_ranking)
+    df_temp = pd.DataFrame(ranking_list)
     if not df_temp.empty:
-        df_temp["පළාත් ස්ථානය"] = df_temp.groupby("පළාත")["Quality Score (QS)"].rank(ascending=False, method="min").astype(int)
-        df_temp["දිස්ත්‍රික් ස්ථානය"] = df_temp.groupby("දිස්ත්‍රික්කය")["Quality Score (QS)"].rank(ascending=False, method="min").astype(int)
+        df_temp = df_temp.sort_values(by=["Quality Score (QS)", "සමත් ප්‍රතිශතය (%)"], ascending=[False, False]).reset_index(drop=True)
+        df_temp["දිවයිනේ ස්ථානය"] = df_temp.index + 1
+        
+        df_temp["පළාත් ස්ථානය"] = (
+            df_temp.sort_values(by=["Quality Score (QS)", "සමත් ප්‍රතිශතය (%)"], ascending=[False, False])
+            .groupby("පළාත", observed=False)
+            .cumcount() + 1
+        )
+        df_temp["දිස්ත්‍රික් ස්ථානය"] = (
+            df_temp.sort_values(by=["Quality Score (QS)", "සමත් ප්‍රතිශතය (%)"], ascending=[False, False])
+            .groupby("දිස්ත්‍රික්කය", observed=False)
+            .cumcount() + 1
+        )
         sorted_ranking = df_temp.to_dict(orient="records")
+    else:
+        sorted_ranking = []
 
     filtered_ranking = []
     u_role_lower = user_role.lower()
@@ -149,7 +157,7 @@ def get_subject_summary(results_df, year):
         "9": "සෞඛ්‍ය විද්‍යාව", "10": "භූගෝල විද්‍යාව", "11": "සාමාන්‍ය විද්‍යාව", "12": "දෙමළ"
     }
     
-    sub_stats = {k: {"విෂයය": v, "පෙනී සිටි සංඛ්‍යාව": 0, "සමත් (A-S/1-3) සංඛ්‍යාව": 0} for k, v in subject_names.items()}
+    sub_stats = {k: {"විෂයය": v, "පෙනී සිටි සංඛ්‍යාව": 0, "සමත් (A-S/1-3) සංඛ්‍යාව": 0} for k, v in subject_names.items()}
     pass_grades = ["A", "B", "C", "S", "1", "2", "3"]
 
     for _, row in yr_df.iterrows():
@@ -223,7 +231,7 @@ def get_detailed_subject_analysis(results_df, master_df, year, selected_subject_
     for _, row in yr_df.iterrows():
         p_no = str(row.get("Pirivena_No", "")).strip()
         p_info = p_map.get(p_no, {"district": "Unknown", "province": "Unknown"})
-        dist = p_info["district"]
+        dist = str(p_info["district"]).strip().title()
         
         if dist not in district_data:
             district_data[dist] = {"A": 0, "B": 0, "C": 0, "S": 0, "W": 0, "sat": 0, "pass": 0}
@@ -262,12 +270,12 @@ def get_detailed_subject_analysis(results_df, master_df, year, selected_subject_
             "C": d["C"],
             "S": d["S"],
             "W": d["W"],
-            "ਸමත්විමේ %": round(rate, 1)
+            "සමත්විමේ %": round(rate, 1)
         })
         
     df_dist = pd.DataFrame(dist_list)
     if not df_dist.empty:
-        df_dist = df_dist.sort_values(by="ਸමත්විමේ %", ascending=False)
+        df_dist = df_dist.sort_values(by="සමත්විමේ %", ascending=False)
         
     return grade_counts, df_dist
 
@@ -292,8 +300,8 @@ def get_yearly_report_data(results_df, master_df, year, user_role, user_access):
         init_row = {
             "p_no": p_no_str,
             "name": p_info.get('name', 'Unknown'),
-            "district": p_info.get('district', 'Unknown').upper(),
-            "province": p_info.get('province', 'Unknown'),
+            "district": str(p_info.get('district', 'Unknown')).strip().title(),
+            "province": str(p_info.get('province', 'Unknown')).strip().title(),
             "zone": "Red"
         }
         for y in years:
@@ -412,7 +420,6 @@ def get_single_pirivena_full_analysis(results_df, master_df, pirivena_key, year,
         if match:
             sub_num = match.group()
 
-    # වර්ෂ 4ක ඉතිහාසය (2022 - 2025)
     years = ["2022", "2023", "2024", "2025"]
     history_rows = []
     pass_grades = ["A", "B", "C", "S", "1", "2", "3"]
@@ -450,7 +457,6 @@ def get_single_pirivena_full_analysis(results_df, master_df, pirivena_key, year,
                         pass_cnt += 1
         history_rows.append({"වර්ෂය": yr, "පෙනී සිටි": sat_cnt, "සමත්": pass_cnt})
 
-    # තෝරාගත් වර්ෂයේ විෂය මට්ටමේ දත්ත
     current_yr_df = results_df[(results_df["Pirivena_No"].astype(str).str.strip() == target_p_no) & 
                                (results_df["Year"].astype(str) == str(year))]
     
@@ -489,7 +495,7 @@ def get_single_pirivena_full_analysis(results_df, master_df, pirivena_key, year,
     for s_code, d in sub_stats.items():
         sat = d["sat"]
         if sat == 0:
-            continue  # සිසුන් පෙනී නොසිටි විෂයන් ඉවත් කිරීම
+            continue 
             
         pas = d["pass"]
         rate = (pas / sat * 100) if sat > 0 else 0.0
@@ -499,7 +505,6 @@ def get_single_pirivena_full_analysis(results_df, master_df, pirivena_key, year,
             "සමත් %": f"{rate:.1f}%"
         })
 
-    # QS මත පදනම්ව නිවැරදි ප්‍රගති කලාපය (Zone) තීරණය කිරීම
     qs_val = pirivena_rank_data.get("Quality Score (QS)", 0.0)
     if qs_val >= 7.5:
         zone = "Green"
