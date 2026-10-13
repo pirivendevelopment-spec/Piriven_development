@@ -321,51 +321,39 @@ else:
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # =========================================================================
+   # =========================================================================
     # VIEW 1: සාරාංශ පුවරුව (Summary)
     # =========================================================================
     if menu == "සාරාංශ පුවරුව (Summary)":
         st.markdown("### 📊 සාරාංශ පුවරුව")
         st.markdown(f"<p style='color: #334155; font-size: 16px;'>පිරිවෙන් සාමාන්‍ය පෙළ විභාග ප්‍රතිඵල විශ්ලේෂණය - <b>{selected_year}</b></p>", unsafe_allow_html=True)
         
-        # 💡 විද්‍යාත්මක පදනම සහ බර තැබීමේ ක්‍රමය දැක්වෙන විස්තර පෙට්ටිය (unsafe_allow_html=True සමඟ)
-        st.markdown("""
-            <div style="background-color: #ffffff; border: 1px solid #cbd5e1; border-left: 6px solid #198754; padding: 20px 25px; border-radius: 12px; margin-top: 15px; margin-bottom: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.04);">
-                <div style="display: flex; align-items: center; margin-bottom: 12px;">
-                    <h4 style="color: #15803d; margin: 0; font-size: 17px; font-weight: bold;">🟩 ශ්‍රේණිගත කිරීමේ විද්‍යාත්මක පදනම (Scientific Ranking Formula)</h4>
-                </div>
-                <p style="color: #334155; font-size: 14px; margin-bottom: 15px; line-height: 1.6;">
-                    මෙම පද්ධතියේ පිරිවෙන් ශ්‍රේණිගත කරනු ලබන්නේ එක් එක් සිසුවා ලබාගන්නා සාමාර්ථයන්හි ගුණාත්මක අගය (Quality Score) මත පදනම් වූ සාමාන්‍ය අගයෙනි. මෙහිදී භාවිත වන මූලික සමීකරණය පහත පරිදි වේ:
-                </p>
+        # 💡 ශ්‍රේණිගත කිරීමේ විද්‍යාත්මක පදනම සහ බර තැබීමේ ක්‍රමය (Streamlit Native Elements මඟින්)
+        with st.container():
+            st.info("📌 **ශ්‍රේණිගත කිරීමේ විද්‍යාත්මක පදනම (Scientific Ranking Formula)**")
+            st.markdown(
+                "මෙම පද්ධතියේ පිරිවෙන් ශ්‍රේණිගත කරනු ලබන්නේ එක් එක් සිසුවා ලබාගන්නා සාමාර්ථයන්හි ගුණාත්මක අගය (Quality Score) මත පදනම් වූ සාමාන්‍ය අගයෙනි. මෙහිදී භාවිත වන මූලික සමීකරණය පහත පරිදි වේ:"
+            )
+            
+            st.latex(r"Quality\ Score\ (QS) = \frac{\sum G_w}{N}")
+            st.caption("මෙහි: G_w = සාමාර්ථයට අදාළ බර තැබීම | N = පෙනී සිටි මුළු සිසුන් සංඛ්‍යාව")
+            
+            col_w1, col_w2 = st.columns(2)
+            with col_w1:
+                st.markdown("##### **සාමාර්ථ බර තැබීම (Weightage):**")
+                weight_df = pd.DataFrame({
+                    "සාමාර්ථය": ["A (විශිෂ්ට)", "B (ඉතා හොඳ)", "C (හොඳ)", "S (සාමාන්‍ය)", "W (අසමත්)"],
+                    "ලකුණු": ["10.0", "8.0", "6.5", "5.0", "0.0"]
+                })
+                st.dataframe(weight_df, hide_index=True, use_container_width=True)
                 
-                <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
-                    <div style="font-size: 18px; font-weight: bold; color: #0f172a; margin-bottom: 5px;">Quality Score (QS) = Σ (G<sub>w</sub>) / N</div>
-                    <div style="font-size: 12.5px; color: #64748b;">මෙහි: G<sub>w</sub> = සාමාර්ථයට අදාළ බර තැබීම | N = පෙනී සිටි මුළු සිසුන් සංඛ්‍යාව</div>
-                </div>
-
-                <div style="display: flex; flex-wrap: wrap; gap: 30px;">
-                    <div style="flex: 1; min-width: 250px;">
-                        <h5 style="color: #1e293b; font-size: 14.5px; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; margin-bottom: 10px;">සාමාර්ථ බර තැබීම (Weightage):</h5>
-                        <table style="width: 100%; font-size: 13.5px; color: #334155; border-collapse: collapse;">
-                            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 5px 0;">A (විශිෂ්ට)</td><td style="text-align: right; font-weight: bold; color: #0f766e;">10.0</td></tr>
-                            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 5px 0;">B (ඉතා හොඳ)</td><td style="text-align: right; font-weight: bold; color: #0f766e;">8.0</td></tr>
-                            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 5px 0;">C (හොඳ)</td><td style="text-align: right; font-weight: bold; color: #0f766e;">6.5</td></tr>
-                            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 5px 0;">S (සාමාන්‍ය)</td><td style="text-align: right; font-weight: bold; color: #0f766e;">5.0</td></tr>
-                            <tr><td style="padding: 5px 0;">W (අසමත්)</td><td style="text-align: right; font-weight: bold; color: #dc3545;">0.0</td></tr>
-                        </table>
-                    </div>
-                    
-                    <div style="flex: 1.5; min-width: 280px;">
-                        <h5 style="color: #1e293b; font-size: 14.5px; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; margin-bottom: 10px;">විශේෂ අවධාන:</h5>
-                        <ul style="color: #475569; font-size: 13px; padding-left: 18px; margin: 0; line-height: 1.6;">
-                            <li style="margin-bottom: 6px;">පිරිවෙනක ශිෂ්‍ය සංඛ්‍යාව කුඩා වුවත් විශාල වුවත්, සෑම ආයතනයක්ම එකම සාಧಾರණ මිනුම් දණ්ඩකින් (Scale 0-100) මෙහිදී මැන බලනු ලැබේ.</li>
-                            <li style="margin-bottom: 6px;">මෙහිගින් පිරිවෙනක සාමූහික ශාස්ත්‍රීය දක්ෂතාවය මෙන්ම එක් එක් සිසුවා කෙරෙහි දක්වන අවධානය මනාව නිරූපණය වේ.</li>
-                            <li>සමත් වීමේ ප්‍රතිශතය ගණන කරනු ලබන්නේ පෙනී සිටි (Sat) සිසුන් සංඛ්‍යාව මත පමණි.</li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
+            with col_w2:
+                st.markdown("##### **විශේෂ අවධාන:**")
+                st.markdown("""
+                - පිරිවෙනක ශිෂ්‍ය සංඛ්‍යාව කුඩා වුවත් විශාල වුවත්, සෑම ආයතනයක්ම එකම සාಧಾರණ මිනුම් දණ්ඩකින් මැන බලනු ලැබේ.
+                - මෙහිගින් පිරිවෙනක සාමූහික ශාස්ත්‍රීය දක්ෂතාවය මෙන්ම එක් එක් සිසුවා කෙරෙහි දක්වන අවධානය නිරූපණය වේ.
+                - සමත් වීමේ ප්‍රතිශතය ගණනය කරනු ලබන්නේ පෙනී සිටි (Sat) සිසුන් සංඛ්‍යාව මත පමණි.
+                """)
 
         st.markdown("---")
         
