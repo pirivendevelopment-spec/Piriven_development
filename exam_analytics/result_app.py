@@ -822,7 +822,8 @@ else:
 </html>
 """
 
-            st.markdown(html_content, unsafe_allow_html=True)
+          # 💡 components.html වෙත මාරු කර නිසි Height එකක් ලබා දීම මඟින් වගුව මනාව දිස් වනු ඇත
+            components.html(html_content, height=750, scrolling=True)
         else:
             st.info("වාර්තාගත දත්ත කිසිවක් හමු නොවීය.")
     # =========================================================================
