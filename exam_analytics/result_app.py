@@ -458,11 +458,21 @@ else:
             df_rank["Quality Score (QS)"] = pd.to_numeric(df_rank["Quality Score (QS)"], errors='coerce').fillna(0.0)
             df_rank["සමත් ප්‍රතිශතය (%)"] = pd.to_numeric(df_rank["සමත් ප්‍රතිශතය (%)"], errors='coerce').fillna(0.0)
 
-            # Global, Provincial & District dynamic ranking calculation
+           # Global, Provincial & District dynamic ranking calculation (වැඩිම ලකුණු ලත් අයට ඉහළම ස්ථානය ලැබෙන ලෙස)
             df_rank = df_rank.sort_values(by=["Quality Score (QS)", "සමත් ප්‍රතිශතය (%)"], ascending=[False, False]).reset_index(drop=True)
             df_rank["දිවයිනේ ස්ථානය"] = df_rank.index + 1
-            df_rank["පළාත් ස්ථානය"] = df_rank.groupby(prov_col, observed=False).cumcount() + 1
-            df_rank["දිස්ත්‍රික් ස්ථානය"] = df_rank.groupby(dist_col, observed=False).cumcount() + 1
+            
+            df_rank["පළාත් ස්ථානය"] = (
+                df_rank.sort_values(by=["Quality Score (QS)", "සමත් ප්‍රතිශතය (%)"], ascending=[False, False])
+                .groupby(prov_col, observed=False)
+                .cumcount() + 1
+            )
+            
+            df_rank["දිස්ත්‍රික් ස්ථානය"] = (
+                df_rank.sort_values(by=["Quality Score (QS)", "සමත් ප්‍රතිශතය (%)"], ascending=[False, False])
+                .groupby(dist_col, observed=False)
+                .cumcount() + 1
+            )
 
             f_col1, f_col2, f_col3, f_col4 = st.columns(4)
             
