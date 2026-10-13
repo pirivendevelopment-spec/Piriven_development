@@ -750,24 +750,84 @@ else:
 
             st.markdown(f"<p style='color: #0f766e;'><b>පෙන්වන ලද පිරිවෙන් සංඛ්‍යාව: {len(filtered_report_df)}</b></p>", unsafe_allow_html=True)
 
-            # 💡 දත්ත මනාව සකස් කර Streamlit Native DataFrame මඟින් ප්‍රදර්ශනය කිරීම (මෙය මුද්‍රණයට ඉතා හිතකාමීය)
-            display_records = []
-            for _, r in filtered_report_df.iterrows():
-                display_records.append({
-                    "පිරිවෙනේ නම": f"{r['name']} ({r['p_no']} | {r['district']})",
-                    "22-A": r['2022_A'], "22-B": r['2022_B'], "22-C": r['2022_C'], "22-S": r['2022_S'], "22-W": r['2022_W'],
-                    "23-A": r['2023_A'], "23-B": r['2023_B'], "23-C": r['2023_C'], "23-S": r['2023_S'], "23-W": r['2023_W'],
-                    "24-A": r['2024_A'], "24-B": r['2024_B'], "24-C": r['2024_C'], "24-S": r['2024_S'], "24-W": r['2024_W'],
-                    "25-A": r['2025_A'], "25-B": r['2025_B'], "25-C": r['2025_C'], "25-S": r['2025_S'], "25-W": r['2025_W'],
-                    "සමත් %": r['pass_pct'],
-                    "අසමත් %": r['fail_pct'],
-                    "ප්‍රගති කලාපය": f"{r['zone']} Zone"
-                })
+            # පිරිවෙන් ගණන මත පදනම්ව iframe එකේ උස (Height) ස්වයංක්‍රීයව වෙනස් වීම (සම්පූර්ණ වගුවම පෙනීමට)
+            table_height = max(500, len(filtered_report_df) * 45 + 100)
 
-            df_display = pd.DataFrame(display_records)
-            
-            # සම්පූර්ණ වගුව ස්ක්‍රෝල් වීමකින් තොරව සම්පූර්ණයෙන්ම දිස් වීමට සලස්වා පෙන්වීම
-            st.dataframe(df_display, use_container_width=True, hide_index=True, height=600)
+            html_content = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+            <meta charset="utf-8">
+            <style>
+                body {{ font-family: 'Segoe UI', sans-serif; background-color: #f4f7f6; margin: 0; padding: 5px; }}
+                .yearly-table {{ width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); font-size: 13px; }}
+                .yearly-table th, .yearly-table td {{ border: 1px solid #cbd5e1; padding: 8px 4px; text-align: center; vertical-align: middle; color: #1e293b; }}
+                .yearly-table th {{ background-color: #1a252f; color: white; font-weight: bold; }}
+                .p-cell {{ text-align: left !important; padding-left: 10px !important; font-weight: bold; width: 240px; }}
+                .zone-Green {{ background-color: #d1e7dd; color: #0f5132; font-weight: bold; }}
+                .zone-Yellow {{ background-color: #fff3cd; color: #664d03; font-weight: bold; }}
+                .zone-Orange {{ background-color: #ffe5d0; color: #854d0e; font-weight: bold; }}
+                .zone-Red {{ background-color: #f8d7da; color: #842029; font-weight: bold; }}
+
+                /* 💡 ප්‍රින්ට් කිරීමේදී iframe එක බාධාවකින් තොරව සම්පූර්ණයෙන්ම පිටුගත වීමට */
+                @media print {{
+                    body {{ background-color: #ffffff !important; height: auto !important; overflow: visible !important; }}
+                    .yearly-table {{ width: 100% !important; font-size: 11px !important; box-shadow: none !important; }}
+                    tr {{ page-break-inside: avoid; break-inside: avoid; }}
+                    thead {{ display: table-header-group; }}
+                }}
+            </style>
+            </head>
+            <body>
+            <table class="yearly-table">
+                <thead>
+                    <tr>
+                        <th rowspan="2" class="p-cell">පිරිවෙනේ නම</th>
+                        <th colspan="5">2022</th>
+                        <th colspan="5">2023</th>
+                        <th colspan="5">2024</th>
+                        <th colspan="5">2025</th>
+                        <th rowspan="2">සමත් %</th>
+                        <th rowspan="2">අසමත් %</th>
+                        <th rowspan="2">ප්‍රගති කලාපය</th>
+                    </tr>
+                    <tr>
+                        <th>A</th><th>B</th><th>C</th><th>S</th><th>W</th>
+                        <th>A</th><th>B</th><th>C</th><th>S</th><th>W</th>
+                        <th>A</th><th>B</th><th>C</th><th>S</th><th>W</th>
+                        <th>A</th><th>B</th><th>C</th><th>S</th><th>W</th>
+                    </tr>
+                </thead>
+                <tbody>
+            """
+
+            for _, r in filtered_report_df.iterrows():
+                z_class = f"zone-{r['zone']}"
+                html_content += f"""
+                    <tr>
+                        <td class="p-cell">
+                            <div style="font-size: 13px; color: #0f172a;">{r['name']}</div>
+                            <div style="font-size: 11px; color: #64748b; font-weight: normal;">{r['p_no']} | {r['district']}</div>
+                        </td>
+                        <td>{r['2022_A']}</td><td>{r['2022_B']}</td><td>{r['2022_C']}</td><td>{r['2022_S']}</td><td>{r['2022_W']}</td>
+                        <td>{r['2023_A']}</td><td>{r['2023_B']}</td><td>{r['2023_C']}</td><td>{r['2023_S']}</td><td>{r['2023_W']}</td>
+                        <td>{r['2024_A']}</td><td>{r['2024_B']}</td><td>{r['2024_C']}</td><td>{r['2024_S']}</td><td>{r['2024_W']}</td>
+                        <td>{r['2025_A']}</td><td>{r['2025_B']}</td><td>{r['2025_C']}</td><td>{r['2025_S']}</td><td>{r['2025_W']}</td>
+                        <td><b>{r['pass_pct']}</b></td>
+                        <td>{r['fail_pct']}</td>
+                        <td class="{z_class}">{r['zone']} Zone</td>
+                    </tr>
+                """
+
+            html_content += """
+                </tbody>
+            </table>
+            </body>
+            </html>
+            """
+
+            # වගුවේ දිගට අනුකූලව height එක ස්වයංක්‍රීයව සැකසීමෙන් මුද්‍රණයේදී සම්පූර්ණ දත්ත පෙනෙනු ඇත
+            components.html(html_content, height=table_height, scrolling=True)
         else:
             st.info("වාර්තාගත දත්ත කිසිවක් හමු නොවීය.")
     # =========================================================================
