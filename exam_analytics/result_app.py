@@ -455,7 +455,11 @@ else:
             f_col1, f_col2, f_col3, f_col4 = st.columns(4)
             
             with f_col1:
-                prov_list = sorted([str(p) for p in df_rank[prov_col].unique().tolist() if p and str(p).lower() != 'nan' and str(p).strip() != ''])
+                # 💡 සංඛ්‍යාත්මක අංක (Digits) සම්පූර්ණයෙන්ම පෙරහන් කර ඉවත් කර, පිරිසිදු පළාත් නම් පමණක් ලබා ගැනීම
+                prov_list = sorted([
+                    str(p).strip().title() for p in df_rank[prov_col].unique().tolist() 
+                    if p and str(p).lower() != 'nan' and str(p).strip() != '' and not str(p).strip().isdigit()
+                ])
                 provinces = ["සියලුම පළාත්"] + prov_list
                 sel_prov = st.selectbox("පළාත අනුව පෙරන්න", provinces)
                 
