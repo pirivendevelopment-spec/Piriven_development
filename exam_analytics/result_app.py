@@ -349,7 +349,7 @@ else:
             orange_passed_students = sum(d["සමත්"] for d in ranking_data if d["zoneColor"] == "Orange")
             red_passed_students = sum(d["සමත්"] for d in ranking_data if d["zoneColor"] == "Red")
 
-            # 1. පෝලිමේ මුලින්ම KPI කාඩ්පත් පෙන්වීම
+            # 1. KPI කාඩ්පත් පෙන්වීම
             k1, k2, k3, k4 = st.columns(4)
             k1.markdown(f'<div class="kpi-card"><div class="kpi-title">අයදුම් කළ සංඛ්‍යාව</div><div class="kpi-value">{tot_applied:,}</div></div>', unsafe_allow_html=True)
             k2.markdown(f'<div class="kpi-card"><div class="kpi-title">පෙනී සිටි සංඛ්‍යාව</div><div class="kpi-value">{tot_sat:,}</div></div>', unsafe_allow_html=True)
@@ -393,36 +393,7 @@ else:
             
             st.markdown("---")
 
-            # 2. 💡 KPI කාඩ්පත්වලට පසුව 'ශ්‍රේණිගත කිරීමේ විද්‍යාත්මක පදනම' විස්තර පෙට්ටිය තැබීම
-            with st.container():
-                st.info("📌 **ශ්‍රේණිගත කිරීමේ විද්‍යාත්මක පදනම (Scientific Ranking Formula)**")
-                st.markdown(
-                    "මෙම පද්ධතියේ පිරිවෙන් ශ්‍රේණිගත කරනු ලබන්නේ එක් එක් සිසුවා ලබාගන්නා සාමාර්ථයන්හි ගුණාත්මක අගය (Quality Score) මත පදනම් වූ සාමාන්‍ය අගයෙනි. මෙහිදී භාවිත වන මූලික සමීකරණය පහත පරිදි වේ:"
-                )
-                
-                st.latex(r"Quality\ Score\ (QS) = \frac{\sum G_w}{N}")
-                st.caption("මෙහි: G_w = සාමාර්ථයට අදාළ බර තැබීම | N = පෙනී සිටි මුළු සිසුන් සංඛ්‍යාව")
-                
-                col_w1, col_w2 = st.columns(2)
-                with col_w1:
-                    st.markdown("##### **සාමාර්ථ බර තැබීම (Weightage):**")
-                    weight_df = pd.DataFrame({
-                        "සාමාර්ථය": ["A (විශිෂ්ට)", "B (ඉතා හොඳ)", "C (හොඳ)", "S (සාමාන්‍ය)", "W (අසමත්)"],
-                        "ලකුණු": ["10.0", "8.0", "6.5", "5.0", "0.0"]
-                    })
-                    st.dataframe(weight_df, hide_index=True, use_container_width=True)
-                    
-                with col_w2:
-                    st.markdown("##### **විශේෂ අවධාන:**")
-                    st.markdown("""
-                    - පිරිවෙනක ශිෂ්‍ය සංඛ්‍යාව කුඩා වුවත් විශාල වුවත්, සෑම ආයතනයක්ම එකම සාಧಾರණ මිනුම් දණ්ඩකින් මැන බලනු ලැබේ.
-                    - මෙහිගින් පිරිවෙනක සාමූහික ශාස්ත්‍රීය දක්ෂතාවය මෙන්ම එක් එක් සිසුවා කෙරෙහි දක්වන අවධානය නිරූපණය වේ.
-                    - සමත් වීමේ ප්‍රතිශතය ගණනය කරනු ලබන්නේ පෙනී සිටි (Sat) සිසුන් සංඛ්‍යාව මත පමණි.
-                    """)
-
-            st.markdown("---")
-            
-            # 3. ඉන්පසුව ප්‍රස්ථාර (Charts) සහ දිස්ත්‍රික් ප්‍රගති වගුව පෙන්වීම
+            # 2. ප්‍රස්ථාර (Charts) සහ දිස්ත්‍රික් ප්‍රගති වගුව පෙන්වීම
             col_chart, col_dist = st.columns([2, 1])
             
             with col_chart:
@@ -451,6 +422,36 @@ else:
                     dist_summary = dist_df.groupby("දිස්ත්‍රික්කය")["සමත් ප්‍රතිශතය (%)"].mean().reset_index()
                     dist_summary = dist_summary.sort_values(by="සමත් ප්‍රතිශතය (%)", ascending=False)
                     st.dataframe(dist_summary, use_container_width=True, height=350, hide_index=True)
+
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("---")
+
+            # 3. 💡 ප්‍රස්ථාරවලට සහ වගුවට යටින් 'ශ්‍රේණිගත කිරීමේ විද්‍යාත්මක පදනම' විස්තර පෙට්ටිය තැබීම
+            with st.container():
+                st.info("📌 **ශ්‍රේණිගත කිරීමේ විද්‍යාත්මක පදනම (Scientific Ranking Formula)**")
+                st.markdown(
+                    "මෙම පද්ධතියේ පිරිවෙන් ශ්‍රේණිගත කරනු ලබන්නේ එක් එක් සිසුවා ලබාගන්නා සාමාර්ථයන්හි ගුණාත්මක අගය (Quality Score) මත පදනම් වූ සාමාන්‍ය අගයෙනි. මෙහිදී භාවිත වන මූලික සමීකරණය පහත පරිදි වේ:"
+                )
+                
+                st.latex(r"Quality\ Score\ (QS) = \frac{\sum G_w}{N}")
+                st.caption("මෙහි: G_w = සාමාර්ථයට අදාළ බර තැබීම | N = පෙනී සිටි මුළු සිසුන් සංඛ්‍යාව")
+                
+                col_w1, col_w2 = st.columns(2)
+                with col_w1:
+                    st.markdown("##### **සාමාර්ථ බර තැබීම (Weightage):**")
+                    weight_df = pd.DataFrame({
+                        "සාමාර්ථය": ["A (විශිෂ්ට)", "B (ඉතා හොඳ)", "C (හොඳ)", "S (සාමාන්‍ය)", "W (අසමත්)"],
+                        "ලකුණු": ["10.0", "8.0", "6.5", "5.0", "0.0"]
+                    })
+                    st.dataframe(weight_df, hide_index=True, use_container_width=True)
+                    
+                with col_w2:
+                    st.markdown("##### **විශේෂ අවධාන:**")
+                    st.markdown("""
+                    - පිරිවෙනක ශිෂ්‍ය සංඛ්‍යාව කුඩා වුවත් විශාල වුවත්, සෑම ආයතනයක්ම එකම සාಧಾರණ මිනුම් දණ්ඩකින් මැන බලනු ලැබේ.
+                    - මෙහිගින් පිරිවෙනක සාමූහික ශාස්ත්‍රීය දක්ෂතාවය මෙන්ම එක් එක් සිසුවා කෙරෙහි දක්වන අවධානය නිරූපණය වේ.
+                    - සමත් වීමේ ප්‍රතිශතය ගණනය කරනු ලබන්නේ පෙනී සිටි (Sat) සිසුන් සංඛ්‍යාව මත පමණි.
+                    """)
 
     # =========================================================================
     # VIEW 2: පළාත් හා ශ්‍රේණිගත කිරීම් (Rankings)
