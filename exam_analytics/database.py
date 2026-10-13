@@ -56,14 +56,16 @@ def get_pirivena_map(master_df):
         return p_map
         
     master_df.columns = master_df.columns.str.strip()
+    
+    # සියලුම තීරු නම් Upper case කර සෙවීම
     cols_map = {str(c).strip().upper(): c for c in master_df.columns}
     
     p_no_col = cols_map.get('PIRIVENA_N', master_df.columns[1] if len(master_df.columns) > 1 else None)
     name_col = cols_map.get('NAME OF THE PIRIVENA', cols_map.get('PIRIVENA NAME', master_df.columns[2] if len(master_df.columns) > 2 else None))
     
-    # කේත අංක තීරු (District N) මඟහැර නියම නම ඇති තීරු තෝරා ගැනීම
-    dist_col = next((cols_map[c] for c in cols_map if c == 'DISTRICT'), master_df.columns[4] if len(master_df.columns) > 4 else None)
-    prov_col = next((cols_map[c] for c in cols_map if c == 'PROVINCE'), master_df.columns[6] if len(master_df.columns) > 6 else None)
+    # 'DISTRICT N' හෝ 'CODE' වැනි සංඛ්‍යාත්මක තීරු මඟහැර නියම පෙළ ඇති DISTRICT සහ PROVINCE තීරු තෝරා ගැනීම
+    dist_col = next((cols_map[c] for c in cols_map if c == 'DISTRICT' or (c.startswith('DISTRICT') and 'N' not in c and 'CODE' not in c)), master_df.columns[4] if len(master_df.columns) > 4 else None)
+    prov_col = next((cols_map[c] for c in cols_map if c == 'PROVINCE' or (c.startswith('PROVINCE') and 'N' not in c and 'CODE' not in c)), master_df.columns[6] if len(master_df.columns) > 6 else None)
     census_col = next((cols_map[c] for c in cols_map if 'CENSUS' in c), master_df.columns[0] if len(master_df.columns) > 0 else None)
     zone_col = next((cols_map[c] for c in cols_map if 'ZONE' in c), master_df.columns[7] if len(master_df.columns) > 7 else None)
 
@@ -83,8 +85,8 @@ def get_pirivena_map(master_df):
             p_map[p_no] = {
                 "census_no": str(row.get(census_col, "")) if census_col else "",
                 "name": str(row.get(name_col, "Unknown")) if name_col else "Unknown",
-                "district": raw_dist.title() if raw_dist.lower() != 'nan' else "Unknown",
-                "province": raw_prov.title() if raw_prov.lower() != 'nan' else "Unknown",
+                "district": raw_dist.title() if raw_dist.lower() != 'nan' and raw_dist != '' else "Unknown",
+                "province": raw_prov.title() if raw_prov.lower() != 'nan' and raw_prov != '' else "Unknown",
                 "zone": str(row.get(zone_col, "Unknown")).strip().title() if zone_col else "Unknown"
             }
     return p_map
