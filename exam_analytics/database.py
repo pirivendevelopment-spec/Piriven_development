@@ -34,7 +34,6 @@ def load_data():
             elif 'master' in sheet_lower or 'st2' in sheet_lower or 'pirivena_n' in cols_lower or 'census_no' in cols_lower or 'name of the pirivena' in cols_lower or 'district' in cols_lower:
                 master_df = temp_df
 
-        # Fallback
         if master_df.empty and len(xls.sheet_names) > 0:
             master_df = pd.read_excel(excel_path, sheet_name=0)
             master_df.columns = master_df.columns.str.strip()
@@ -57,21 +56,15 @@ def get_pirivena_map(master_df):
         return p_map
         
     master_df.columns = master_df.columns.str.strip()
-    
-    # 💡 එක්සෙල් ගොනුවේ ඇති නිවැරදි තීරු නම් (Columns) හෝ Index මඟින් සෘජුවම ලබා ගැනීම
     cols_map = {str(c).strip().upper(): c for c in master_df.columns}
     
-    # පිරිවෙන් අංකය (Pirivena_No හෝ B තීරුව)
     p_no_col = cols_map.get('PIRIVENA_N', master_df.columns[1] if len(master_df.columns) > 1 else None)
-    # පිරිවෙනේ නම (Name of the Pirivena හෝ C තීරුව)
     name_col = cols_map.get('NAME OF THE PIRIVENA', cols_map.get('PIRIVENA NAME', master_df.columns[2] if len(master_df.columns) > 2 else None))
-    # දිස්ත්‍රික්කයේ නම (DISTRICT හෝ E තීරුව - DISTRICT N හැර)
+    
+    # කේත අංක තීරු (District N) මඟහැර නියම නම ඇති තීරු තෝරා ගැනීම
     dist_col = next((cols_map[c] for c in cols_map if c == 'DISTRICT'), master_df.columns[4] if len(master_df.columns) > 4 else None)
-    # පළාතේ නම (PROVINCE හෝ G තීරුව)
     prov_col = next((cols_map[c] for c in cols_map if c == 'PROVINCE'), master_df.columns[6] if len(master_df.columns) > 6 else None)
-    # සංගණන අංකය (Census_No හෝ A තීරුව)
     census_col = next((cols_map[c] for c in cols_map if 'CENSUS' in c), master_df.columns[0] if len(master_df.columns) > 0 else None)
-    # කලාපය (EDU ZONE හෝ H තීරුව)
     zone_col = next((cols_map[c] for c in cols_map if 'ZONE' in c), master_df.columns[7] if len(master_df.columns) > 7 else None)
 
     for _, row in master_df.iterrows():
