@@ -422,22 +422,42 @@ else:
                     dist_summary = dist_summary.sort_values(by="සමත් ප්‍රතිශතය (%)", ascending=False)
                     st.dataframe(dist_summary, use_container_width=True, height=350, hide_index=True)
                      # 💡 බර තැබීමේ ක්‍රමය සහ ලකුණු ලබා දෙන ආකාරය දැක්වෙන විස්තර පෙට්ටිය (Info Box)
-        st.markdown("""
-            <div style="background-color: #f0fdf4; border-left: 5px solid #0f766e; padding: 15px 20px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.03);">
-                <h4 style="color: #0f766e; margin-top: 0; margin-bottom: 8px; font-size: 16px;">📌 බර තැබූ ලකුණු (Quality Score - QS) සහ ශ්‍රේණිගත කිරීමේ ක්‍රමවේදය</h4>
-                <p style="color: #1e293b; font-size: 13.5px; margin-bottom: 6px; line-height: 1.5;">
-                    පිරිවෙන් සාධන මට්ටම මැන බැලීම සඳහා විභාග සමත් වීමේ ප්‍රතිශතය මෙන්ම සාමාර්ථයන්ට හිමි වන බර තැබීමේ ලකුණු (Quality Score) පදනම් කරගනී:
+       st.markdown("""
+            <div style="background-color: #ffffff; border: 1px solid #cbd5e1; border-left: 6px solid #198754; padding: 20px 25px; border-radius: 12px; margin-bottom: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.04);">
+                <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                    <span style="font-size: 20px; margin-right: 8px;"> zelen</span>
+                    <h4 style="color: #15803d; margin: 0; font-size: 17px; font-weight: bold;">ශ්‍රේණිගත කිරීමේ විද්‍යාත්මක පදනම (Scientific Ranking Formula)</h4>
+                </div>
+                <p style="color: #334155; font-size: 14px; margin-bottom: 15px; line-height: 1.6;">
+                    මෙම පද්ධතියේ පිරිවෙන් ශ්‍රේණිගත කරනු ලබන්නේ එක් එක් සිසුවා ලබාගන්නා සාමාර්ථයන්හි ගුණාත්මක අගය (Quality Score) මත පදනම් වූ සාමාන්‍ය අගයෙනි. මෙහිදී භාවිත වන මූලික සමීකරණය පහත පරිදි වේ:
                 </p>
-                <ul style="color: #334155; font-size: 13px; margin-bottom: 0; padding-left: 20px; line-height: 1.6;">
-                    <li><b>සාමාර්ථ සඳහා බර තැබීම:</b> A සඳහා 10.0 ක්ද, B සඳහා 8.0 ක්ද, C සඳහා 6.5 ක්ද, S සඳහා 5.0 ක්ද, W (અસමත්) සඳහා 0.1 ක්ද ලෙස ලකුණු ලබා දී ආයතනයේ බර තැබූ සාමාන්‍යය (QS) ගණਨ බලා ඇත.</li>
-                    <li><b>විභාග සමත්වීමේ නීතිය:</b> සිසුවෙකු විභාගයෙන් සමත් වීමට නම් ත්‍රිපිටක ධර්මය (SUB3) හෝ සිංහල/පාලි විෂයන්ගෙන් සමත්වී, අවම වශයෙන් විෂයයන් 6ක්වත් සාර්ථකව සමීක්ෂණය කර තිබිය යුතුය.</li>
-                    <li><b>ප්‍රගති කලාප (Progress Zones):</b> 
-                        <span style="color: #198754; font-weight: bold;">🟢 Green (75%+)</span> | 
-                        <span style="color: #b45309; font-weight: bold;">🟡 Yellow (50%+)</span> | 
-                        <span style="color: #c2410c; font-weight: bold;">🟠 Orange (35%+)</span> | 
-                        <span style="color: #b91c1c; font-weight: bold;">🔴 Red (<35%)</span> ලෙස කලාපගත කර ඇත.
-                    </li>
-                </ul>
+                
+                <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
+                    <div style="font-size: 18px; font-weight: bold; color: #0f172a; margin-bottom: 5px;">Quality Score (QS) = Σ (G<sub>w</sub>) / N</div>
+                    <div style="font-size: 12.5px; color: #64748b;">මෙහි: G<sub>w</sub> = සාමාර්ථයට අදාළ බර තැබීම | N = පෙනී සිටි මුළු සිසුන් සංඛ්‍යාව</div>
+                </div>
+
+                <div style="display: flex; flex-wrap: wrap; gap: 30px;">
+                    <div style="flex: 1; min-width: 250px;">
+                        <h5 style="color: #1e293b; font-size: 14.5px; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; margin-bottom: 10px;">සාමාර්ථ බර තැබීම (Weightage):</h5>
+                        <table style="width: 100%; font-size: 13.5px; color: #334155; border-collapse: collapse;">
+                            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 5px 0;">A (විශිෂ්ට)</td><td style="text-align: right; font-weight: bold; color: #0f766e;">10.0</td></tr>
+                            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 5px 0;">B (ඉතා හොඳ)</td><td style="text-align: right; font-weight: bold; color: #0f766e;">8.0</td></tr>
+                            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 5px 0;">C (හොඳ)</td><td style="text-align: right; font-weight: bold; color: #0f766e;">6.5</td></tr>
+                            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 5px 0;">S (සාමාන්‍ය)</td><td style="text-align: right; font-weight: bold; color: #0f766e;">5.0</td></tr>
+                            <tr><td style="padding: 5px 0;">W (අසමත්)</td><td style="text-align: right; font-weight: bold; color: #dc3545;">0.0</td></tr>
+                        </table>
+                    </div>
+                    
+                    <div style="flex: 1.5; min-width: 280px;">
+                        <h5 style="color: #1e293b; font-size: 14.5px; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; margin-bottom: 10px;">විශේෂ අවධාන:</h5>
+                        <ul style="color: #475569; font-size: 13px; padding-left: 18px; margin: 0; line-height: 1.6;">
+                            <li style="margin-bottom: 6px;">පිරිවෙනක ශිෂ්‍ය සංඛ්‍යාව කුඩා වුවත් විශාල වුවත්, සෑම ආයතනයක්ම එකම සාಧಾರණ මිනුම් දණ්ඩකින් (Scale 0-100) මෙහිදී මැන බලනු ලැබේ.</li>
+                            <li style="margin-bottom: 6px;">මෙහිගින් පිරිවෙනක සාමූහික ශාස්ත්‍රීය දක්ෂතාවය මෙන්ම එක් එක් සිසුවා කෙරෙහි දක්වන අවධානය මනාව නිරූපණය වේ.</li>
+                            <li>සමත් වීමේ ප්‍රතිශතය ගණන කරනු ලබන්නේ පෙනී සිටි (Sat) සිසුන් සංඛ්‍යාව මත පමණි.</li>
+                        </ul>
+                    </div>
+                </div>
             </div>
         """, unsafe_allow_html=True)
 
