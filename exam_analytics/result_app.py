@@ -706,8 +706,7 @@ else:
             st.dataframe(df_dist, use_container_width=True, height=450, hide_index=True)
         else:
             st.info("තෝරාගත් වර්ෂය සඳහා දත්ත නොමැත.")
-
-    # =========================================================================
+# =========================================================================
     # VIEW 4: වාර්ෂික වාර්තාව (Yearly Report)
     # =========================================================================
     elif menu == "වාර්ෂික වාර්තාව (Yearly Report)":
@@ -751,7 +750,7 @@ else:
 
             st.markdown(f"<p style='color: #0f766e;'><b>පෙන්වන ලද පිරිවෙන් සංඛ්‍යාව: {len(filtered_report_df)}</b></p>", unsafe_allow_html=True)
 
-           html_content = """
+            html_content = """
 <!DOCTYPE html>
 <html>
 <head>
@@ -823,37 +822,7 @@ else:
 </html>
 """
 
-            # 💡 components.html වෙනුවට st.markdown භාවිත කිරීම මඟින් මුළු වගුවම තනි ලේඛනයක් ලෙස ප්‍රින්ට් වනු ඇත
             st.markdown(html_content, unsafe_allow_html=True)
-        else:
-            st.info("වාර්තාගත දත්ත කිසිවක් හමු නොවීය.")
-
-            for _, r in filtered_report_df.iterrows():
-                z_class = f"zone-{r['zone']}"
-                html_content += f"""
-        <tr>
-            <td class="p-cell">
-                <div style="font-size: 13px; color: #0f172a;">{r['name']}</div>
-                <div style="font-size: 11px; color: #64748b; font-weight: normal;">{r['p_no']} | {r['district']}</div>
-            </td>
-            <td>{r['2022_A']}</td><td>{r['2022_B']}</td><td>{r['2022_C']}</td><td>{r['2022_S']}</td><td>{r['2022_W']}</td>
-            <td>{r['2023_A']}</td><td>{r['2023_B']}</td><td>{r['2023_C']}</td><td>{r['2023_S']}</td><td>{r['2023_W']}</td>
-            <td>{r['2024_A']}</td><td>{r['2024_B']}</td><td>{r['2024_C']}</td><td>{r['2024_S']}</td><td>{r['2024_W']}</td>
-            <td>{r['2025_A']}</td><td>{r['2025_B']}</td><td>{r['2025_C']}</td><td>{r['2025_S']}</td><td>{r['2025_W']}</td>
-            <td><b>{r['pass_pct']}</b></td>
-            <td>{r['fail_pct']}</td>
-            <td class="{z_class}">{r['zone']} Zone</td>
-        </tr>
-"""
-
-            html_content += """
-    </tbody>
-</table>
-</body>
-</html>
-"""
-
-            components.html(html_content, height=650, scrolling=True)
         else:
             st.info("වාර්තාගත දත්ත කිසිවක් හමු නොවීය.")
     # =========================================================================
