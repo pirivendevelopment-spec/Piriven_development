@@ -57,17 +57,18 @@ def get_pirivena_map(master_df):
         
     master_df.columns = master_df.columns.str.strip()
     
-    # සියලුම තීරු නම් Upper case කර සෙවීම
-    cols_map = {str(c).strip().upper(): c for c in master_df.columns}
+    # පිරිවෙන් අංකය (B තීරුව හෝ 'PIRIVENA_N')
+    p_no_col = next((c for c in master_df.columns if 'pirivena' in c.lower() and 'n' in c.lower()), master_df.columns[1] if len(master_df.columns) > 1 else None)
     
-    p_no_col = cols_map.get('PIRIVENA_N', master_df.columns[1] if len(master_df.columns) > 1 else None)
-    name_col = cols_map.get('NAME OF THE PIRIVENA', cols_map.get('PIRIVENA NAME', master_df.columns[2] if len(master_df.columns) > 2 else None))
+    # පිරිවෙනේ නම (C තීරුව හෝ 'NAME OF THE PIRIVENA')
+    name_col = next((c for c in master_df.columns if 'name' in c.lower()), master_df.columns[2] if len(master_df.columns) > 2 else None)
     
-    # 'DISTRICT N' හෝ 'CODE' වැනි සංඛ්‍යාත්මක තීරු මඟහැර නියම පෙළ ඇති DISTRICT සහ PROVINCE තීරු තෝරා ගැනීම
-    dist_col = next((cols_map[c] for c in cols_map if c == 'DISTRICT' or (c.startswith('DISTRICT') and 'N' not in c and 'CODE' not in c)), master_df.columns[4] if len(master_df.columns) > 4 else None)
-    prov_col = next((cols_map[c] for c in cols_map if c == 'PROVINCE' or (c.startswith('PROVINCE') and 'N' not in c and 'CODE' not in c)), master_df.columns[6] if len(master_df.columns) > 6 else None)
-    census_col = next((cols_map[c] for c in cols_map if 'CENSUS' in c), master_df.columns[0] if len(master_df.columns) > 0 else None)
-    zone_col = next((cols_map[c] for c in cols_map if 'ZONE' in c), master_df.columns[7] if len(master_df.columns) > 7 else None)
+    # 💡 සෘජුවම E තීරුව (District නම) සහ G තීරුව (Province නම) ලබා ගැනීම
+    dist_col = master_df.columns[4] if len(master_df.columns) > 4 else None  # E තීරුව (DISTRICT)
+    prov_col = master_df.columns[6] if len(master_df.columns) > 6 else None  # G තීරුව (PROVINCE)
+    
+    census_col = master_df.columns[0] if len(master_df.columns) > 0 else None  # A තීරුව (Census_No)
+    zone_col = next((c for c in master_df.columns if 'zone' in c.lower()), master_df.columns[7] if len(master_df.columns) > 7 else None)
 
     for _, row in master_df.iterrows():
         raw_p_no = row.get(p_no_col, "") if p_no_col else ""
@@ -82,11 +83,15 @@ def get_pirivena_map(master_df):
             raw_dist = str(row.get(dist_col, "Unknown")).strip() if dist_col else "Unknown"
             if raw_dist.endswith(".0"): raw_dist = raw_dist[:-2]
 
+            # අංකයක් පැමිණියහොත් එය බැහැර කර "Unknown" ලෙස තබා ගැනීම
+            prov_name = raw_prov.title() if not raw_prov.isdigit() and raw_prov.lower() != 'nan' else "Unknown"
+            dist_name = raw_dist.title() if not raw_dist.isdigit() and raw_dist.lower() != 'nan' else "Unknown"
+
             p_map[p_no] = {
                 "census_no": str(row.get(census_col, "")) if census_col else "",
                 "name": str(row.get(name_col, "Unknown")) if name_col else "Unknown",
-                "district": raw_dist.title() if raw_dist.lower() != 'nan' and raw_dist != '' else "Unknown",
-                "province": raw_prov.title() if raw_prov.lower() != 'nan' and raw_prov != '' else "Unknown",
+                "district": dist_name,
+                "province": prov_name,
                 "zone": str(row.get(zone_col, "Unknown")).strip().title() if zone_col else "Unknown"
             }
     return p_map
