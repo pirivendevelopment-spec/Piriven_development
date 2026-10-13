@@ -12,7 +12,7 @@ def load_data():
             excel_path = os.path.join(os.path.dirname(BASE_DIR), "Piriven Ordinary Level Result.xlsx")
             
         if not os.path.exists(excel_path):
-            st.error("⚠️ 'Piriven Ordinary Level Result.xlsx' ගොනුව හමු නොවීය. කරුණාකර ප්‍රධාන ෆෝල්ඩරයේ ඇති බව තහවුරු කරන්න.")
+            st.error("⚠️ 'Piriven Ordinary Level Result.xlsx' ගොනුව ප්‍රධාන ෆෝල්ඩරය තුළ හමු නොවීය.")
             return None, None, None
 
         xls = pd.ExcelFile(excel_path)
@@ -34,7 +34,7 @@ def load_data():
             elif 'master' in sheet_lower or 'st2' in sheet_lower or 'pirivena_n' in cols_lower or 'census_no' in cols_lower or 'name of the pirivena' in cols_lower or 'district' in cols_lower:
                 master_df = temp_df
 
-        # Fallback
+        # Fallback (ස්වයංක්‍රීයව හඳුනාගත නොහැකි වුවහොත් ෂීට් අනුපිළිවෙළ අනුව ගැනීම)
         if master_df.empty and len(xls.sheet_names) > 0:
             master_df = pd.read_excel(excel_path, sheet_name=0)
             master_df.columns = master_df.columns.str.strip()
@@ -59,11 +59,11 @@ def get_pirivena_map(master_df):
     master_df.columns = master_df.columns.str.strip()
     cols = {str(c).strip().lower(): c for c in master_df.columns}
     
-    # 💡 අංක වෙනුවට නිවැරදි පෙළ (Text) අඩංගු DISTRICT සහ PROVINCE තීරු ස්වයංක්‍රීයව සෙවීම
+    # 💡 කේත අංක තීරු (District N) මඟහැර, නියම පෙළ නම් ඇති DISTRICT සහ PROVINCE තීරු නිවැරදිව තෝරා ගැනීම
     p_no_key = next((cols[c] for c in cols if 'pirivena_n' in c or 'p_no' in c or 'pirivena no' in c), master_df.columns[1] if len(master_df.columns) > 1 else None)
     name_key = next((cols[c] for c in cols if 'name of the pirivena' in c or 'pirivena name' in c or 'name' in c), master_df.columns[2] if len(master_df.columns) > 2 else None)
     
-    # කේත අංක තීරු (District N) මඟහැර, නියම නම් ඇති 'district' සහ 'province' තීරු තෝරා ගැනීම
+    # මෙහි 'n' හෝ 'code' අඩංගු නොවන, අදාළ පෙළ (Text) තීරු සෙවීම සිදු කරයි
     dist_key = next((cols[c] for c in cols if c == 'district' or (('district' in c or 'දිස්ත්‍රික්' in c) and 'n' not in c and 'code' not in c)), None)
     prov_key = next((cols[c] for c in cols if c == 'province' or (('province' in c or 'පළාත්' in c) and 'n' not in c and 'code' not in c)), None)
     zone_key = next((cols[c] for c in cols if 'zone' in c or 'කලාප' in c or 'edu zone' in c), None)
