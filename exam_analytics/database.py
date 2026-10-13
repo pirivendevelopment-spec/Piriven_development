@@ -31,18 +31,17 @@ def get_pirivena_map(master_df):
     zone_key = next((cols[c] for c in cols if 'zone' in c or 'කලාප' in c or 'edu zone' in c), None)
     census_key = next((cols[c] for c in cols if 'census' in c or 'සංගණන' in c), master_df.columns[0] if len(master_df.columns) > 0 else None)
 
-    # 💡 පළාත් සහ දිස්ත්‍රික්කවල අංක (Codes) වෙනුවට නිවැරදි නම් ලබා දීම සඳහා Mapping (ඔබේ දත්තවල ඇති අංක අනුව මෙහි නම් වෙනස් කරගත හැක)
+    # 💡 පළාත් කේත සඳහා නිවැරදි නම් (ශ්‍රී ලංකාවේ පළාත් 9)
     province_mapping = {
-        "1": "Western", "2": "Central", "3": "Southern", "4": "Northern",
-        "5": "Eastern", "6": "North Western", "7": "North Central", "8": "Uva", "9": "Sabaragamuwa"
-    }
-    
-    district_mapping = {
-        "1": "Colombo", "2": "Gampaha", "3": "Kalutara", "4": "Kandy", "5": "Matale", "6": "Nuwara Eliya",
-        "7": "Galle", "8": "Matara", "9": "Hambantota", "10": "Jaffna", "11": "Kilinochchi", "12": "Mannar",
-        "13": "Vavuniya", "14": "Mullaitivu", "15": "Batticaloa", "16": "Ampara", "17": "Trincomalee",
-        "18": "Kurunegala", "19": "Puttalam", "20": "Anuradhapura", "21": "Polonnaruwa", "22": "Badulla",
-        "23": "Monaragala", "24": "Ratnapura", "25": "Kegalle"
+        "1": "Western Province", 
+        "2": "Central Province", 
+        "3": "Southern Province", 
+        "4": "Northern Province",
+        "5": "Eastern Province", 
+        "6": "North Western Province", 
+        "7": "North Central Province", 
+        "8": "Uva Province", 
+        "9": "Sabaragamuwa Province"
     }
 
     for _, row in master_df.iterrows():
@@ -52,17 +51,22 @@ def get_pirivena_map(master_df):
             p_no = p_no[:-2]
             
         if p_no and p_no != "nan":
+            # අගය කුමන ආකාරයකින් තිබුණද (පිරිසිදු String ලෙස ලබා ගැනීම)
             raw_prov = str(row.get(prov_key, "Unknown")).strip() if prov_key else "Unknown"
-            raw_dist = str(row.get(dist_key, "Unknown")).strip() if dist_key else "Unknown"
+            if raw_prov.endswith(".0"):
+                raw_prov = raw_prov[:-2]
 
-            # අංක ලෙස ඇත්නම් ඒවා නම් වලට හැරවීම (නැතහොත් මුල් නමම තබා ගැනීම)
+            raw_dist = str(row.get(dist_key, "Unknown")).strip() if dist_key else "Unknown"
+            if raw_dist.endswith(".0"):
+                raw_dist = raw_dist[:-2]
+
+            # පළාත අංකයක් නම් එය නමකට හැරවීම (නැතහොත් මුල් නමම තබා ගැනීම)
             prov_name = province_mapping.get(raw_prov, raw_prov)
-            dist_name = district_mapping.get(raw_dist, raw_dist)
 
             p_map[p_no] = {
                 "census_no": str(row.get(census_key, "")) if census_key else "",
                 "name": str(row.get(name_key, "Unknown")),
-                "district": dist_name,
+                "district": raw_dist,
                 "province": prov_name,
                 "zone": str(row.get(zone_key, "Unknown")) if zone_key else "Unknown"
             }
