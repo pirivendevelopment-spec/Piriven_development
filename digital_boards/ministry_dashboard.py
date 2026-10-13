@@ -1,13 +1,19 @@
 import requests
 import streamlit as st
-import streamlit.components.v1 as components  # 💡 JS ඔරලෝසුව සජීවීව පණගැන්වීමට
-import folium
-from streamlit_folium import st_folium
+import streamlit.components.v1 as components 
 import pandas as pd
 import datetime
 import base64
 import os
 from urllib.parse import urlparse, parse_qs
+
+# 💡 Folium සහ Streamlit-Folium ආරක්ෂාකාරී ලෙස ඉම්පෝට් කිරීම
+try:
+    import folium
+    from streamlit_folium import st_folium
+    FOLIUM_AVAILABLE = True
+except ImportError:
+    FOLIUM_AVAILABLE = False
 
 # ⚠️ Firebase API URL
 FIREBASE_URL = "https://pirivensmartboardmonitoring-default-rtdb.asia-southeast1.firebasedatabase.app/"
