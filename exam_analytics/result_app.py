@@ -328,8 +328,7 @@ else:
         st.markdown("### 📊 සාරාංශ පුවරුව")
         st.markdown(f"<p style='color: #334155; font-size: 16px;'>පිරිවෙන් සාමාන්‍ය පෙළ විභාග ප්‍රතිඵල විශ්ලේෂණය - <b>{selected_year}</b></p>", unsafe_allow_html=True)
         
-        # 💡 විද්‍යාත්මක පදනම සහ බර තැබීමේ ක්‍රමය දැක්වෙන විස්තර පෙට්ටිය
-       # 💡 විද්‍යාත්මක පදනම සහ බර තැබීමේ ක්‍රමය දැක්වෙන විස්තර පෙට්ටිය (unsafe_allow_html=True සමඟ)
+        # 💡 විද්‍යාත්මක පදනම සහ බර තැබීමේ ක්‍රමය දැක්වෙන විස්තර පෙට්ටිය (unsafe_allow_html=True සමඟ)
         st.markdown("""
             <div style="background-color: #ffffff; border: 1px solid #cbd5e1; border-left: 6px solid #198754; padding: 20px 25px; border-radius: 12px; margin-top: 15px; margin-bottom: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.04);">
                 <div style="display: flex; align-items: center; margin-bottom: 12px;">
@@ -366,7 +365,7 @@ else:
                     </div>
                 </div>
             </div>
-        """, unsafe_allow_html=True)  # 👈 මෙම පරාමිතිය අත්‍යවශ්‍ය වේ
+        """, unsafe_allow_html=True)
 
         st.markdown("---")
         
