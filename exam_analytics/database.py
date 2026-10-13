@@ -7,7 +7,6 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 @st.cache_data
 def load_data():
     try:
-        # ඔබ සඳහන් කළ නම සහිත Excel ගොනුව පූරණය කිරීම
         excel_path = os.path.join(BASE_DIR, "Piriven Ordinary Level Result.xlsx")
         if not os.path.exists(excel_path):
             excel_path = os.path.join(os.path.dirname(BASE_DIR), "Piriven Ordinary Level Result.xlsx")
@@ -22,7 +21,6 @@ def load_data():
         results_df = pd.DataFrame()
         master_df = pd.DataFrame()
 
-        # ෂීට් (Sheets) නාමයන් හෝ අන්තර්ගතය අනුව ස්වයංක්‍රීයව හඳුනාගැනීම
         for sheet in xls.sheet_names:
             sheet_lower = sheet.strip().lower()
             temp_df = pd.read_excel(excel_path, sheet_name=sheet)
@@ -33,10 +31,10 @@ def load_data():
                 users_df = temp_df
             elif 'result' in sheet_lower or 'exam' in sheet_lower or 'year' in cols_lower or 'sub1' in cols_lower:
                 results_df = temp_df
-            elif 'master' in sheet_lower or 'st2' in sheet_lower or 'pirivena_n' in cols_lower or 'census_no' in cols_lower or 'name of the pirivena' in cols_lower:
+            elif 'master' in sheet_lower or 'st2' in sheet_lower or 'pirivena_n' in cols_lower or 'census_no' in cols_lower or 'name of the pirivena' in cols_lower or 'district' in cols_lower:
                 master_df = temp_df
 
-        # Fallback (ස්වයංක්‍රීයව හඳුනාගත නොහැකි වුවහොත් ෂීට් අනුපිළිවෙළ අනුව ලබා ගැනීම)
+        # Fallback
         if master_df.empty and len(xls.sheet_names) > 0:
             master_df = pd.read_excel(excel_path, sheet_name=0)
             master_df.columns = master_df.columns.str.strip()
@@ -61,13 +59,15 @@ def get_pirivena_map(master_df):
     master_df.columns = master_df.columns.str.strip()
     cols = {str(c).strip().lower(): c for c in master_df.columns}
     
-    # පිරිවෙන් අංකය, නම, දිස්ත්‍රික්කය සහ පළාත සඳහා නිවැරදි තීරු නම් සෙවීම
+    # 💡 අංක වෙනුවට නිවැරදි පෙළ (Text) අඩංගු DISTRICT සහ PROVINCE තීරු ස්වයංක්‍රීයව සෙවීම
     p_no_key = next((cols[c] for c in cols if 'pirivena_n' in c or 'p_no' in c or 'pirivena no' in c), master_df.columns[1] if len(master_df.columns) > 1 else None)
     name_key = next((cols[c] for c in cols if 'name of the pirivena' in c or 'pirivena name' in c or 'name' in c), master_df.columns[2] if len(master_df.columns) > 2 else None)
-    dist_key = next((cols[c] for c in cols if 'district' in c or 'දිස්ත්‍රික්' in c), None)
-    prov_key = next((cols[c] for c in cols if 'province' in c or 'පළාත්' in c), None)
+    
+    # කේත අංක තීරු (District N) මඟහැර, නියම නම් ඇති 'district' සහ 'province' තීරු තෝරා ගැනීම
+    dist_key = next((cols[c] for c in cols if c == 'district' or (('district' in c or 'දිස්ත්‍රික්' in c) and 'n' not in c and 'code' not in c)), None)
+    prov_key = next((cols[c] for c in cols if c == 'province' or (('province' in c or 'පළාත්' in c) and 'n' not in c and 'code' not in c)), None)
     zone_key = next((cols[c] for c in cols if 'zone' in c or 'කලාප' in c or 'edu zone' in c), None)
-    census_key = next((cols[c] for c in cols if 'census' in c), master_df.columns[0] if len(master_df.columns) > 0 else None)
+    census_key = next((cols[c] for c in cols if 'census' in c or 'census_no' in c), master_df.columns[0] if len(master_df.columns) > 0 else None)
 
     for _, row in master_df.iterrows():
         raw_p_no = row.get(p_no_key, "")
@@ -77,7 +77,10 @@ def get_pirivena_map(master_df):
             
         if p_no and p_no != "nan":
             raw_prov = str(row.get(prov_key, "Unknown")).strip() if prov_key else "Unknown"
+            if raw_prov.endswith(".0"): raw_prov = raw_prov[:-2]
+
             raw_dist = str(row.get(dist_key, "Unknown")).strip() if dist_key else "Unknown"
+            if raw_dist.endswith(".0"): raw_dist = raw_dist[:-2]
 
             p_map[p_no] = {
                 "census_no": str(row.get(census_key, "")) if census_key else "",
