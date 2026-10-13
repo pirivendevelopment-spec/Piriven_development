@@ -328,7 +328,27 @@ else:
         st.markdown("### 📊 සාරාංශ පුවරුව")
         st.markdown(f"<p style='color: #334155; font-size: 16px;'>පිරිවෙන් සාමාන්‍ය පෙළ විභාග ප්‍රතිඵල විශ්ලේෂණය - <b>{selected_year}</b></p>", unsafe_allow_html=True)
         st.markdown("---")
-        
+        # 💡 බර තැබීමේ ක්‍රමය සහ ලකුණු ලබා දෙන ආකාරය දැක්වෙන විස්තර පෙට්ටිය (Info Box)
+        st.markdown("""
+            <div style="background-color: #f0fdf4; border-left: 5px solid #0f766e; padding: 15px 20px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.03);">
+                <h4 style="color: #0f766e; margin-top: 0; margin-bottom: 8px; font-size: 16px;">📌 බර තැබූ ලකුණු (Quality Score - QS) සහ ශ්‍රේණිගත කිරීමේ ක්‍රමවේදය</h4>
+                <p style="color: #1e293b; font-size: 13.5px; margin-bottom: 6px; line-height: 1.5;">
+                    පිරිවෙන් සාධන මට්ටම මැන බැලීම සඳහා විභාග සමත් වීමේ ප්‍රතිශතය මෙන්ම සාමාර්ථයන්ට හිමි වන බර තැබීමේ ලකුණු (Quality Score) පදනම් කරගනී:
+                </p>
+                <ul style="color: #334155; font-size: 13px; margin-bottom: 0; padding-left: 20px; line-height: 1.6;">
+                    <li><b>සාමාර්ථ සඳහා බර තැබීම:</b> A සඳහා 10.0 ක්ද, B සඳහා 8.0 ක්ද, C සඳහා 6.5 ක්ද, S සඳහා 5.0 ක්ද, W (અસමත්) සඳහා 0.1 ක්ද ලෙස ලකුණු ලබා දී ආයතනයේ බර තැබූ සාමාන්‍යය (QS) ගණਨ බලා ඇත.</li>
+                    <li><b>විභාග සමත්වීමේ නීතිය:</b> සිසුවෙකු විභාගයෙන් සමත් වීමට නම් ත්‍රිපිටක ධර්මය (SUB3) හෝ සිංහල/පාලි විෂයන්ගෙන් සමත්වී, අවම වශයෙන් විෂයයන් 6ක්වත් සාර්ථකව සමීක්ෂණය කර තිබිය යුතුය.</li>
+                    <li><b>ප්‍රගති කලාප (Progress Zones):</b> 
+                        <span style="color: #198754; font-weight: bold;">🟢 Green (75%+)</span> | 
+                        <span style="color: #b45309; font-weight: bold;">🟡 Yellow (50%+)</span> | 
+                        <span style="color: #c2410c; font-weight: bold;">🟠 Orange (35%+)</span> | 
+                        <span style="color: #b91c1c; font-weight: bold;">🔴 Red (<35%)</span> ලෙස කලාපගත කර ඇත.
+                    </li>
+                </ul>
+            </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown("---")
         ranking_data = calculate_piriven_rankings(results_df, master_df, selected_year, role, access)
         
         if not ranking_data:
