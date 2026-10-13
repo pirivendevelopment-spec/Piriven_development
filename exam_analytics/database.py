@@ -24,20 +24,25 @@ def get_pirivena_map(master_df):
     p_map = {}
     cols = {str(c).strip().lower(): c for c in master_df.columns}
     
-    # නිවැරදි තීරු නාමයන් (Column Names) ස්වයංක්‍රීයව හෝ අදාළ මූල පද හරහා සෙවීම
     p_no_key = next((cols[c] for c in cols if 'pirivena_no' in c or 'p_no' in c), master_df.columns[1] if len(master_df.columns) > 1 else None)
     name_key = next((cols[c] for c in cols if 'name' in c and 'pirivena' in c), next((cols[c] for c in cols if 'name' in c), master_df.columns[2] if len(master_df.columns) > 2 else None))
-    
-    # දිස්ත්‍රික් සහ පළාත් සඳහා නිවැරදි කේත හෝ නම් තීරු සෙවීම
     dist_key = next((cols[c] for c in cols if 'district' in c or 'දිස්ත්‍රික්' in c or 'dist' in c), None)
     prov_key = next((cols[c] for c in cols if 'province' in c or 'පළාත්' in c or 'prov' in c), None)
     zone_key = next((cols[c] for c in cols if 'zone' in c or 'කලාප' in c or 'edu zone' in c), None)
     census_key = next((cols[c] for c in cols if 'census' in c or 'සංගණන' in c), master_df.columns[0] if len(master_df.columns) > 0 else None)
 
-    # 💡 පළාත් සහ දිස්ත්‍රික්කවල අංක (Codes) වෙනුවට නම් ලබා දීම සඳහා Mapping Dictionary එකක් (අවශ්‍ය නම් වෙනස් කරගත හැක)
+    # 💡 පළාත් සහ දිස්ත්‍රික්කවල අංක (Codes) වෙනුවට නිවැරදි නම් ලබා දීම සඳහා Mapping (ඔබේ දත්තවල ඇති අංක අනුව මෙහි නම් වෙනස් කරගත හැක)
     province_mapping = {
         "1": "Western", "2": "Central", "3": "Southern", "4": "Northern",
         "5": "Eastern", "6": "North Western", "7": "North Central", "8": "Uva", "9": "Sabaragamuwa"
+    }
+    
+    district_mapping = {
+        "1": "Colombo", "2": "Gampaha", "3": "Kalutara", "4": "Kandy", "5": "Matale", "6": "Nuwara Eliya",
+        "7": "Galle", "8": "Matara", "9": "Hambantota", "10": "Jaffna", "11": "Kilinochchi", "12": "Mannar",
+        "13": "Vavuniya", "14": "Mullaitivu", "15": "Batticaloa", "16": "Ampara", "17": "Trincomalee",
+        "18": "Kurunegala", "19": "Puttalam", "20": "Anuradhapura", "21": "Polonnaruwa", "22": "Badulla",
+        "23": "Monaragala", "24": "Ratnapura", "25": "Kegalle"
     }
 
     for _, row in master_df.iterrows():
@@ -47,18 +52,18 @@ def get_pirivena_map(master_df):
             p_no = p_no[:-2]
             
         if p_no and p_no != "nan":
-            # දිස්ත්‍රික් සහ පළාත් අගය ලබා ගැනීම
-            raw_prov = str(row.get(prov_key, "Unknown")) if prov_key else "Unknown"
-            raw_dist = str(row.get(dist_key, "Unknown")) if dist_key else "Unknown"
+            raw_prov = str(row.get(prov_key, "Unknown")).strip() if prov_key else "Unknown"
+            raw_dist = str(row.get(dist_key, "Unknown")).strip() if dist_key else "Unknown"
 
-            # පළාත අංකයක් ලෙස ඇත්නම් එය නමකට හැරවීම (Mapping)
-            province_name = province_mapping.get(raw_prov.strip(), raw_prov)
+            # අංක ලෙස ඇත්නම් ඒවා නම් වලට හැරවීම (නැතහොත් මුල් නමම තබා ගැනීම)
+            prov_name = province_mapping.get(raw_prov, raw_prov)
+            dist_name = district_mapping.get(raw_dist, raw_dist)
 
             p_map[p_no] = {
                 "census_no": str(row.get(census_key, "")) if census_key else "",
                 "name": str(row.get(name_key, "Unknown")),
-                "district": raw_dist.strip(),
-                "province": province_name.strip(),
+                "district": dist_name,
+                "province": prov_name,
                 "zone": str(row.get(zone_key, "Unknown")) if zone_key else "Unknown"
             }
     return p_map
