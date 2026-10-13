@@ -751,83 +751,81 @@ else:
 
             st.markdown(f"<p style='color: #0f766e;'><b>පෙන්වන ලද පිරිවෙන් සංඛ්‍යාව: {len(filtered_report_df)}</b></p>", unsafe_allow_html=True)
 
-           html_content = """
-            <!DOCTYPE html>
-            <html>
-            <head>
-            <meta charset="utf-8">
-            <style>
-                body { font-family: 'Segoe UI', sans-serif; background-color: #f4f7f6; margin: 0; padding: 5px; }
-                .yearly-table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); font-size: 13px; }
-                .yearly-table th, .yearly-table td { border: 1px solid #cbd5e1; padding: 8px 4px; text-align: center; vertical-align: middle; color: #1e293b; }
-                .yearly-table th { background-color: #1a252f; color: white; font-weight: bold; }
-                .p-cell { text-align: left !important; padding-left: 10px !important; font-weight: bold; width: 240px; }
-                .zone-Green { background-color: #d1e7dd; color: #0f5132; font-weight: bold; }
-                .zone-Yellow { background-color: #fff3cd; color: #664d03; font-weight: bold; }
-                .zone-Orange { background-color: #ffe5d0; color: #854d0e; font-weight: bold; }
-                .zone-Red { background-color: #f8d7da; color: #842029; font-weight: bold; }
+            html_content = """
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+    body { font-family: 'Segoe UI', sans-serif; background-color: #f4f7f6; margin: 0; padding: 5px; }
+    .yearly-table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); font-size: 13px; }
+    .yearly-table th, .yearly-table td { border: 1px solid #cbd5e1; padding: 8px 4px; text-align: center; vertical-align: middle; color: #1e293b; }
+    .yearly-table th { background-color: #1a252f; color: white; font-weight: bold; }
+    .p-cell { text-align: left !important; padding-left: 10px !important; font-weight: bold; width: 240px; }
+    .zone-Green { background-color: #d1e7dd; color: #0f5132; font-weight: bold; }
+    .zone-Yellow { background-color: #fff3cd; color: #664d03; font-weight: bold; }
+    .zone-Orange { background-color: #ffe5d0; color: #854d0e; font-weight: bold; }
+    .zone-Red { background-color: #f8d7da; color: #842029; font-weight: bold; }
 
-                /* 💡 ප්‍රින්ට් කිරීමේදී වගු පේළි කැඩී යාම වැළැක්වීමට සහ Landscape එකට මනාව ගැළපීමට */
-                @media print {
-                    body { background-color: #ffffff !important; }
-                    .yearly-table { width: 100% !important; font-size: 11px !important; }
-                    tr { page-break-inside: avoid; break-inside: avoid; }
-                    thead { display: table-header-group; }
-                }
-            </style>
-            </head>
-            <body>
-            <table class="yearly-table">
-                <thead>
-                    <tr>
-                        <th rowspan="2" class="p-cell">පිරිවෙනේ නම</th>
-                        <th colspan="5">2022</th>
-                        <th colspan="5">2023</th>
-                        <th colspan="5">2024</th>
-                        <th colspan="5">2025</th>
-                        <th rowspan="2">සමත් %</th>
-                        <th rowspan="2">අසමත් %</th>
-                        <th rowspan="2">ප්‍රගති කලාපය</th>
-                    </tr>
-                    <tr>
-                        <th>A</th><th>B</th><th>C</th><th>S</th><th>W</th>
-                        <th>A</th><th>B</th><th>C</th><th>S</th><th>W</th>
-                        <th>A</th><th>B</th><th>C</th><th>S</th><th>W</th>
-                        <th>A</th><th>B</th><th>C</th><th>S</th><th>W</th>
-                    </tr>
-                </thead>
-                <tbody>
-            """
+    @media print {
+        body { background-color: #ffffff !important; }
+        .yearly-table { width: 100% !important; font-size: 11px !important; }
+        tr { page-break-inside: avoid; break-inside: avoid; }
+        thead { display: table-header-group; }
+    }
+</style>
+</head>
+<body>
+<table class="yearly-table">
+    <thead>
+        <tr>
+            <th rowspan="2" class="p-cell">පිරිවෙනේ නම</th>
+            <th colspan="5">2022</th>
+            <th colspan="5">2023</th>
+            <th colspan="5">2024</th>
+            <th colspan="5">2025</th>
+            <th rowspan="2">සමත් %</th>
+            <th rowspan="2">අසමත් %</th>
+            <th rowspan="2">ප්‍රගති කලාපය</th>
+        </tr>
+        <tr>
+            <th>A</th><th>B</th><th>C</th><th>S</th><th>W</th>
+            <th>A</th><th>B</th><th>C</th><th>S</th><th>W</th>
+            <th>A</th><th>B</th><th>C</th><th>S</th><th>W</th>
+            <th>A</th><th>B</th><th>C</th><th>S</th><th>W</th>
+        </tr>
+    </thead>
+    <tbody>
+"""
 
             for _, r in filtered_report_df.iterrows():
                 z_class = f"zone-{r['zone']}"
                 html_content += f"""
-                    <tr>
-                        <td class="p-cell">
-                            <div style="font-size: 13px; color: #0f172a;">{r['name']}</div>
-                            <div style="font-size: 11px; color: #64748b; font-weight: normal;">{r['p_no']} | {r['district']}</div>
-                        </td>
-                        <td>{r['2022_A']}</td><td>{r['2022_B']}</td><td>{r['2022_C']}</td><td>{r['2022_S']}</td><td>{r['2022_W']}</td>
-                        <td>{r['2023_A']}</td><td>{r['2023_B']}</td><td>{r['2023_C']}</td><td>{r['2023_S']}</td><td>{r['2023_W']}</td>
-                        <td>{r['2024_A']}</td><td>{r['2024_B']}</td><td>{r['2024_C']}</td><td>{r['2024_S']}</td><td>{r['2024_W']}</td>
-                        <td>{r['2025_A']}</td><td>{r['2025_B']}</td><td>{r['2025_C']}</td><td>{r['2025_S']}</td><td>{r['2025_W']}</td>
-                        <td><b>{r['pass_pct']}</b></td>
-                        <td>{r['fail_pct']}</td>
-                        <td class="{z_class}">{r['zone']} Zone</td>
-                    </tr>
-                """
+        <tr>
+            <td class="p-cell">
+                <div style="font-size: 13px; color: #0f172a;">{r['name']}</div>
+                <div style="font-size: 11px; color: #64748b; font-weight: normal;">{r['p_no']} | {r['district']}</div>
+            </td>
+            <td>{r['2022_A']}</td><td>{r['2022_B']}</td><td>{r['2022_C']}</td><td>{r['2022_S']}</td><td>{r['2022_W']}</td>
+            <td>{r['2023_A']}</td><td>{r['2023_B']}</td><td>{r['2023_C']}</td><td>{r['2023_S']}</td><td>{r['2023_W']}</td>
+            <td>{r['2024_A']}</td><td>{r['2024_B']}</td><td>{r['2024_C']}</td><td>{r['2024_S']}</td><td>{r['2024_W']}</td>
+            <td>{r['2025_A']}</td><td>{r['2025_B']}</td><td>{r['2025_C']}</td><td>{r['2025_S']}</td><td>{r['2025_W']}</td>
+            <td><b>{r['pass_pct']}</b></td>
+            <td>{r['fail_pct']}</td>
+            <td class="{z_class}">{r['zone']} Zone</td>
+        </tr>
+"""
 
             html_content += """
-                </tbody>
-            </table>
-            </body>
-            </html>
-            """
+    </tbody>
+</table>
+</body>
+</html>
+"""
 
             components.html(html_content, height=650, scrolling=True)
         else:
             st.info("වාර්තාගත දත්ත කිසිවක් හමු නොවීය.")
-
     # =========================================================================
     # VIEW 5: පිරිවෙන් විශ්ලේෂණය (Single Pirivena Analysis)
     # =========================================================================
