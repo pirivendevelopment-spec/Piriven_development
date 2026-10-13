@@ -421,7 +421,7 @@ else:
                     st.dataframe(dist_summary, use_container_width=True, height=350, hide_index=True)
 
     # =========================================================================
-    # VIEW 2: පළාත් හා ශ්‍රේණිගත කිරීම් (Rankings - Fixed District & Provincial Ranks)
+    # VIEW 2: පළාත් හා ශ්‍රේණිගත කිරීම් (Rankings)
     # =========================================================================
     elif menu == "පළාත් හා ශ්‍රේණිගත කිරීම් (Rankings)":
         col_h1, col_h2 = st.columns([3, 1])
@@ -445,39 +445,16 @@ else:
             df_rank = pd.DataFrame(ranking_data)
             df_rank.columns = df_rank.columns.str.strip()
 
-            # Dynamic column identification
             prov_col = next((c for c in df_rank.columns if 'පළාත' in c or 'province' in c.lower()), 'පළාත')
             dist_col = next((c for c in df_rank.columns if 'දිස්ත්‍රික්' in c or 'district' in c.lower()), 'දිස්ත්‍රික්කය')
 
-            # 💡 දෝෂය වළක්වා ගැනීමට සියලුම තීරු ආරක්ෂිතව string බවට හැරවීම
             for col in [prov_col, dist_col, "zoneColor", "කලාපය"]:
                 if col in df_rank.columns:
                     df_rank[col] = df_rank[col].fillna("").astype(str).str.strip()
 
-            # Numeric columns type conversion for accurate sorting
-            df_rank["Quality Score (QS)"] = pd.to_numeric(df_rank["Quality Score (QS)"], errors='coerce').fillna(0.0)
-            df_rank["සමත් ප්‍රතිශතය (%)"] = pd.to_numeric(df_rank["සමත් ප්‍රතිශතය (%)"], errors='coerce').fillna(0.0)
-
-           # Global, Provincial & District dynamic ranking calculation (වැඩිම ලකුණු ලත් අයට ඉහළම ස්ථානය ලැබෙන ලෙස)
-            df_rank = df_rank.sort_values(by=["Quality Score (QS)", "සමත් ප්‍රතිශතය (%)"], ascending=[False, False]).reset_index(drop=True)
-            df_rank["දිවයිනේ ස්ථානය"] = df_rank.index + 1
-            
-            df_rank["පළාත් ස්ථානය"] = (
-                df_rank.sort_values(by=["Quality Score (QS)", "සමත් ප්‍රතිශතය (%)"], ascending=[False, False])
-                .groupby(prov_col, observed=False)
-                .cumcount() + 1
-            )
-            
-            df_rank["දිස්ත්‍රික් ස්ථානය"] = (
-                df_rank.sort_values(by=["Quality Score (QS)", "සමත් ප්‍රතිශතය (%)"], ascending=[False, False])
-                .groupby(dist_col, observed=False)
-                .cumcount() + 1
-            )
-
             f_col1, f_col2, f_col3, f_col4 = st.columns(4)
             
             with f_col1:
-                # 💡 .lower() දෝෂය සම්පූර්ණයෙන්ම වළක්වා ගැනීමට අගයන් string ලෙස පරීක්ෂා කිරීම
                 prov_list = sorted([str(p) for p in df_rank[prov_col].unique().tolist() if p and str(p).lower() != 'nan' and str(p).strip() != ''])
                 provinces = ["සියලුම පළාත්"] + prov_list
                 sel_prov = st.selectbox("පළාත අනුව පෙරන්න", provinces)
