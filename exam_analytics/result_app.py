@@ -423,7 +423,7 @@ else:
     # =========================================================================
     # VIEW 2: පළාත් හා ශ්‍රේණිගත කිරීම් (Rankings)
     # =========================================================================
-    elif menu == "පළාත් හා ශ්‍රේණිගත කිරීම් (Rankings)":
+   elif menu == "පළාත් හා ශ්‍රේණිගත කිරීම් (Rankings)":
         col_h1, col_h2 = st.columns([3, 1])
         with col_h1:
             st.markdown("### 🏆 පිරිවෙන් සාධන ශ්‍රේණිගත කිරීම් (Rankings)")
@@ -445,20 +445,22 @@ else:
             df_rank = pd.DataFrame(ranking_data)
             df_rank.columns = df_rank.columns.str.strip()
 
-            prov_col = next((c for c in df_rank.columns if 'පළාත' in c or 'province' in c.lower()), 'පළාත')
-            dist_col = next((c for c in df_rank.columns if 'දිස්ත්‍රික්' in c or 'district' in c.lower()), 'දිස්ත්‍රික්කය')
+            # නිවැරදි තීරු නම් තෝරා ගැනීම
+            prov_col = 'පළාත' if 'පළාත' in df_rank.columns else 'province'
+            dist_col = 'දිස්ත්‍රික්කය' if 'දිස්ත්‍රික්කය' in df_rank.columns else 'district'
 
+            # සියලුම ප්‍රදේශ සහ වර්ණ තීරු පිරිසිදු කර string බවට හැරවීම
             for col in [prov_col, dist_col, "zoneColor", "කලාපය"]:
                 if col in df_rank.columns:
-                    df_rank[col] = df_rank[col].fillna("").astype(str).str.strip()
+                    df_rank[col] = df_rank[col].fillna("Unknown").astype(str).str.strip().str.title()
 
             f_col1, f_col2, f_col3, f_col4 = st.columns(4)
             
             with f_col1:
-                # 💡 සංඛ්‍යාත්මක අංක (Digits) සම්පූර්ණයෙන්ම පෙරහන් කර ඉවත් කර, පිරිසිදු පළාත් නම් පමණක් ලබා ගැනීම
+                # පළාත් ලැයිස්තුවට අංක හෝ Unknown හැර අනෙකුත් නියම නම් පමණක් ලබා ගැනීම
                 prov_list = sorted([
-                    str(p).strip().title() for p in df_rank[prov_col].unique().tolist() 
-                    if p and str(p).lower() != 'nan' and str(p).strip() != '' and not str(p).strip().isdigit()
+                    p for p in df_rank[prov_col].unique().tolist() 
+                    if p and p.lower() != 'nan' and p != 'Unknown' and not p.isdigit()
                 ])
                 provinces = ["සියලුම පළාත්"] + prov_list
                 sel_prov = st.selectbox("පළාත අනුව පෙරන්න", provinces)
@@ -470,7 +472,10 @@ else:
                 else:
                     avail_raw = df_rank[dist_col].unique().tolist()
                 
-                dist_list = sorted([str(d) for d in avail_raw if d and str(d).lower() != 'nan' and str(d).strip() != ''])
+                dist_list = sorted([
+                    d for d in avail_raw 
+                    if d and str(d).lower() != 'nan' and str(d) != 'Unknown' and not str(d).isdigit()
+                ])
                 districts = ["සියලුම දිස්ත්‍රික්ක"] + dist_list
                 sel_dist = st.selectbox("දිස්ත්‍රික්කය අනුව පෙරන්න", districts)
                 
@@ -480,26 +485,6 @@ else:
                 
             with f_col4:
                 search_query = st.text_input("පිරිවෙන සෙවීම", placeholder="නම හෝ අංකය...")
-
-            filtered_df = df_rank.copy()
-            
-            if not is_all_prov:
-                filtered_df = filtered_df[filtered_df[prov_col] == sel_prov]
-            
-            is_all_dist = (sel_dist == "සියලුම දිස්ත්‍රික්ක") or sel_dist.startswith("සියලුම")
-            if not is_all_dist:
-                filtered_df = filtered_df[filtered_df[dist_col] == sel_dist]
-                
-            is_all_zone = (sel_zone == "සියලුම කලාප") or sel_zone.startswith("සියලුම")
-            if not is_all_zone:
-                filtered_df = filtered_df[filtered_df["zoneColor"] == sel_zone]
-                
-            if search_query:
-                query = search_query.lower().strip()
-                filtered_df = filtered_df[
-                    filtered_df["පිරිවෙනේ නම"].astype(str).str.lower().str.contains(query, na=False) |
-                    filtered_df["පිරිවෙන් අංකය"].astype(str).str.contains(query, na=False)
-                ]
 
             st.markdown(f"<p style='color: #334155; font-size: 15px;'>පෙන්වන ලද ආයතන සංඛ්‍යාව: <b>{len(filtered_df)}</b></p>", unsafe_allow_html=True)
 
