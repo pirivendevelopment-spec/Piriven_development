@@ -751,7 +751,7 @@ else:
 
             st.markdown(f"<p style='color: #0f766e;'><b>පෙන්වන ලද පිරිවෙන් සංඛ්‍යාව: {len(filtered_report_df)}</b></p>", unsafe_allow_html=True)
 
-            html_content = """
+           html_content = """
             <!DOCTYPE html>
             <html>
             <head>
@@ -766,6 +766,14 @@ else:
                 .zone-Yellow { background-color: #fff3cd; color: #664d03; font-weight: bold; }
                 .zone-Orange { background-color: #ffe5d0; color: #854d0e; font-weight: bold; }
                 .zone-Red { background-color: #f8d7da; color: #842029; font-weight: bold; }
+
+                /* 💡 ප්‍රින්ට් කිරීමේදී වගු පේළි කැඩී යාම වැළැක්වීමට සහ Landscape එකට මනාව ගැළපීමට */
+                @media print {
+                    body { background-color: #ffffff !important; }
+                    .yearly-table { width: 100% !important; font-size: 11px !important; }
+                    tr { page-break-inside: avoid; break-inside: avoid; }
+                    thead { display: table-header-group; }
+                }
             </style>
             </head>
             <body>
