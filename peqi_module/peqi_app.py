@@ -3,9 +3,15 @@ import pandas as pd
 import os
 import datetime
 import plotly.express as px
-import matplotlib.pyplot as plt
 import io
 import base64
+
+# 💡 Matplotlib ආරක්ෂාකාරී ලෙස ඉම්පෝට් කිරීම
+try:
+    import matplotlib.pyplot as plt
+    MATPLOTLIB_AVAILABLE = True
+except ImportError:
+    MATPLOTLIB_AVAILABLE = False
 
 st.set_page_config(page_title="PEQI - පිරිවෙන් ගුණාත්මක දර්ශකය", layout="wide")
 
@@ -31,7 +37,6 @@ st.markdown("""
             border-radius: 8px !important;
         }
         
-        /* සාමාන්‍ය බටන් සඳහා */
         .stButton>button { 
             width: 100% !important;
             border-radius: 8px !important;
@@ -45,7 +50,6 @@ st.markdown("""
             background-color: #115e59 !important; 
         }
 
-        /* 🔐 ලොගින් ෆෝම් එකේ සබ්මිට් බටන් එක සඳහා විශේෂ වර්ණ සැකසුම (පැහැදිලිව පෙනෙන පරිදි) */
         div[data-testid="stFormSubmitButton"] > button {
             background-color: #0f766e !important;
             color: #ffffff !important;
@@ -118,7 +122,6 @@ if os.path.exists(CRED_FILE):
 if not st.session_state.peqi_logged_in:
     st.markdown("<style>[data-testid='stSidebar'] { display: none !important; }</style>", unsafe_allow_html=True)
     
-    # 🛠️ මුල් පිටුවට යාම සඳහා නිවැරදි HTML බටන් එක (Path error එක මඟහරවා ගැනීමට)
     st.markdown("""
     <div style="text-align: right; margin-bottom: 15px;">
         <a href="http://localhost:8000" target="_self" style="background-color: #1f2937; color: #38bdf8; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px; border: 1px solid #374151; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
@@ -202,7 +205,6 @@ if st.session_state.force_password_change:
 
 # --- 3. 🖥️ ප්‍රධාන ඩෑෂ්බෝඩ් තිරය ---
 with st.sidebar:
-    # සයිඩ්බාර් එකේ මුල් පිටුවට යාමට HTML ලින්ක් එකක් හෝ markdown භාවිත කළ හැක
     st.markdown("""
     <div style="text-align: right; margin-bottom: 15px;">
         <a href="http://localhost:8000" target="_self" style="background-color: #1f2937; color: #38bdf8; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px; border: 1px solid #374151; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
@@ -238,6 +240,9 @@ standards_list = [
 ]
 
 def generate_matplotlib_donut(df_summary):
+    if not MATPLOTLIB_AVAILABLE:
+        return "<p style='color: red;'>Matplotlib library is not installed.</p>"
+    
     fig, ax = plt.subplots(figsize=(5, 4))
     cmap = plt.get_cmap("YlGnBu")
     colors = [cmap(i / len(df_summary)) for i in range(len(df_summary))]
@@ -529,7 +534,7 @@ with tab_search:
                         st.warning(f"🔍 **බාහිර අධීක්ෂණ සටහන්:** {p_ext_notes}")
                     
                     fig2 = px.pie(row_sel, names="Standard", values="Percentage", hole=0.5, 
-                                 color_discrete_sequence=px.colors.sequential.Tealgrn)
+                                  color_discrete_sequence=px.colors.sequential.Tealgrn)
                     fig2.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color="white", height=450)
                     st.plotly_chart(fig2, use_container_width=True)
                     
