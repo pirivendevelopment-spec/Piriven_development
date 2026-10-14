@@ -206,11 +206,8 @@ if st.session_state.force_password_change:
 # --- 3. 🖥️ ප්‍රධාන ඩෑෂ්බෝඩ් තිරය ---
 with st.sidebar:
     st.markdown("""
-    <div style="text-align: right; margin-bottom: 15px;">
-        <a href="http://localhost:8000" target="_self" style="background-color: #1f2937; color: #38bdf8; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px; border: 1px solid #374151; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
-            🏠 මුල් පිටුවට (Main Dashboard)
-        </a>
-    </div>
+   if st.button("🏠 ප්‍රධාන මුල් පිටුවට (Main Dashboard)", use_container_width=True):
+        st.switch_page("app.py")  # ප්‍රධාන ගොනුවේ නම app.py නම් මෙලෙස නිවැරදිව ක්‍රියාත්මක වේ
 """, unsafe_allow_html=True)
     st.markdown("---")
     st.markdown(f"🏛️ **ආයතනය / නම:**\n{st.session_state.peqi_user_name}")
