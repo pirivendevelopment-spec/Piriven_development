@@ -432,45 +432,18 @@ with tab1:
     with col_map:
         st.subheader("Live Board Tracking")
         
-        m = folium.Map(location=map_center, zoom_start=map_zoom, tiles="OpenStreetMap")
-        
+        # 💡 df_filtered හෝ df_usage ඩේටාෆ්‍රේම් එකෙන් Lat/Lon නිවැරදිව ඇත්දැයි පරීක්ෂා කිරීම
         target_df = df_filtered if not df_filtered.empty else df_usage
-        pins_added = 0
-        
         if target_df is not None and not target_df.empty:
-            for _, r in target_df.iterrows():
-                try:
-                    lat = float(r.get("Latitude", 0.0))
-                    lon = float(r.get("Longitude", 0.0))
-                    p_name = str(r.get("Piriven Name", "Unknown Pirivena"))
-                    c_no = str(r.get("Census No", ""))
-                    district = str(r.get("District", ""))
-                    status = str(r.get("Status", "Offline"))
-                    
-                    if lat != 0.0 and lon != 0.0:
-                        pins_added += 1
-                        color = "green" if status == "Active" else "red"
-                        
-                        popup_html = f"""
-                        <div style='font-family: sans-serif; font-size: 12px; line-height: 1.5; min-width: 220px; background-color: #1e293b; color: white; padding: 10px; border-radius: 8px;'>
-                            <h3 style='margin: 0 0 5px 0; color: #38bdf8;'>🏛️ {p_name}</h3>
-                            <p style='margin: 4px 0;'><b>Census No:</b> {c_no}</p>
-                            <p style='margin: 4px 0;'><b>District:</b> {district}</p>
-                            <span style='background-color: {"#064e3b" if status=="Active" else "#7f1d1d"}; color: {"#a7f3d0" if status=="Active" else "#fecaca"}; padding: 2px 6px; border-radius: 4px; font-weight: bold;'>● Status: {status}</span>
-                        </div>
-                        """
-                        
-                        folium.Marker(
-                            location=[lat, lon],
-                            popup=popup_html,
-                            icon=folium.Icon(color=color, icon="university", prefix="fa")
-                        ).add_to(m)
-                except Exception as ex:
-                    pass
+            # st.map සඳහා අවශ්‍ය වන්නේ 'latitude' සහ 'longitude' යන කුඩා අකුරින් හෝ නිවැරදි නම් ඇති තීරුයි
+            map_data = target_df[['Latitude', 'Longitude']].rename(columns={'Latitude': 'latitude', 'Longitude': 'longitude'})
+            map_data = map_data[(map_data['latitude'] != 0.0) & (map_data['longitude'] != 0.0)]
             
-            st.caption(f"📍 සිතියම මත පෙන්වන පිරිවෙන් සංඛ්‍යාව: {pins_added}")
-        
-        st_folium(m, width=None, height=650, key="main_map_display")
+            if not map_data.empty:
+                st.map(map_data, zoom=8, use_container_width=True)
+                st.caption(f"📍 සිතියම මත පෙන්වන පිරිවෙන් සංඛ්‍යාව: {len(map_data)}")
+            else:
+                st.warning("⚠️ සිතියම මත පෙන්වීමට අක්ෂාංශ/දේශාංශ දත්ත හමු නොවීය.")
 
     with col_ctrl:
         st.subheader("📢 Command Center")
