@@ -10,11 +10,12 @@ from urllib.parse import urlparse, parse_qs
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
-# 💡 Google Sheets සම්බන්ධතා සැකසීම
+# 💡 Google Sheets සම්බන්ධතා සැකසීම (Cache කර සේව් කර තබා ගැනීම)
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 current_dir = os.path.dirname(os.path.abspath(__file__))
 cred_path = os.path.join(current_dir, "credentials.json")
 
+@st.cache_resource
 def get_google_sheet():
     try:
         creds = ServiceAccountCredentials.from_json_keyfile_name(cred_path, scope)
@@ -49,7 +50,7 @@ def process_youtube_link(url_or_id):
 
 st.set_page_config(page_title="Ministry Admin Dashboard", layout="wide")
 
-# --- Dark Modern Theme CSS ---
+# --- Dark Modern Theme CSS (සුදු ඉඩ ඉවත් කර සම්පූර්ණ තිරය පිරවීම සඳහා) ---
 st.markdown("""
     <style>
         .main, .stApp {
@@ -204,7 +205,7 @@ with st.sidebar:
         """, unsafe_allow_html=True)
         
     st.markdown("---")
-    st.success("☁️ Google Cloud Connected\n(Master Registry Loaded Auto)")
+    st.success("☁️ Google Cloud Connected\n(Auto-Synced from Sheet)")
 
 # 💡 වින්ඩෝස් පද්ධතියේ නියම වෙලාව පෙන්වන සජීවී ඔරලෝසු ව්‍යුහය
 col_title, col_clock = st.columns([4, 1])
@@ -234,32 +235,37 @@ with col_clock:
 
 st.write("---")
 
-# Google Sheets මඟින් දත්ත ස්වයංක්‍රීයව ලබා ගැනීම
+# Google Sheets මඟින් දත්ත ස්වයංක්‍රීයව සහ ස්ථිරව ලබා ගැනීම (Cached)
 sheet = get_google_sheet()
 live_boards_data = {}
 cloud_excel_data = []
 
-if sheet:
+@st.cache_data(ttl=60)
+def load_sheet_data():
+    if not sheet: return [], []
     try:
         live_ws = sheet.worksheet("Live_Boards")
-        live_records = live_ws.get_all_records()
-        for r in live_records:
-            c_no = str(r.get("Census No", ""))
-            ser = str(r.get("Device Serial", ""))
-            if c_no not in live_boards_data: live_boards_data[c_no] = {}
-            live_boards_data[c_no][ser] = {
-                "device_type": r.get("Device Type", "Smart Board"),
-                "live_lat": float(r.get("Latitude", 0)),
-                "live_lon": float(r.get("Longitude", 0)),
-                "status": r.get("Status", "Offline"),
-                "last_ping": r.get("Last Ping", "")
-            }
+        live_recs = live_ws.get_all_records()
         
-        # 💡 Pirivena_Master ෂීට් එකෙන් ස්වයංක්‍රීයව පස්කම් ලැයිස්තුව ලබා ගැනීම
         reg_ws = sheet.worksheet("Pirivena_Master")
-        cloud_excel_data = reg_ws.get_all_records()
-    except Exception as e:
-        st.error(f"Google Sheet Read Error: {e}")
+        reg_recs = reg_ws.get_all_records()
+        return live_recs, reg_recs
+    except:
+        return [], []
+
+live_records, cloud_excel_data = load_sheet_data()
+
+for r in live_records:
+    c_no = str(r.get("Census No", ""))
+    ser = str(r.get("Device Serial", ""))
+    if c_no not in live_boards_data: live_boards_data[c_no] = {}
+    live_boards_data[c_no][ser] = {
+        "device_type": r.get("Device Type", "Smart Board"),
+        "live_lat": float(r.get("Latitude", 0)),
+        "live_lon": float(r.get("Longitude", 0)),
+        "status": r.get("Status", "Offline"),
+        "last_ping": r.get("Last Ping", "")
+    }
 
 df_usage = None
 if cloud_excel_data:
@@ -400,31 +406,23 @@ if selected_piriven != "All Piriven" and not df_filtered.empty:
         map_zoom = 14
 
 with tab1:
-    col_map, col_ctrl = st.columns([3, 2])
+    # 💡 සිතියම පෙන්වන පැත්ත පුළුල් කර සුදු ඉඩ ඉවත් කිරීම සඳහා columns සමානුපාතිකව සකසා ඇත
+    col_map, col_ctrl = st.columns([2.5, 1.2])
     with col_map:
         st.subheader("Live Board Tracking")
         m = folium.Map(location=map_center, zoom_start=map_zoom, tiles="OpenStreetMap")
         
-        # 💡 ෂීට් එකේ ඇති සියලුම පිරිවෙන් සඳහා සිතියමේ මාර්කර් (Markers) ලකුණු කිරීම
-        for i, r in df_usage.iterrows():
+        for i, r in df_filtered.iterrows():
             c_no = str(r["Census No"]).strip()
-            p_name = r.get("Piriven Name", "Unknown")
+            lat, lon = float(r.get("Latitude", 0)), float(r.get("Longitude", 0))
             
-            # පීහිටුම් (Lat/Lon) ලබා ගැනීම
-            try:
-                lat = float(r.get("Latitude", 0.0))
-                lon = float(r.get("Longitude", 0.0))
-            except:
-                lat, lon = 0.0, 0.0
-                
             if lat != 0.0 and lon != 0.0:
-                # සජීවීව ක්‍රියාත්මක වේදැයි පරීක්ෂා කිරීම
                 status = r.get("Status", "Offline")
                 color = "green" if status == "Active" else "red"
                 
                 popup_html = f"""
                 <div style='font-family: sans-serif; font-size: 12px; line-height: 1.5; min-width: 220px; background-color: #1e293b; color: white; padding: 10px; border-radius: 8px;'>
-                    <h3 style='margin: 0 0 5px 0; color: #38bdf8;'>🏛️ {p_name}</h3>
+                    <h3 style='margin: 0 0 5px 0; color: #38bdf8;'>🏛️ {r.get('Piriven Name')}</h3>
                     <p style='margin: 4px 0;'><b>Census No:</b> {c_no}</p>
                     <p style='margin: 4px 0;'><b>District:</b> {r.get('District', 'N/A')}</p>
                     <span style='background-color: {"#064e3b" if status=="Active" else "#7f1d1d"}; color: {"#a7f3d0" if status=="Active" else "#fecaca"}; padding: 2px 6px; border-radius: 4px; font-weight: bold;'>● {status}</span>
@@ -437,7 +435,7 @@ with tab1:
                     icon=folium.Icon(color=color, icon="university", prefix="fa")
                 ).add_to(m)
                                 
-        st_folium(m, width=600, height=600, key=f"map_main_view")
+        st_folium(m, width=None, height=650, key=f"map_main_view")
 
     with col_ctrl:
         st.subheader("📢 Command Center")
@@ -459,7 +457,6 @@ with tab1:
 
 with tab3:
     st.subheader("🛠️ Technical Support & Ticket Interactive Chat Panel")
-    
     if sheet:
         try:
             t_ws = sheet.worksheet("Support_Tickets")
