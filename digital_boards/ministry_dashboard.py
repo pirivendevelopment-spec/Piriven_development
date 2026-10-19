@@ -438,7 +438,6 @@ with tab1:
     with col_map:
         st.subheader("Live Board Tracking")
         
-        # 💡 Google Maps JavaScript API භාවිතයෙන් සිතියම රෙන්ඩර් කිරීම සඳහා HTML/JS සංරචකය
         GOOGLE_MAPS_API_KEY = "YOUR_GOOGLE_MAPS_API_KEY"  # ⚠️ මෙහි ඔබේ සැබෑ Google Maps API Key එක ඇතුළත් කරන්න
         
         target_df = df_filtered if not df_filtered.empty else df_usage
@@ -459,8 +458,8 @@ with tab1:
                         pins_count += 1
                         color_hex = "#22c55e" if status == "Active" else "#ef4444"
                         
-                        markers_js += f"""
-                        var marker_{pins_count} = new google.maps.Marker({{
+                        markers_js += """
+                        var marker_{idx} = new google.maps.Marker({{
                             position: {{ lat: {lat}, lng: {lon} }},
                             map: map,
                             title: '{p_name}',
@@ -474,47 +473,47 @@ with tab1:
                             }}
                         }});
                         
-                        var infowindow_{pins_count} = new google.maps.InfoWindow({{
-                            content: `<div style='font-family: sans-serif; font-size: 12px; color: #000; min-width: 180px;'>
-                                <b style='color: #0f766e;'>🏛️ {p_name}</b><br>
-                                <b>Census No:</b> {c_no}<br>
-                                <b>District:</b> {district}<br>
-                                <b>Status:</b> <span style='color: {color_hex}; font-weight: bold;'>● {status}</span>
-                            </div>`
+                        var infowindow_{idx} = new google.maps.InfoWindow({{
+                            content: "<div style='font-family: sans-serif; font-size: 12px; color: #000; min-width: 180px;'>" +
+                                "<b style='color: #0f766e;'>🏛️ {p_name}</b><br>" +
+                                "<b>Census No:</b> {c_no}<br>" +
+                                "<b>District:</b> {district}<br>" +
+                                "<b>Status:</b> <span style='color: {color_hex}; font-weight: bold;'>● {status}</span>" +
+                                "</div>"
                         }});
                         
-                        marker_{pins_count}.addListener('click', function() {{
-                            infowindow_{pins_count}.open(map, marker_{pins_count});
+                        marker_{idx}.addListener('click', function() {{
+                            infowindow_{idx}.open(map, marker_{idx});
                         }});
-                        """
+                        """.format(idx=pins_count, lat=lat, lon=lon, p_name=p_name, c_no=c_no, district=district, status=status, color_hex=color_hex)
                 except:
                     pass
 
-        gmap_html = f"""
+        gmap_html = """
         <div id="map" style="height: 600px; width: 100%; border-radius: 12px; border: 1px solid #374151;"></div>
         <script>
-            function initMap() {{
-                var centerLocation = {{ lat: {map_center_lat}, lng: {map_center_lon} }};
+            function initMap() {
+                var centerLocation = {{ lat: {lat_c}, lng: {lon_c} }};
                 var map = new google.maps.Map(document.getElementById('map'), {{
-                    zoom: {map_zoom},
+                    zoom: {zoom_c},
                     center: centerLocation,
                     styles: [
-                        {{ elementType: "geometry", stylers: [{{ color: "#1d2c4d" }}] }},
-                        {{ elementType: "labels.text.fill", stylers: [{{ color: "#8ec3b9" }}] }},
-                        {{ elementType: "labels.text.stroke", stylers: [{{ color: "#1a365d" }}] }},
-                        {{ featureType: "administrative", elementType: "geometry.stroke", stylers: [{{ color: "#4b6878" }}] }},
-                        {{ featureType: "landscape", elementType: "geometry", stylers: [{{ color: "#223555" }}] }},
-                        {{ featureType: "poi", elementType: "geometry", stylers: [{{ color: "#283d6a" }}] }},
-                        {{ featureType: "road", elementType: "geometry", stylers: [{{ color: "#304a7d" }}] }},
-                        {{ featureType: "water", elementType: "geometry", stylers: [{{ color: "#0e1626" }}] }}
+                        {{ elementType: "geometry", stylers: [{{"color": "#1d2c4d"}}] }},
+                        {{ elementType: "labels.text.fill", stylers: [{{"color": "#8ec3b9"}}] }},
+                        {{ elementType: "labels.text.stroke", stylers: [{{"color": "#1a365d"}}] }},
+                        {{ featureType: "administrative", elementType: "geometry.stroke", stylers: [{{"color": "#4b6878"}}] }},
+                        {{ featureType: "landscape", elementType: "geometry", stylers: [{{"color": "#223555"}}] }},
+                        {{ featureType: "poi", elementType: "geometry", stylers: [{{"color": "#283d6a"}}] }},
+                        {{ featureType: "road", elementType: "geometry", stylers: [{{"color": "#304a7d"}}] }},
+                        {{ featureType: "water", elementType: "geometry", stylers: [{{"color": "#0e1626"}}] }}
                     ]
                 }});
                 
-                {markers_js}
+                {markers}
             }
         </script>
-        <script async defer src="https://maps.googleapis.com/maps/api/js?key={GOOGLE_MAPS_API_KEY}&callback=initMap"></script>
-        """
+        <script async defer src="https://maps.googleapis.com/maps/api/js?key={api_key}&callback=initMap"></script>
+        """.format(lat_c=map_center_lat, lon_c=map_center_lon, zoom_c=map_zoom, markers=markers_js, api_key=GOOGLE_MAPS_API_KEY)
         
         components.html(gmap_html, height=620)
         st.caption(f"📍 Google Maps API මඟින් පෙන්වන පිරිවෙන් සංඛ්‍යාව: {pins_count}")
