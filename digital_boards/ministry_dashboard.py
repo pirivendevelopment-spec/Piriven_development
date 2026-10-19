@@ -1,4 +1,3 @@
-import requests
 import streamlit as st
 import streamlit.components.v1 as components 
 import folium
@@ -8,9 +7,21 @@ import datetime
 import base64
 import os
 from urllib.parse import urlparse, parse_qs
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
-# ⚠️ Firebase API URL
-FIREBASE_URL = "https://pirivensmartboardmonitoring-default-rtdb.asia-southeast1.firebasedatabase.app/"
+# 💡 Google Sheets සම්බන්ධතා සැකසීම
+scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+current_dir = os.path.dirname(os.path.abspath(__file__))
+cred_path = os.path.join(current_dir, "credentials.json")
+
+def get_google_sheet():
+    try:
+        creds = ServiceAccountCredentials.from_json_keyfile_name(cred_path, scope)
+        client = gspread.authorize(creds)
+        return client.open("Piriven_Monitoring_DB")
+    except Exception as e:
+        return None
 
 # ලංකාවේ නිල දිස්ත්‍රික්ක 25
 SRI_LANKA_DISTRICTS = [
@@ -224,13 +235,31 @@ with col_clock:
 
 st.write("---")
 
-live_boards_data, cloud_excel_data = {}, None
-try:
-    res1 = requests.get(f"{FIREBASE_URL}live_boards.json")
-    if res1.status_code == 200: live_boards_data = res1.json() or {}
-    res2 = requests.get(f"{FIREBASE_URL}ministry_excel_registry.json")
-    if res2.status_code == 200: cloud_excel_data = res2.json()
-except: pass
+# Google Sheets මඟින් දත්ත ලබා ගැනීම
+sheet = get_google_sheet()
+live_boards_data = {}
+cloud_excel_data = []
+
+if sheet:
+    try:
+        live_ws = sheet.worksheet("Live_Boards")
+        live_records = live_ws.get_all_records()
+        for r in live_records:
+            c_no = str(r.get("Census No", ""))
+            ser = str(r.get("Device Serial", ""))
+            if c_no not in live_boards_data: live_boards_data[c_no] = {}
+            live_boards_data[c_no][ser] = {
+                "device_type": r.get("Device Type", "Smart Board"),
+                "live_lat": float(r.get("Latitude", 0)),
+                "live_lon": float(r.get("Longitude", 0)),
+                "status": r.get("Status", "Offline"),
+                "last_ping": r.get("Last Ping", "")
+            }
+        
+        reg_ws = sheet.worksheet("Pirivena_Master")
+        cloud_excel_data = reg_ws.get_all_records()
+    except Exception as e:
+        st.error(f"Sheet Read Error: {e}")
 
 df_usage = None
 if uploaded_file:
@@ -256,18 +285,23 @@ if uploaded_file:
         df_temp["District"] = [([d for d in SRI_LANKA_DISTRICTS if d.lower() == x.lower()] + ["Other/Unclassified"])[0] for x in df_raw["District"]]
         df_temp["Zone"], df_temp["Latitude"], df_temp["Longitude"], df_temp["Monthly Usage (Hours)"] = df_raw["Zone"], df_raw["Latitude"], df_raw["Longitude"], df_raw["Monthly Usage (Hours)"]
         
-        requests.put(f"{FIREBASE_URL}ministry_excel_registry.json", json=df_temp.to_dict(orient="records"))
+        if sheet:
+            reg_ws = sheet.worksheet("Pirivena_Master")
+            reg_ws.clear()
+            reg_ws.update([df_temp.columns.values.tolist()] + df_temp.values.tolist())
+        
         df_usage = df_temp.copy()
-        st.sidebar.success("✅ Excel Saved to Cloud!")
+        st.sidebar.success("✅ Excel Saved to Google Sheets!")
     except Exception as e: st.sidebar.error(f"Error: {e}")
 
 if df_usage is None and cloud_excel_data:
     df_usage = pd.DataFrame(cloud_excel_data)
-    df_usage["Census No"] = df_usage["Census No"].astype(str).str.strip().apply(lambda x: x.split('.')[0] if '.' in x else x)
-    df_usage["District"] = df_usage["District"].astype(str).str.strip().str.title()
-    st.sidebar.info("☁️ Registry Loaded from Cloud")
+    if not df_usage.empty:
+        df_usage["Census No"] = df_usage["Census No"].astype(str).str.strip().apply(lambda x: x.split('.')[0] if '.' in x else x)
+        df_usage["District"] = df_usage["District"].astype(str).str.strip().str.title()
+        st.sidebar.info("☁️ Registry Loaded from Google Sheets")
 
-if df_usage is None:
+if df_usage is None or df_usage.empty:
     df_usage = pd.DataFrame({"Census No": ["0542"], "Piriven Name": ["Sample Pirivena"], "District": ["Colombo"], "Zone": ["Central"], "Status": ["Offline"], "Latitude": [6.9271], "Longitude": [79.8612], "Monthly Usage (Hours)": [0]})
 
 def is_device_actually_active(last_ping_str):
@@ -329,20 +363,16 @@ with tab2:
     
     app_hours_dict = {}
     try:
-        res_apps = requests.get(f"{FIREBASE_URL}software_analytics.json")
-        if res_apps.status_code == 200 and res_apps.json():
-            apps_cloud_data = res_apps.json()
-            for c_no in filtered_census_nos:
-                if c_no in apps_cloud_data and isinstance(apps_cloud_data[c_no], dict):
-                    # දිනයන් පරීක්ෂා කර ලොග් එක එකතු කිරීම
-                    for date_or_app, val in apps_cloud_data[c_no].items():
-                        if isinstance(val, dict):  # දින යටතේ ඇප්ස් තිබේ නම්
-                            for app_name, minutes in val.items():
-                                if app_name not in app_hours_dict: app_hours_dict[app_name] = 0.0
-                                app_hours_dict[app_name] += round(minutes / 60.0, 2)
-                        else:  # කෙලින්ම ඇප්ස් නම්
-                            if date_or_app not in app_hours_dict: app_hours_dict[date_or_app] = 0.0
-                            app_hours_dict[date_or_app] += round(val / 60.0, 2)
+        if sheet:
+            sw_ws = sheet.worksheet("Software_Analytics")
+            sw_records = sw_ws.get_all_records()
+            for row in sw_records:
+                c_no = str(row.get("Census No", ""))
+                if c_no in filtered_census_nos:
+                    app_name = row.get("App Name", "Unknown")
+                    mins = float(row.get("Minutes", 0))
+                    if app_name not in app_hours_dict: app_hours_dict[app_name] = 0.0
+                    app_hours_dict[app_name] += round(mins / 60.0, 2)
     except: pass
     if not app_hours_dict: app_hours_dict = {"No Software Tracked Yet": 0.0}
     software_chart_data = pd.DataFrame({"Software Application": list(app_hours_dict.keys()), "Total Active Execution (Hours)": list(app_hours_dict.values())})
@@ -456,74 +486,44 @@ with tab1:
         st.subheader("📢 Command Center")
         yt_input = st.text_input("YouTube URL:")
         if st.button("🚀 BROADCAST TO ALL BOARDS", key="broadcast_btn"):
-            if yt_input:
-                requests.put(f"{FIREBASE_URL}current_lesson.json", json=process_youtube_link(yt_input))
-                st.success("✅ Broadcast Successful!")
+            if yt_input and sheet:
+                settings_ws = sheet.worksheet("Settings")
+                settings_ws.update('A1', [[yt_input]])
+                st.success("✅ Broadcast Successful via Google Sheets!")
                         
         st.write("---")
         ann_t = st.text_input("Announcement Title:")
         ann_b = st.text_area("Message Body:")
         if st.button("📢 PUSH LIVE NOTIFICATION", key="push_notif_btn"):
-            if ann_t and ann_b: 
-                requests.put(f"{FIREBASE_URL}latest_announcement.json", json={"title": ann_t, "body": ann_b})
-                st.success("✅ Message Pushed Successfully!")
+            if ann_t and ann_b and sheet:
+                ann_ws = sheet.worksheet("Announcements")
+                ann_ws.append_row([ann_t, ann_b, datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
+                st.success("✅ Message Pushed Successfully via Google Sheets!")
 
 with tab3:
     st.subheader("🛠️ Technical Support & Ticket Interactive Chat Panel")
     
-    def resolve_ticket(ticket_id):
+    if sheet:
         try:
-            res = requests.patch(f"{FIREBASE_URL}support_tickets/{ticket_id}.json", json={"status": "Solved"}, timeout=4)
-            if res.status_code == 200: 
-                st.toast("🟢 ටිකට් එක සාර්ථකව යාවත්කාලීන වුණා!", icon="✅")
-                st.rerun()
-        except: st.sidebar.error("❌ Connection Error.")
-
-    try:
-        res_t = requests.get(f"{FIREBASE_URL}support_tickets.json", timeout=4)
-        if res_t.status_code == 200 and res_t.json():
-            t_data = res_t.json()
-            ticket_index = 1
-            
-            for tid, det in t_data.items():
-                c_no = str(det.get("census_no", "")).strip()
-                p_name = census_to_name.get(c_no, f"Unknown ({c_no})")
-                if selected_piriven != "All Piriven" and p_name != selected_piriven: continue
-                
-                status_label = "🔴 Pending" if det.get('status') == "Pending" else "🟢 Solved"
-                
-                with st.expander(f"🎫 TICKET #{ticket_index} | 🏛️ {p_name} - [{det.get('issue_type')}] (⏱️ {det.get('reported_at', 'N/A')}) - Status: {status_label}"):
-                    st.markdown(f"**📝 Issue Description:** {det.get('description')}")
-                    st.caption(f"Device Serial: {det.get('device_serial', 'N/A')} | DB Reference ID: {tid}")
+            t_ws = sheet.worksheet("Support_Tickets")
+            tickets = t_ws.get_all_records()
+            if tickets:
+                for idx, t in enumerate(tickets, 1):
+                    c_no = str(t.get("Census No", "")).strip()
+                    p_name = census_to_name.get(c_no, f"Unknown ({c_no})")
+                    if selected_piriven != "All Piriven" and p_name != selected_piriven: continue
                     
-                    st.write("---")
-                    st.markdown("💬 **Live Discussion / අමාත්‍යාංශ පිළිතුරු:**")
-                    chats = det.get("chats", {})
-                    if chats:
-                        for cid, cmsg in chats.items():
-                            sender = "🏛️ Ministry" if cmsg.get("sender") == "ministry" else "🏫 Piriven"
-                            st.markdown(f"**{sender}:** {cmsg.get('msg')}  *<small>({cmsg.get('time')[11:16]})</small>*", unsafe_allow_html=True)
+                    status_label = "🔴 Pending" if t.get('Status') == "Pending" else "🟢 Solved"
                     
-                    if det.get('status') == "Pending":
-                        chat_input = st.text_input("Type your response here / පිළිතුර සටහන් කරන්න:", key=f"chat_in_{tid}")
-                        if st.button("↩️ Send Message", key=f"send_btn_{tid}"):
-                            if chat_input:
-                                new_chat_node = {
-                                    "sender": "ministry",
-                                    "msg": chat_input,
-                                    "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                                }
-                                requests.post(f"{FIREBASE_URL}support_tickets/{tid}/chats.json", json=new_chat_node)
-                                st.rerun()
-                        
+                    with st.expander(f"🎫 TICKET #{idx} | 🏛️ {p_name} - [{t.get('Issue Type')}] (⏱️ {t.get('Reported At', 'N/A')}) - Status: {status_label}"):
+                        st.markdown(f"**📝 Issue Description:** {t.get('Description')}")
+                        st.caption(f"Device Serial: {t.get('Device Serial', 'N/A')}")
                         st.write("---")
-                        st.button("Mark as Solved ✅", key=f"sol_{tid}", on_click=resolve_ticket, args=(tid,))
-                    else:
-                        st.info("🔒 This ticket has been marked as solved. Chat is locked.")
-                
-                ticket_index += 1
-        else: st.info("No reported tickets found.")
-    except Exception as e: st.error(f"Error loading tickets: {e}")
+                        st.markdown("💬 **Support Panel Active**")
+            else:
+                st.info("No reported tickets found.")
+        except Exception as e:
+            st.error(f"Error loading tickets: {e}")
 
 # Footer Section
 st.write("---")
