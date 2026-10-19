@@ -10,7 +10,7 @@ from urllib.parse import urlparse, parse_qs
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
-# 💡 Google Sheets සම්බන්ධතා සැකසීම
+# 💡 Google Sheets සම්බන්ධතා සැකසීම (ටිකට්පත්, לייව් බෝඩ් සහ අනෙකුත් වාර්තා සඳහා)
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 current_dir = os.path.dirname(os.path.abspath(__file__))
 cred_path = os.path.join(current_dir, "credentials.json")
@@ -190,7 +190,7 @@ if not st.session_state.board_logged_in:
             st.switch_page("app.py")
     st.stop()
 
-# ලොග් වූ පසු සයිඩ්බාර් එක පෙන්වීම
+# ලොග් වූ පසු සයිඩ්බාර් එක පෙන්වීම (දැන් ෆයිල් අප්ලෝඩ් කිරීම අවශ්‍ය නොවේ)
 with st.sidebar:
     if st.button("🏠 ප්‍රධාන මුල් පිටුවට", key="home_btn_sidebar", use_container_width=True):
         st.switch_page("app.py")
@@ -205,14 +205,8 @@ with st.sidebar:
         """, unsafe_allow_html=True)
         
     st.markdown("---")
-    st.header("📁 Data Source Setup")
-    uploaded_file = st.file_uploader("Upload Piriven Excel Registry (.xlsx)", type=["xlsx"])
-    
-    push_to_sheet = False
-    if uploaded_file is not None:
-        st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
-        if st.button("☁️ Push to Google Sheet", key="push_sheet_btn"):
-            push_to_sheet = True
+    st.header("📁 Data Source Status")
+    st.success("✅ Registry Loaded from Local CSV Database (`piriven_registry.csv`)")
 
 # 💡 වින්ඩෝස් පද්ධතියේ නියම වෙලාව පෙන්වන සජීවී ඔරලෝසු ව්‍යුහය
 col_title, col_clock = st.columns([4, 1])
@@ -242,22 +236,9 @@ with col_clock:
 
 st.write("---")
 
-# Google Sheets සම්බන්ධතාවය
+# Google Sheets සම්බන්ධතාවය (Live Boards සහ Support Tickets සඳහා)
 sheet = get_google_sheet()
 live_boards_data = {}
-cloud_excel_data = []
-
-if push_to_sheet and uploaded_file and sheet:
-    try:
-        df_raw = pd.read_excel(uploaded_file)
-        df_raw.columns = df_raw.columns.str.strip()
-        reg_ws = sheet.worksheet("Pirivena_Master")
-        reg_ws.clear()
-        reg_ws.update([df_raw.columns.values.tolist()] + df_raw.values.tolist())
-        st.sidebar.success("✅ Data Pushed to Google Sheet Successfully!")
-        st.rerun()
-    except Exception as e:
-        st.sidebar.error(f"Push Error: {e}")
 
 try:
     if sheet:
@@ -274,16 +255,16 @@ try:
                 "status": r.get("Status", "Offline"),
                 "last_ping": r.get("Last Ping", "")
             }
-        
-        reg_ws = sheet.worksheet("Pirivena_Master")
-        cloud_excel_data = reg_ws.get_all_records()
 except Exception as e:
     st.error(f"Google Sheet Read Error: {e}")
 
+# 💡 ප්‍රොජෙක්ට් ෆෝල්ඩරයේ ඇති 'piriven_registry.csv' ගොනුව ස්ථිරව කියවා ගැනීම
+csv_path = "piriven_registry.csv"
 df_usage = None
-if cloud_excel_data:
-    df_usage = pd.DataFrame(cloud_excel_data)
-    if not df_usage.empty:
+
+if os.path.exists(csv_path):
+    try:
+        df_usage = pd.read_csv(csv_path)
         df_usage.columns = df_usage.columns.str.strip()
         
         col_map_dict = {c.lower(): c for c in df_usage.columns}
@@ -306,6 +287,8 @@ if cloud_excel_data:
             df_usage[lon_col].astype(str).str.replace(r'[^0-9.\-]', '', regex=True), 
             errors='coerce'
         ).fillna(0.0).astype(float)
+    except Exception as e:
+        st.error(f"CSV Read Error: {e}")
 
 if df_usage is None or df_usage.empty:
     df_usage = pd.DataFrame({"Census No": ["0542"], "Piriven Name": ["Sample Pirivena"], "District": ["Colombo"], "Zone": ["Central"], "Status": ["Offline"], "Latitude": [6.9271], "Longitude": [79.8612], "Monthly Usage (Hours)": [0]})
