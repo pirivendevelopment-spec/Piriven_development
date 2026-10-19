@@ -50,7 +50,7 @@ def process_youtube_link(url_or_id):
 
 st.set_page_config(page_title="Ministry Admin Dashboard", layout="wide")
 
-# --- Dark Modern Theme CSS (සුදු ඉඩ ඉවත් කර සම්පූර්ණ තිරය පිරවීම සඳහා) ---
+# --- Dark Modern Theme CSS ---
 st.markdown("""
     <style>
         .main, .stApp {
@@ -190,7 +190,7 @@ if not st.session_state.board_logged_in:
             st.switch_page("app.py")
     st.stop()
 
-# ලොග් වූ පසු සයිඩ්බාර් එක පෙන්වීම (Excel Upload කිරීමේ පහසුකම සමඟ)
+# ලොග් වූ පසු සයිඩ්බාර් එක පෙන්වීම (Excel Upload & Push Button සමඟ)
 with st.sidebar:
     if st.button("🏠 ප්‍රධාන මුල් පිටුවට", key="home_btn_sidebar", use_container_width=True):
         st.switch_page("app.py")
@@ -207,6 +207,13 @@ with st.sidebar:
     st.markdown("---")
     st.header("📁 Data Source Setup")
     uploaded_file = st.file_uploader("Upload Piriven Excel Registry (.xlsx)", type=["xlsx"])
+    
+    # 💡 ෆයිල් එකක් අප්ලෝඩ් කළ විට පමණක් පෙන්වන Push Button එක
+    push_to_sheet = False
+    if uploaded_file is not None:
+        st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
+        if st.button("☁️ Push to Google Sheet", key="push_sheet_btn"):
+            push_to_sheet = True
 
 # 💡 වින්ඩෝස් පද්ධතියේ නියම වෙලාව පෙන්වන සජීවී ඔරලෝසු ව්‍යුහය
 col_title, col_clock = st.columns([4, 1])
@@ -241,17 +248,18 @@ sheet = get_google_sheet()
 live_boards_data = {}
 cloud_excel_data = []
 
-# අලුතින් Excel එකක් අප්ලෝඩ් කළහොත් එය Google Sheet එකේ 'Pirivena_Master' වෙත ස්වයංක්‍රීයව සේව් කිරීම
-if uploaded_file and sheet:
+# බටන් එක ක්ලික් කළ විට පමණක් Excel දත්ත Google Sheet එකේ 'Pirivena_Master' වෙත යාවත්කාලීන කිරීම
+if push_to_sheet and uploaded_file and sheet:
     try:
         df_raw = pd.read_excel(uploaded_file)
         df_raw.columns = df_raw.columns.str.strip()
         reg_ws = sheet.worksheet("Pirivena_Master")
         reg_ws.clear()
         reg_ws.update([df_raw.columns.values.tolist()] + df_raw.values.tolist())
-        st.sidebar.success("✅ Excel Saved to Google Sheet!")
+        st.sidebar.success("✅ Data Pushed to Google Sheet Successfully!")
+        st.rerun()
     except Exception as e:
-        st.sidebar.error(f"Upload Error: {e}")
+        st.sidebar.error(f"Push Error: {e}")
 
 try:
     if sheet:
