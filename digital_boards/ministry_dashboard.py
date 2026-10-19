@@ -247,7 +247,6 @@ sheet = get_google_sheet()
 live_boards_data = {}
 cloud_excel_data = []
 
-# Push Button එක ක්ලික් කළ විට Excel දත්ත Google Sheet එකේ 'Pirivena_Master' වෙත යාවත්කාලීන කිරීම
 if push_to_sheet and uploaded_file and sheet:
     try:
         df_raw = pd.read_excel(uploaded_file)
@@ -298,8 +297,16 @@ if cloud_excel_data:
         df_usage["Piriven Name"] = df_usage[p_name_col].fillna("").astype(str).str.strip()
         df_usage["District"] = df_usage[dist_col].fillna("").astype(str).str.strip().str.title()
         
-        df_usage["Latitude"] = pd.to_numeric(df_usage[lat_col].astype(str).str.replace(r'[^0-9.\-]', '', regex=True), errors='coerce').fillna(0.0)
-        df_usage["Longitude"] = pd.to_numeric(df_usage[lon_col].astype(str).str.replace(r'[^0-9.\-]', '', regex=True), errors='coerce').fillna(0.0)
+        # 💡 Latitude සහ Longitude අගයන් අකුරු සහ සංකේත ඉවත් කර float අගයන් ලෙස හැරවීම
+        df_usage["Latitude"] = pd.to_numeric(
+            df_usage[lat_col].astype(str).str.replace(r'[^0-9.\-]', '', regex=True), 
+            errors='coerce'
+        ).fillna(0.0).astype(float)
+        
+        df_usage["Longitude"] = pd.to_numeric(
+            df_usage[lon_col].astype(str).str.replace(r'[^0-9.\-]', '', regex=True), 
+            errors='coerce'
+        ).fillna(0.0).astype(float)
 
 if df_usage is None or df_usage.empty:
     df_usage = pd.DataFrame({"Census No": ["0542"], "Piriven Name": ["Sample Pirivena"], "District": ["Colombo"], "Zone": ["Central"], "Status": ["Offline"], "Latitude": [6.9271], "Longitude": [79.8612], "Monthly Usage (Hours)": [0]})
@@ -419,31 +426,24 @@ with tab2:
     )
     st.dataframe(styled_df, use_container_width=True)
 
-map_center = [7.8731, 80.7718]
-map_zoom = 8
-if selected_piriven != "All Piriven" and not df_filtered.empty:
-    first_row = df_filtered.iloc[0]
-    if float(first_row.get("Latitude", 0.0)) != 0.0: 
-        map_center = [float(first_row["Latitude"]), float(first_row["Longitude"])]
-        map_zoom = 14
-
 with tab1:
     col_map, col_ctrl = st.columns([2.5, 1.2])
     with col_map:
         st.subheader("Live Board Tracking")
         
-        # 💡 df_filtered හෝ df_usage ඩේටාෆ්‍රේම් එකෙන් Lat/Lon නිවැරදිව ඇත්දැයි පරීක්ෂා කිරීම
+        # 💡 Streamlit හි st.map භාවිතයෙන් ලොකේෂන් පින් කිරීම
         target_df = df_filtered if not df_filtered.empty else df_usage
         if target_df is not None and not target_df.empty:
-            # st.map සඳහා අවශ්‍ය වන්නේ 'latitude' සහ 'longitude' යන කුඩා අකුරින් හෝ නිවැරදි නම් ඇති තීරුයි
             map_data = target_df[['Latitude', 'Longitude']].rename(columns={'Latitude': 'latitude', 'Longitude': 'longitude'})
             map_data = map_data[(map_data['latitude'] != 0.0) & (map_data['longitude'] != 0.0)]
             
             if not map_data.empty:
                 st.map(map_data, zoom=8, use_container_width=True)
-                st.caption(f"📍 සිතියම මත පෙන්වන පිරිවෙන් සංඛ්‍යාව: {len(map_data)}")
+                st.success(f"📍 සිතියම මත පෙන්වන පිරිවෙන් සංඛ්‍යාව: {len(map_data)}")
             else:
                 st.warning("⚠️ සිතියම මත පෙන්වීමට අක්ෂාංශ/දේශාංශ දත්ත හමු නොවීය.")
+        else:
+            st.info("No data available.")
 
     with col_ctrl:
         st.subheader("📢 Command Center")
