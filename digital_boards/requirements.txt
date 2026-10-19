@@ -4,5 +4,3 @@ pandas
 streamlit
 streamlit-folium
 folium
-psutil
-opencv-python
