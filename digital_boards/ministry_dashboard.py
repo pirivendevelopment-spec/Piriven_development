@@ -287,12 +287,23 @@ if cloud_excel_data:
     df_usage = pd.DataFrame(cloud_excel_data)
     if not df_usage.empty:
         df_usage.columns = df_usage.columns.str.strip()
-        df_usage["Census No"] = df_usage["Census No"].fillna("").astype(str).str.strip().apply(lambda x: x.split('.')[0] if '.' in x else x)
-        df_usage["Piriven Name"] = df_usage["Piriven Name"].fillna("").astype(str).str.strip()
-        df_usage["District"] = df_usage["District"].fillna("").astype(str).str.strip().str.title()
-        df_usage["Latitude"] = pd.to_numeric(df_usage["Latitude"], errors='coerce').fillna(0.0)
-        df_usage["Longitude"] = pd.to_numeric(df_usage["Longitude"], errors='coerce').fillna(0.0)
-        df_usage["Monthly Usage (Hours)"] = pd.to_numeric(df_usage.get("Monthly Usage (Hours)", 0), errors='coerce').fillna(0)
+        
+        # 💡 තීරු නම් නිවැරදිව ලබා ගැනීම (අමතර හිස් තැන් මඟහරවා ගැනීමට)
+        col_map_dict = {c.lower(): c for c in df_usage.columns}
+        
+        c_no_col = col_map_dict.get('census no', 'Census No')
+        p_name_col = col_map_dict.get('piriven name', 'Piriven Name')
+        dist_col = col_map_dict.get('district', 'District')
+        lat_col = col_map_dict.get('latitude', 'Latitude')
+        lon_col = col_map_dict.get('longitude', 'Longitude')
+        
+        df_usage["Census No"] = df_usage[c_no_col].fillna("").astype(str).str.strip().apply(lambda x: x.split('.')[0] if '.' in x else x)
+        df_usage["Piriven Name"] = df_usage[p_name_col].fillna("").astype(str).str.strip()
+        df_usage["District"] = df_usage[dist_col].fillna("").astype(str).str.strip().str.title()
+        
+        # 💡 Latitude සහ Longitude අගයන් අකුරු ඉවත් කර දශම අගයන් ලෙස සකස් කිරීම
+        df_usage["Latitude"] = pd.to_numeric(df_usage[lat_col].astype(str).str.replace(r'[^0-9.\-]', '', regex=True), errors='coerce').fillna(0.0)
+        df_usage["Longitude"] = pd.to_numeric(df_usage[lon_col].astype(str).str.replace(r'[^0-9.\-]', '', regex=True), errors='coerce').fillna(0.0)
 
 if df_usage is None or df_usage.empty:
     df_usage = pd.DataFrame({"Census No": ["0542"], "Piriven Name": ["Sample Pirivena"], "District": ["Colombo"], "Zone": ["Central"], "Status": ["Offline"], "Latitude": [6.9271], "Longitude": [79.8612], "Monthly Usage (Hours)": [0]})
