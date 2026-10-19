@@ -190,7 +190,7 @@ if not st.session_state.board_logged_in:
             st.switch_page("app.py")
     st.stop()
 
-# ලොග් වූ පසු සයිඩ්බාර් එක පෙන්වීම (Excel Upload & Push Button සමඟ)
+# ලොග් වූ පසු සයිඩ්බාර් එක පෙන්වීම
 with st.sidebar:
     if st.button("🏠 ප්‍රධාන මුල් පිටුවට", key="home_btn_sidebar", use_container_width=True):
         st.switch_page("app.py")
@@ -208,7 +208,6 @@ with st.sidebar:
     st.header("📁 Data Source Setup")
     uploaded_file = st.file_uploader("Upload Piriven Excel Registry (.xlsx)", type=["xlsx"])
     
-    # 💡 ෆයිල් එකක් අප්ලෝඩ් කළ විට පමණක් පෙන්වන Push Button එක
     push_to_sheet = False
     if uploaded_file is not None:
         st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
@@ -248,7 +247,7 @@ sheet = get_google_sheet()
 live_boards_data = {}
 cloud_excel_data = []
 
-# බටන් එක ක්ලික් කළ විට පමණක් Excel දත්ත Google Sheet එකේ 'Pirivena_Master' වෙත යාවත්කාලීන කිරීම
+# Push Button එක ක්ලික් කළ විට Excel දත්ත Google Sheet එකේ 'Pirivena_Master' වෙත යාවත්කාලීන කිරීම
 if push_to_sheet and uploaded_file and sheet:
     try:
         df_raw = pd.read_excel(uploaded_file)
@@ -288,9 +287,7 @@ if cloud_excel_data:
     if not df_usage.empty:
         df_usage.columns = df_usage.columns.str.strip()
         
-        # 💡 තීරු නම් නිවැරදිව ලබා ගැනීම (අමතර හිස් තැන් මඟහරවා ගැනීමට)
         col_map_dict = {c.lower(): c for c in df_usage.columns}
-        
         c_no_col = col_map_dict.get('census no', 'Census No')
         p_name_col = col_map_dict.get('piriven name', 'Piriven Name')
         dist_col = col_map_dict.get('district', 'District')
@@ -301,7 +298,6 @@ if cloud_excel_data:
         df_usage["Piriven Name"] = df_usage[p_name_col].fillna("").astype(str).str.strip()
         df_usage["District"] = df_usage[dist_col].fillna("").astype(str).str.strip().str.title()
         
-        # 💡 Latitude සහ Longitude අගයන් අකුරු ඉවත් කර දශම අගයන් ලෙස සකස් කිරීම
         df_usage["Latitude"] = pd.to_numeric(df_usage[lat_col].astype(str).str.replace(r'[^0-9.\-]', '', regex=True), errors='coerce').fillna(0.0)
         df_usage["Longitude"] = pd.to_numeric(df_usage[lon_col].astype(str).str.replace(r'[^0-9.\-]', '', regex=True), errors='coerce').fillna(0.0)
 
@@ -410,7 +406,7 @@ with tab2:
             
     st.write("---")
     df_filtered_time = df_filtered.copy()
-    df_filtered_time[f"Usage ({unit_label})"] = (df_filtered_time["Monthly Usage (Hours)"] / conversion_factor).round(2)
+    df_filtered_time[f"Usage ({unit_label})"] = (df_filtered_time.get("Monthly Usage (Hours)", 0) / conversion_factor).round(2)
     st.markdown(f"**Overall Board Runtime Log ({unit_label})**")
     st.bar_chart(df_filtered_time.set_index("Piriven Name")[f"Usage ({unit_label})"])
     
@@ -435,50 +431,70 @@ with tab1:
     col_map, col_ctrl = st.columns([2.5, 1.2])
     with col_map:
         st.subheader("Live Board Tracking")
+        
         m = folium.Map(location=map_center, zoom_start=map_zoom, tiles="OpenStreetMap")
         
-        for i, r in df_filtered.iterrows():
-            c_no = str(r["Census No"]).strip()
-            lat, lon = float(r.get("Latitude", 0)), float(r.get("Longitude", 0))
+        target_df = df_filtered if not df_filtered.empty else df_usage
+        pins_added = 0
+        
+        if target_df is not None and not target_df.empty:
+            for _, r in target_df.iterrows():
+                try:
+                    lat = float(r.get("Latitude", 0.0))
+                    lon = float(r.get("Longitude", 0.0))
+                    p_name = str(r.get("Piriven Name", "Unknown Pirivena"))
+                    c_no = str(r.get("Census No", ""))
+                    district = str(r.get("District", ""))
+                    status = str(r.get("Status", "Offline"))
+                    
+                    if lat != 0.0 and lon != 0.0:
+                        pins_added += 1
+                        color = "green" if status == "Active" else "red"
+                        
+                        popup_html = f"""
+                        <div style='font-family: sans-serif; font-size: 12px; line-height: 1.5; min-width: 220px; background-color: #1e293b; color: white; padding: 10px; border-radius: 8px;'>
+                            <h3 style='margin: 0 0 5px 0; color: #38bdf8;'>🏛️ {p_name}</h3>
+                            <p style='margin: 4px 0;'><b>Census No:</b> {c_no}</p>
+                            <p style='margin: 4px 0;'><b>District:</b> {district}</p>
+                            <span style='background-color: {"#064e3b" if status=="Active" else "#7f1d1d"}; color: {"#a7f3d0" if status=="Active" else "#fecaca"}; padding: 2px 6px; border-radius: 4px; font-weight: bold;'>● Status: {status}</span>
+                        </div>
+                        """
+                        
+                        folium.Marker(
+                            location=[lat, lon],
+                            popup=popup_html,
+                            icon=folium.Icon(color=color, icon="university", prefix="fa")
+                        ).add_to(m)
+                except Exception as ex:
+                    pass
             
-            if lat != 0.0 and lon != 0.0:
-                status = r.get("Status", "Offline")
-                color = "green" if status == "Active" else "red"
-                
-                popup_html = f"""
-                <div style='font-family: sans-serif; font-size: 12px; line-height: 1.5; min-width: 220px; background-color: #1e293b; color: white; padding: 10px; border-radius: 8px;'>
-                    <h3 style='margin: 0 0 5px 0; color: #38bdf8;'>🏛️ {r.get('Piriven Name')}</h3>
-                    <p style='margin: 4px 0;'><b>Census No:</b> {c_no}</p>
-                    <p style='margin: 4px 0;'><b>District:</b> {r.get('District', 'N/A')}</p>
-                    <span style='background-color: {"#064e3b" if status=="Active" else "#7f1d1d"}; color: {"#a7f3d0" if status=="Active" else "#fecaca"}; padding: 2px 6px; border-radius: 4px; font-weight: bold;'>● {status}</span>
-                </div>
-                """
-                
-                folium.Marker(
-                    [lat, lon], 
-                    popup=popup_html,
-                    icon=folium.Icon(color=color, icon="university", prefix="fa")
-                ).add_to(m)
-                                
-        st_folium(m, width=None, height=650, key=f"map_main_view")
+            st.caption(f"📍 සිතියම මත පෙන්වන පිරිවෙන් සංඛ්‍යාව: {pins_added}")
+        
+        st_folium(m, width=None, height=650, key="main_map_display")
 
     with col_ctrl:
         st.subheader("📢 Command Center")
         yt_input = st.text_input("YouTube URL:")
         if st.button("🚀 BROADCAST TO ALL BOARDS", key="broadcast_btn"):
             if yt_input and sheet:
-                settings_ws = sheet.worksheet("Settings")
-                settings_ws.update('A1', [[yt_input]])
-                st.success("✅ Broadcast Successful via Google Sheets!")
+                try:
+                    settings_ws = sheet.worksheet("Settings")
+                    settings_ws.update('A1', [[yt_input]])
+                    st.success("✅ Broadcast Successful via Google Sheets!")
+                except Exception as e:
+                    st.error(f"Error: {e}")
                         
         st.write("---")
         ann_t = st.text_input("Announcement Title:")
         ann_b = st.text_area("Message Body:")
         if st.button("📢 PUSH LIVE NOTIFICATION", key="push_notif_btn"):
             if ann_t and ann_b and sheet:
-                ann_ws = sheet.worksheet("Announcements")
-                ann_ws.append_row([ann_t, ann_b, datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
-                st.success("✅ Message Pushed Successfully via Google Sheets!")
+                try:
+                    ann_ws = sheet.worksheet("Announcements")
+                    ann_ws.append_row([ann_t, ann_b, datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
+                    st.success("✅ Message Pushed Successfully via Google Sheets!")
+                except Exception as e:
+                    st.error(f"Error: {e}")
 
 with tab3:
     st.subheader("🛠️ Technical Support & Ticket Interactive Chat Panel")
