@@ -405,54 +405,39 @@ with tab1:
         st.subheader("Live Board Tracking")
         m = folium.Map(location=map_center, zoom_start=map_zoom, tiles="OpenStreetMap")
         
-        for i, r in df_filtered.iterrows():
+        # 💡 ෂීට් එකේ ඇති සියලුම පිරිවෙන් සඳහා සිතියමේ මාර්කර් (Markers) ලකුණු කිරීම
+        for i, r in df_usage.iterrows():
             c_no = str(r["Census No"]).strip()
-            is_any_device_live = False
+            p_name = r.get("Piriven Name", "Unknown")
             
-            if c_no in live_boards_data and isinstance(live_boards_data[c_no], dict):
-                live_stu_popup = 0
-                if "attendance" in live_boards_data[c_no] and isinstance(live_boards_data[c_no]["attendance"], dict):
-                    att_info = live_boards_data[c_no]["attendance"]
-                    if is_device_actually_active(att_info.get("last_captured")):
-                        live_stu_popup = att_info.get("live_student_count", 0)
-
-                for dev_id, dev_info in live_boards_data[c_no].items():
-                    if dev_id == "attendance" or not isinstance(dev_info, dict): continue
-                    
-                    if is_device_actually_active(dev_info.get("last_ping")):
-                        is_any_device_live = True
-                        d_type = dev_info.get("device_type", "Smart Board")
-                        l_lat = dev_info.get("live_lat", r["Latitude"])
-                        l_lon = dev_info.get("live_lon", r["Longitude"])
-                        
-                        if c_no == "430001" or l_lat == 7.8731 or l_lat == 0.0:
-                            l_lat, l_lon = r["Latitude"], r["Longitude"]
-                        
-                        if d_type == "Smart Board": icon_color = "green"
-                        elif d_type == "Laptop": icon_color = "blue"
-                        else: icon_color = "orange"
-                        
-                        popup_html = f"""
-                        <div style='font-family: sans-serif; font-size: 12px; line-height: 1.5; min-width: 270px; background-color: #1e293b; color: white; padding: 10px; border-radius: 8px;'>
-                            <h3 style='margin: 0 0 5px 0; color: #38bdf8;'>🏛️ {r['Piriven Name']}</h3>
-                            <span style='background-color: #064e3b; color: #a7f3d0; padding: 2px 6px; border-radius: 4px; font-weight: bold;'>🟢 Active Now</span><br>
-                            <p style='margin: 8px 0 4px 0;'>📟 <b>Device Type:</b> {d_type} (Serial: {dev_id})</p>
-                            <p style='margin: 0 0 8px 0;'>👨‍🎓 <b>Active Students Now:</b> <span style='color: #60a5fa; font-weight: bold;'>{live_stu_popup}</span></p>
-                        </div>
-                        """
-                        if l_lat != 0.0 and l_lon != 0.0:
-                            folium.Marker(
-                                [l_lat, l_lon], popup=popup_html,
-                                icon=folium.Icon(color=icon_color, icon="desktop" if d_type != "Laptop" else "laptop")
-                            ).add_to(m)
-            
-            if not is_any_device_live and r["Latitude"] != 0:
+            # පීහිටුම් (Lat/Lon) ලබා ගැනීම
+            try:
+                lat = float(r.get("Latitude", 0.0))
+                lon = float(r.get("Longitude", 0.0))
+            except:
+                lat, lon = 0.0, 0.0
+                
+            if lat != 0.0 and lon != 0.0:
+                # සජීවීව ක්‍රියාත්මක වේදැයි පරීක්ෂා කිරීම
+                status = r.get("Status", "Offline")
+                color = "green" if status == "Active" else "red"
+                
+                popup_html = f"""
+                <div style='font-family: sans-serif; font-size: 12px; line-height: 1.5; min-width: 220px; background-color: #1e293b; color: white; padding: 10px; border-radius: 8px;'>
+                    <h3 style='margin: 0 0 5px 0; color: #38bdf8;'>🏛️ {p_name}</h3>
+                    <p style='margin: 4px 0;'><b>Census No:</b> {c_no}</p>
+                    <p style='margin: 4px 0;'><b>District:</b> {r.get('District', 'N/A')}</p>
+                    <span style='background-color: {"#064e3b" if status=="Active" else "#7f1d1d"}; color: {"#a7f3d0" if status=="Active" else "#fecaca"}; padding: 2px 6px; border-radius: 4px; font-weight: bold;'>● {status}</span>
+                </div>
+                """
+                
                 folium.Marker(
-                    [r["Latitude"], r["Longitude"]], popup=f"🏛️ {r['Piriven Name']}<br>🔴 Status: Offline", 
-                    icon=folium.Icon(color="red", icon="remove-sign")
+                    [lat, lon], 
+                    popup=popup_html,
+                    icon=folium.Icon(color=color, icon="university", prefix="fa")
                 ).add_to(m)
                                 
-        st_folium(m, width=700, height=600, key=f"map_{selected_district}_{selected_piriven}")
+        st_folium(m, width=600, height=600, key=f"map_main_view")
 
     with col_ctrl:
         st.subheader("📢 Command Center")
