@@ -204,8 +204,7 @@ with st.sidebar:
         """, unsafe_allow_html=True)
         
     st.markdown("---")
-    st.header("📁 Data Source Setup")
-    uploaded_file = st.file_uploader("Upload Piriven Excel Registry (.xlsx)", type=["xlsx"])
+    st.success("☁️ Google Cloud Connected\n(Master Registry Loaded Auto)")
 
 # 💡 වින්ඩෝස් පද්ධතියේ නියම වෙලාව පෙන්වන සජීවී ඔරලෝසු ව්‍යුහය
 col_title, col_clock = st.columns([4, 1])
@@ -235,7 +234,7 @@ with col_clock:
 
 st.write("---")
 
-# Google Sheets මඟින් දත්ත ලබා ගැනීම
+# Google Sheets මඟින් දත්ත ස්වයංක්‍රීයව ලබා ගැනීම
 sheet = get_google_sheet()
 live_boards_data = {}
 cloud_excel_data = []
@@ -256,50 +255,23 @@ if sheet:
                 "last_ping": r.get("Last Ping", "")
             }
         
+        # 💡 Pirivena_Master ෂීට් එකෙන් ස්වයංක්‍රීයව පස්කම් ලැයිස්තුව ලබා ගැනීම
         reg_ws = sheet.worksheet("Pirivena_Master")
         cloud_excel_data = reg_ws.get_all_records()
     except Exception as e:
-        st.error(f"Sheet Read Error: {e}")
+        st.error(f"Google Sheet Read Error: {e}")
 
 df_usage = None
-if uploaded_file:
-    try:
-        df_raw = pd.read_excel(uploaded_file)
-        df_raw.columns = df_raw.columns.str.strip()
-        
-        df_raw["Census No"] = df_raw["Census No"].fillna("").astype(str).str.strip().apply(lambda x: x.split('.')[0] if '.' in x else x)
-        df_raw["Piriven Name"] = df_raw["Piriven Name"].fillna("").astype(str).str.strip()
-        df_raw["District"] = df_raw["District"].fillna("").astype(str).str.strip().str.title() 
-        df_raw["Zone"] = df_raw["Zone"].fillna("").astype(str).str.strip().str.title() if "Zone" in df_raw.columns else df_raw["District"]
-        df_raw["Latitude"] = df_raw["Latitude"].fillna(0.0)
-        df_raw["Longitude"] = df_raw["Longitude"].fillna(0.0)
-        df_raw["Monthly Usage (Hours)"] = df_raw["Monthly Usage (Hours)"].fillna(0)
-
-        for index, row in df_raw.iterrows():
-            lat, lon = float(row.get("Latitude", 0.0)), float(row.get("Longitude", 0.0))
-            if lat > 70.0 and lon < 15.0:
-                df_raw.at[index, "Latitude"], df_raw.at[index, "Longitude"] = lon, lat
-
-        df_temp = pd.DataFrame()
-        df_temp["Census No"], df_temp["Piriven Name"] = df_raw["Census No"], df_raw["Piriven Name"]
-        df_temp["District"] = [([d for d in SRI_LANKA_DISTRICTS if d.lower() == x.lower()] + ["Other/Unclassified"])[0] for x in df_raw["District"]]
-        df_temp["Zone"], df_temp["Latitude"], df_temp["Longitude"], df_temp["Monthly Usage (Hours)"] = df_raw["Zone"], df_raw["Latitude"], df_raw["Longitude"], df_raw["Monthly Usage (Hours)"]
-        
-        if sheet:
-            reg_ws = sheet.worksheet("Pirivena_Master")
-            reg_ws.clear()
-            reg_ws.update([df_temp.columns.values.tolist()] + df_temp.values.tolist())
-        
-        df_usage = df_temp.copy()
-        st.sidebar.success("✅ Excel Saved to Google Sheets!")
-    except Exception as e: st.sidebar.error(f"Error: {e}")
-
-if df_usage is None and cloud_excel_data:
+if cloud_excel_data:
     df_usage = pd.DataFrame(cloud_excel_data)
     if not df_usage.empty:
-        df_usage["Census No"] = df_usage["Census No"].astype(str).str.strip().apply(lambda x: x.split('.')[0] if '.' in x else x)
-        df_usage["District"] = df_usage["District"].astype(str).str.strip().str.title()
-        st.sidebar.info("☁️ Registry Loaded from Google Sheets")
+        df_usage.columns = df_usage.columns.str.strip()
+        df_usage["Census No"] = df_usage["Census No"].fillna("").astype(str).str.strip().apply(lambda x: x.split('.')[0] if '.' in x else x)
+        df_usage["Piriven Name"] = df_usage["Piriven Name"].fillna("").astype(str).str.strip()
+        df_usage["District"] = df_usage["District"].fillna("").astype(str).str.strip().str.title()
+        df_usage["Latitude"] = pd.to_numeric(df_usage["Latitude"], errors='coerce').fillna(0.0)
+        df_usage["Longitude"] = pd.to_numeric(df_usage["Longitude"], errors='coerce').fillna(0.0)
+        df_usage["Monthly Usage (Hours)"] = pd.to_numeric(df_usage.get("Monthly Usage (Hours)", 0), errors='coerce').fillna(0)
 
 if df_usage is None or df_usage.empty:
     df_usage = pd.DataFrame({"Census No": ["0542"], "Piriven Name": ["Sample Pirivena"], "District": ["Colombo"], "Zone": ["Central"], "Status": ["Offline"], "Latitude": [6.9271], "Longitude": [79.8612], "Monthly Usage (Hours)": [0]})
