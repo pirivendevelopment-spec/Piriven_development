@@ -1,12 +1,7 @@
-streamlit
-pandas
-plotly
-openpyxl
-folium
-streamlit-folium
 gspread
 oauth2client
 pandas
 streamlit
 streamlit-folium
 folium
+
