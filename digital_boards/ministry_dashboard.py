@@ -10,7 +10,7 @@ from urllib.parse import urlparse, parse_qs
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
-# 💡 Google Sheets සම්බන්ධතා සැකසීම (ටිකට්පත්, לייව් බෝඩ් සහ අනෙකුත් වාර්තා සඳහා)
+# 💡 Google Sheets සම්බන්ධතා සැකසීම (ටිකට්පත්, live boards සහ අනෙකුත් වාර්තා සඳහා)
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 current_dir = os.path.dirname(os.path.abspath(__file__))
 cred_path = os.path.join(current_dir, "credentials.json")
@@ -190,7 +190,7 @@ if not st.session_state.board_logged_in:
             st.switch_page("app.py")
     st.stop()
 
-# ලොග් වූ පසු සයිඩ්බාර් එක පෙන්වීම (දැන් ෆයිල් අප්ලෝඩ් කිරීම අවශ්‍ය නොවේ)
+# ලොග් වූ පසු සයිඩ්බාර් එක පෙන්වීම
 with st.sidebar:
     if st.button("🏠 ප්‍රධාන මුල් පිටුවට", key="home_btn_sidebar", use_container_width=True):
         st.switch_page("app.py")
@@ -206,7 +206,7 @@ with st.sidebar:
         
     st.markdown("---")
     st.header("📁 Data Source Status")
-    st.success("✅ Registry Loaded from Local CSV Database (`piriven_registry.csv`)")
+    st.success("✅ Registry Loaded from Local CSV (`piriven_registry.csv`)")
 
 # 💡 වින්ඩෝස් පද්ධතියේ නියම වෙලාව පෙන්වන සජීවී ඔරලෝසු ව්‍යුහය
 col_title, col_clock = st.columns([4, 1])
@@ -258,7 +258,7 @@ try:
 except Exception as e:
     st.error(f"Google Sheet Read Error: {e}")
 
-# 💡 ප්‍රොජෙක්ට් ෆෝල්ඩරයේ ඇති 'piriven_registry.csv' ගොනුව ස්ථිරව කියවා ගැනීම
+# 💡 ප්‍රොජෙක්ට් ෆෝල්ඩරයේ ඇති 'piriven_registry.csv' ගොනුව නිවැරදිව කියවා ගැනීම
 csv_path = "piriven_registry.csv"
 df_usage = None
 
@@ -267,9 +267,12 @@ if os.path.exists(csv_path):
         df_usage = pd.read_csv(csv_path)
         df_usage.columns = df_usage.columns.str.strip()
         
-        # 💡 CSV එකේ තීරු නම් (Columns) මොනවාදැයි ස්ට්‍රීම්ලිට් එකේ පෙන්වීමට (පරීක්ෂා කර බැලීමට)
-        st.sidebar.info(f"📁 CSV Columns found: {list(df_usage.columns)}")
+        # 💡 CSV එකේ තීරු නම් සහ දත්ත පරීක්ෂා කර බැලීමට සයිඩ්බාර් එකේ පෙන්වීම
+        st.sidebar.write("---")
+        st.sidebar.markdown(f"**📁 Columns Found:** `{list(df_usage.columns)}`")
+        st.sidebar.markdown(f"**📊 Total Rows in CSV:** `{len(df_usage)}`")
         
+        # තීරු නම් ස්වයංක්‍රීයව හඳුනාගැනීම
         col_map_dict = {c.lower(): c for c in df_usage.columns}
         c_no_col = col_map_dict.get('census no', 'Census No')
         p_name_col = col_map_dict.get('piriven name', 'Piriven Name')
@@ -281,19 +284,14 @@ if os.path.exists(csv_path):
         df_usage["Piriven Name"] = df_usage[p_name_col].fillna("").astype(str).str.strip()
         df_usage["District"] = df_usage[dist_col].fillna("").astype(str).str.strip().str.title()
         
-        # 💡 Latitude සහ Longitude අගයන් අංක බවට හරවා ගැනීම (පිරිසිදු කිරීම)
-        df_usage["Latitude"] = pd.to_numeric(
-            df_usage[lat_col].astype(str).str.replace(r'[^0-9.\-]', '', regex=True), 
-            errors='coerce'
-        ).fillna(0.0).astype(float)
-        
-        df_usage["Longitude"] = pd.to_numeric(
-            df_usage[lon_col].astype(str).str.replace(r'[^0-9.\-]', '', regex=True), 
-            errors='coerce'
-        ).fillna(0.0).astype(float)
+        # 💡 Latitude සහ Longitude අගයන් නිවැරදිව float අගයන් බවට හැරවීම (දෝෂ මඟහරවා ගනිමින්)
+        df_usage["Latitude"] = pd.to_numeric(df_usage[lat_col], errors='coerce').fillna(0.0)
+        df_usage["Longitude"] = pd.to_numeric(df_usage[lon_col], errors='coerce').fillna(0.0)
         
     except Exception as e:
-        st.error(f"CSV Read Error: {e}")
+        st.error(f"⚠️ CSV Read Error: {e}")
+else:
+    st.error(f"⚠️ ප්‍රොජෙක්ට් ෆෝල්ඩරය තුළ '{csv_path}' ගොනුව හමු නොවීය! කරුණාකර එය එම ෆෝල්ඩරයට එකතු කරන්න.")
 
 if df_usage is None or df_usage.empty:
     df_usage = pd.DataFrame({"Census No": ["0542"], "Piriven Name": ["Sample Pirivena"], "District": ["Colombo"], "Zone": ["Central"], "Status": ["Offline"], "Latitude": [6.9271], "Longitude": [79.8612], "Monthly Usage (Hours)": [0]})
@@ -461,10 +459,10 @@ with tab1:
                         ).add_to(m)
                     else:
                         zero_loc_count += 1
-                except:
+                except Exception as ex:
                     pass
             
-            # 💡 සිතියම යටතේ පින් ගණන සහ ලොකේෂන් නැති ගණන පෙන්වීම මඟින් දෝෂය සොයාගත හැක
+            # 💡 සිතියම යටතේ පින් ගණන සහ ලොකේෂන් නොමැති ගණන පෙන්වීම
             st.caption(f"📍 සිතියම මත පෙන්වන පිරිවෙන් සංඛ්‍යාව: {pins_added} | ⚠️ ලොකේෂන් (Lat/Lon) නොමැති/ශුන්‍ය වූ ගණන: {zero_loc_count}")
         
         st_folium(m, width=None, height=650, key="main_map_display")
