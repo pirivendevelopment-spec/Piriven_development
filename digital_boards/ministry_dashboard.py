@@ -401,7 +401,11 @@ with tab1:
     col_map, col_ctrl = st.columns([3, 2])
     with col_map:
         st.subheader("Live Board Tracking")
-        m = folium.Map(location=map_center, zoom_start=map_zoom, tiles="CartoDB dark_matter")
+        m = folium.Map(
+            location=map_center, 
+            zoom_start=map_zoom, 
+            tiles="OpenStreetMap"
+        )
         
         for i, r in df_filtered.iterrows():
             c_no = str(r["Census No"]).strip()
