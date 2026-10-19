@@ -1,7 +1,5 @@
 import streamlit as st
 import streamlit.components.v1 as components 
-import folium
-from streamlit_folium import st_folium
 import pandas as pd
 import datetime
 import base64
@@ -425,57 +423,101 @@ with tab2:
     )
     st.dataframe(styled_df, use_container_width=True)
 
-map_center = [7.8731, 80.7718]
+map_center_lat = 7.8731
+map_center_lon = 80.7718
 map_zoom = 8
 if selected_piriven != "All Piriven" and not df_filtered.empty:
     first_row = df_filtered.iloc[0]
     if float(first_row.get("Latitude", 0.0)) != 0.0: 
-        map_center = [float(first_row["Latitude"]), float(first_row["Longitude"])]
+        map_center_lat = float(first_row["Latitude"])
+        map_center_lon = float(first_row["Longitude"])
         map_zoom = 14
 
 with tab1:
     col_map, col_ctrl = st.columns([2.5, 1.2])
     with col_map:
         st.subheader("Live Board Tracking")
-        m = folium.Map(location=map_center, zoom_start=map_zoom, tiles="CartoDB dark_matter")
+        
+        # 💡 Google Maps JavaScript API භාවිතයෙන් සිතියම රෙන්ඩර් කිරීම සඳහා HTML/JS සංරචකය
+        GOOGLE_MAPS_API_KEY = "YOUR_GOOGLE_MAPS_API_KEY"  # ⚠️ මෙහි ඔබේ සැබෑ Google Maps API Key එක ඇතුළත් කරන්න
         
         target_df = df_filtered if not df_filtered.empty else df_usage
-        pins_added = 0
+        markers_js = ""
+        pins_count = 0
         
         if target_df is not None and not target_df.empty:
             for _, r in target_df.iterrows():
                 try:
                     lat = float(r.get("Latitude", 0.0))
                     lon = float(r.get("Longitude", 0.0))
-                    p_name = str(r.get("Piriven Name", "Unknown Pirivena"))
+                    p_name = str(r.get("Piriven Name", "Unknown Pirivena")).replace("'", "\\'")
                     c_no = str(r.get("Census No", ""))
                     district = str(r.get("District", ""))
                     status = str(r.get("Status", "Offline"))
                     
                     if lat != 0.0 and lon != 0.0:
-                        pins_added += 1
-                        color = "green" if status == "Active" else "red"
+                        pins_count += 1
+                        color_hex = "#22c55e" if status == "Active" else "#ef4444"
                         
-                        popup_html = f"""
-                        <div style='font-family: sans-serif; font-size: 12px; line-height: 1.5; min-width: 220px; background-color: #1e293b; color: white; padding: 10px; border-radius: 8px;'>
-                            <h3 style='margin: 0 0 5px 0; color: #38bdf8;'>🏛️ {p_name}</h3>
-                            <p style='margin: 4px 0;'><b>Census No:</b> {c_no}</p>
-                            <p style='margin: 4px 0;'><b>District:</b> {district}</p>
-                            <span style='background-color: {"#064e3b" if status=="Active" else "#7f1d1d"}; color: {"#a7f3d0" if status=="Active" else "#fecaca"}; padding: 2px 6px; border-radius: 4px; font-weight: bold;'>● Status: {status}</span>
-                        </div>
+                        markers_js += f"""
+                        var marker_{pins_count} = new google.maps.Marker({{
+                            position: {{ lat: {lat}, lng: {lon} }},
+                            map: map,
+                            title: '{p_name}',
+                            icon: {{
+                                path: google.maps.SymbolPath.CIRCLE,
+                                scale: 8,
+                                fillColor: '{color_hex}',
+                                fillOpacity: 1,
+                                strokeColor: '#ffffff',
+                                strokeWeight: 2
+                            }}
+                        }});
+                        
+                        var infowindow_{pins_count} = new google.maps.InfoWindow({{
+                            content: `<div style='font-family: sans-serif; font-size: 12px; color: #000; min-width: 180px;'>
+                                <b style='color: #0f766e;'>🏛️ {p_name}</b><br>
+                                <b>Census No:</b> {c_no}<br>
+                                <b>District:</b> {district}<br>
+                                <b>Status:</b> <span style='color: {color_hex}; font-weight: bold;'>● {status}</span>
+                            </div>`
+                        }});
+                        
+                        marker_{pins_count}.addListener('click', function() {{
+                            infowindow_{pins_count}.open(map, marker_{pins_count});
+                        }});
                         """
-                        
-                        folium.Marker(
-                            location=[lat, lon],
-                            popup=popup_html,
-                            icon=folium.Icon(color=color, icon="university", prefix="fa")
-                        ).add_to(m)
-                except Exception as ex:
+                except:
                     pass
-            
-            st.caption(f"📍 සිතියම මත පෙන්වන පිරිවෙන් සංඛ්‍යාව: {pins_added}")
+
+        gmap_html = f"""
+        <div id="map" style="height: 600px; width: 100%; border-radius: 12px; border: 1px solid #374151;"></div>
+        <script>
+            function initMap() {{
+                var centerLocation = {{ lat: {map_center_lat}, lng: {map_center_lon} }};
+                var map = new google.maps.Map(document.getElementById('map'), {{
+                    zoom: {map_zoom},
+                    center: centerLocation,
+                    styles: [
+                        {{ elementType: "geometry", stylers: [{{ color: "#1d2c4d" }}] }},
+                        {{ elementType: "labels.text.fill", stylers: [{{ color: "#8ec3b9" }}] }},
+                        {{ elementType: "labels.text.stroke", stylers: [{{ color: "#1a365d" }}] }},
+                        {{ featureType: "administrative", elementType: "geometry.stroke", stylers: [{{ color: "#4b6878" }}] }},
+                        {{ featureType: "landscape", elementType: "geometry", stylers: [{{ color: "#223555" }}] }},
+                        {{ featureType: "poi", elementType: "geometry", stylers: [{{ color: "#283d6a" }}] }},
+                        {{ featureType: "road", elementType: "geometry", stylers: [{{ color: "#304a7d" }}] }},
+                        {{ featureType: "water", elementType: "geometry", stylers: [{{ color: "#0e1626" }}] }}
+                    ]
+                }});
+                
+                {markers_js}
+            }
+        </script>
+        <script async defer src="https://maps.googleapis.com/maps/api/js?key={GOOGLE_MAPS_API_KEY}&callback=initMap"></script>
+        """
         
-        st_folium(m, width=None, height=650, key="main_map_display")
+        components.html(gmap_html, height=620)
+        st.caption(f"📍 Google Maps API මඟින් පෙන්වන පිරිවෙන් සංඛ්‍යාව: {pins_count}")
 
     with col_ctrl:
         st.subheader("📢 Command Center")
