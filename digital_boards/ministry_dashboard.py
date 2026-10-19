@@ -10,7 +10,7 @@ from urllib.parse import urlparse, parse_qs
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
-# 💡 Google Sheets සම්බන්ධතා සැකසීම (Cache කර සේව් කර තබා ගැනීම)
+# 💡 Google Sheets සම්බන්ධතා සැකසීම
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 current_dir = os.path.dirname(os.path.abspath(__file__))
 cred_path = os.path.join(current_dir, "credentials.json")
@@ -190,7 +190,7 @@ if not st.session_state.board_logged_in:
             st.switch_page("app.py")
     st.stop()
 
-# ලොග් වූ පසු සයිඩ්බාර් එක පෙන්වීම
+# ලොග් වූ පසු සයිඩ්බාර් එක පෙන්වීම (Excel Upload කිරීමේ පහසුකම සමඟ)
 with st.sidebar:
     if st.button("🏠 ප්‍රධාන මුල් පිටුවට", key="home_btn_sidebar", use_container_width=True):
         st.switch_page("app.py")
@@ -205,7 +205,8 @@ with st.sidebar:
         """, unsafe_allow_html=True)
         
     st.markdown("---")
-    st.success("☁️ Google Cloud Connected\n(Auto-Synced from Sheet)")
+    st.header("📁 Data Source Setup")
+    uploaded_file = st.file_uploader("Upload Piriven Excel Registry (.xlsx)", type=["xlsx"])
 
 # 💡 වින්ඩෝස් පද්ධතියේ නියම වෙලාව පෙන්වන සජීවී ඔරලෝසු ව්‍යුහය
 col_title, col_clock = st.columns([4, 1])
@@ -235,37 +236,43 @@ with col_clock:
 
 st.write("---")
 
-# Google Sheets මඟින් දත්ත ස්වයංක්‍රීයව සහ ස්ථිරව ලබා ගැනීම (Cached)
+# Google Sheets සම්බන්ධතාවය
 sheet = get_google_sheet()
 live_boards_data = {}
 cloud_excel_data = []
 
-@st.cache_data(ttl=60)
-def load_sheet_data():
-    if not sheet: return [], []
+# අලුතින් Excel එකක් අප්ලෝඩ් කළහොත් එය Google Sheet එකේ 'Pirivena_Master' වෙත ස්වයංක්‍රීයව සේව් කිරීම
+if uploaded_file and sheet:
     try:
+        df_raw = pd.read_excel(uploaded_file)
+        df_raw.columns = df_raw.columns.str.strip()
+        reg_ws = sheet.worksheet("Pirivena_Master")
+        reg_ws.clear()
+        reg_ws.update([df_raw.columns.values.tolist()] + df_raw.values.tolist())
+        st.sidebar.success("✅ Excel Saved to Google Sheet!")
+    except Exception as e:
+        st.sidebar.error(f"Upload Error: {e}")
+
+try:
+    if sheet:
         live_ws = sheet.worksheet("Live_Boards")
-        live_recs = live_ws.get_all_records()
+        live_records = live_ws.get_all_records()
+        for r in live_records:
+            c_no = str(r.get("Census No", ""))
+            ser = str(r.get("Device Serial", ""))
+            if c_no not in live_boards_data: live_boards_data[c_no] = {}
+            live_boards_data[c_no][ser] = {
+                "device_type": r.get("Device Type", "Smart Board"),
+                "live_lat": float(r.get("Latitude", 0)),
+                "live_lon": float(r.get("Longitude", 0)),
+                "status": r.get("Status", "Offline"),
+                "last_ping": r.get("Last Ping", "")
+            }
         
         reg_ws = sheet.worksheet("Pirivena_Master")
-        reg_recs = reg_ws.get_all_records()
-        return live_recs, reg_recs
-    except:
-        return [], []
-
-live_records, cloud_excel_data = load_sheet_data()
-
-for r in live_records:
-    c_no = str(r.get("Census No", ""))
-    ser = str(r.get("Device Serial", ""))
-    if c_no not in live_boards_data: live_boards_data[c_no] = {}
-    live_boards_data[c_no][ser] = {
-        "device_type": r.get("Device Type", "Smart Board"),
-        "live_lat": float(r.get("Latitude", 0)),
-        "live_lon": float(r.get("Longitude", 0)),
-        "status": r.get("Status", "Offline"),
-        "last_ping": r.get("Last Ping", "")
-    }
+        cloud_excel_data = reg_ws.get_all_records()
+except Exception as e:
+    st.error(f"Google Sheet Read Error: {e}")
 
 df_usage = None
 if cloud_excel_data:
@@ -406,7 +413,6 @@ if selected_piriven != "All Piriven" and not df_filtered.empty:
         map_zoom = 14
 
 with tab1:
-    # 💡 සිතියම පෙන්වන පැත්ත පුළුල් කර සුදු ඉඩ ඉවත් කිරීම සඳහා columns සමානුපාතිකව සකසා ඇත
     col_map, col_ctrl = st.columns([2.5, 1.2])
     with col_map:
         st.subheader("Live Board Tracking")
