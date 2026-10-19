@@ -267,6 +267,9 @@ if os.path.exists(csv_path):
         df_usage = pd.read_csv(csv_path)
         df_usage.columns = df_usage.columns.str.strip()
         
+        # 💡 CSV එකේ තීරු නම් (Columns) මොනවාදැයි ස්ට්‍රීම්ලිට් එකේ පෙන්වීමට (පරීක්ෂා කර බැලීමට)
+        st.sidebar.info(f"📁 CSV Columns found: {list(df_usage.columns)}")
+        
         col_map_dict = {c.lower(): c for c in df_usage.columns}
         c_no_col = col_map_dict.get('census no', 'Census No')
         p_name_col = col_map_dict.get('piriven name', 'Piriven Name')
@@ -278,6 +281,7 @@ if os.path.exists(csv_path):
         df_usage["Piriven Name"] = df_usage[p_name_col].fillna("").astype(str).str.strip()
         df_usage["District"] = df_usage[dist_col].fillna("").astype(str).str.strip().str.title()
         
+        # 💡 Latitude සහ Longitude අගයන් අංක බවට හරවා ගැනීම (පිරිසිදු කිරීම)
         df_usage["Latitude"] = pd.to_numeric(
             df_usage[lat_col].astype(str).str.replace(r'[^0-9.\-]', '', regex=True), 
             errors='coerce'
@@ -287,6 +291,7 @@ if os.path.exists(csv_path):
             df_usage[lon_col].astype(str).str.replace(r'[^0-9.\-]', '', regex=True), 
             errors='coerce'
         ).fillna(0.0).astype(float)
+        
     except Exception as e:
         st.error(f"CSV Read Error: {e}")
 
