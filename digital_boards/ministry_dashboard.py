@@ -429,6 +429,7 @@ with tab1:
         
         target_df = df_filtered if not df_filtered.empty else df_usage
         pins_added = 0
+        zero_loc_count = 0
         
         if target_df is not None and not target_df.empty:
             for _, r in target_df.iterrows():
@@ -458,10 +459,13 @@ with tab1:
                             popup=popup_html,
                             icon=folium.Icon(color=color, icon="university", prefix="fa")
                         ).add_to(m)
-                except Exception as ex:
+                    else:
+                        zero_loc_count += 1
+                except:
                     pass
             
-            st.caption(f"📍 සිතියම මත පෙන්වන පිරිවෙන් සංඛ්‍යාව: {pins_added}")
+            # 💡 සිතියම යටතේ පින් ගණන සහ ලොකේෂන් නැති ගණන පෙන්වීම මඟින් දෝෂය සොයාගත හැක
+            st.caption(f"📍 සිතියම මත පෙන්වන පිරිවෙන් සංඛ්‍යාව: {pins_added} | ⚠️ ලොකේෂන් (Lat/Lon) නොමැති/ශුන්‍ය වූ ගණන: {zero_loc_count}")
         
         st_folium(m, width=None, height=650, key="main_map_display")
 
