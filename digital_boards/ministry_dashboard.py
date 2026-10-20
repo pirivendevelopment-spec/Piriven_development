@@ -160,10 +160,11 @@ if not st.session_state.board_logged_in:
                 
                 if df_users is not None:
                     df_users.columns = df_users.columns.str.strip()
-                    u_col = next((c for c in df_users.columns if 'user' in c.lower()), 'Username')
-                    p_col = next((c for c in df_users.columns if 'pass' in c.lower()), 'Password')
-                    n_col = next((c for c in df_users.columns if 'name' in c.lower() and 'user' not in c.lower()), 'Name')
-                    r_col = next((c for c in df_users.columns if 'role' in c.lower() or 'acc' in c.lower()), df_users.columns[3] if len(df_users.columns) > 3 else 'Role')
+                    # 💡 ස්වයංක්‍රීයව තීරු නම් (Columns) හඳුනාගැනීම (අක්ෂර දෝෂ මඟහරවා ගනිමින්)
+                    u_col = next((c for c in df_users.columns if 'user' in c.lower()), df_users.columns[0])
+                    p_col = next((c for c in df_users.columns if 'pass' in c.lower()), df_users.columns[1])
+                    n_col = next((c for c in df_users.columns if 'name' in c.lower() and 'user' not in c.lower()), df_users.columns[2])
+                    r_col = next((c for c in df_users.columns if 'role' in c.lower() or 'acc' in c.lower()), df_users.columns[3] if len(df_users.columns) > 3 else df_users.columns[-1])
                     
                     for _, row in df_users.iterrows():
                         db_user = str(row.get(u_col, "")).strip()
@@ -521,7 +522,7 @@ cur_year = datetime.datetime.now().year
 
 def get_base64_image(img_path):
     if os.path.exists(img_path):
-        with open(img_path, "rb") as image_file: return f"data:image/png;base64,{base64.b64encode(image_file.read()).decode()}"
+        with open(img_path, "rb") as image_file: return "data:image/png;base64," + base64.b64encode(image_file.read()).decode()
     return ""
 
 state_img_base64 = get_base64_image("statelogo.png")
