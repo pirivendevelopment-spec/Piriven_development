@@ -10,7 +10,7 @@ from urllib.parse import urlparse, parse_qs
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
-# 💡 Google Sheets සම්බන්ධතා සැකසීම (ටිකට්පත්, live boards සහ අනෙකුත් වාර්තා සඳහා)
+# 💡 Google Sheets සම්බන්ධතා සැකසීම
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 current_dir = os.path.dirname(os.path.abspath(__file__))
 cred_path = os.path.join(current_dir, "credentials.json")
@@ -158,13 +158,9 @@ if not st.session_state.board_logged_in:
                             break
                         except: pass
                 
-               if df_users is not None:
-                    # 💡 සියලු තීරු නම් (Columns) වල ඇති හිස්තැන් සහ අක්ෂර දෝෂ ඉවත් කිරීම
+                if df_users is not None:
                     df_users.columns = df_users.columns.astype(str).str.strip()
-                    
-                    # 💡 පේළි හරහා ගමන් කර Username සහ Password සසදා බැලීම
                     for _, row in df_users.iterrows():
-                        # පළමු තීරු දෙක (Column 0 සහ Column 1) පිළිවෙළින් Username සහ Password ලෙස ගැනීම
                         db_user = str(row.iloc[0]).strip()
                         db_pass = str(row.iloc[1]).strip()
                         db_name = str(row.iloc[2]).strip() if len(df_users.columns) > 2 else "Admin"
@@ -268,12 +264,10 @@ if os.path.exists(csv_path):
         df_usage = pd.read_csv(csv_path)
         df_usage.columns = df_usage.columns.str.strip()
         
-        # 💡 CSV එකේ තීරු නම් සහ දත්ත පරීක්ෂා කර බැලීමට සයිඩ්බාර් එකේ පෙන්වීම
         st.sidebar.write("---")
         st.sidebar.markdown(f"**📁 Columns Found:** `{list(df_usage.columns)}`")
         st.sidebar.markdown(f"**📊 Total Rows in CSV:** `{len(df_usage)}`")
         
-        # තීරු නම් ස්වයංක්‍රීයව හඳුනාගැනීම
         col_map_dict = {c.lower(): c for c in df_usage.columns}
         c_no_col = col_map_dict.get('census no', 'Census No')
         p_name_col = col_map_dict.get('piriven name', 'Piriven Name')
@@ -285,7 +279,6 @@ if os.path.exists(csv_path):
         df_usage["Piriven Name"] = df_usage[p_name_col].fillna("").astype(str).str.strip()
         df_usage["District"] = df_usage[dist_col].fillna("").astype(str).str.strip().str.title()
         
-        # 💡 Latitude සහ Longitude අගයන් නිවැරදිව float අගයන් බවට හැරවීම (දෝෂ මඟහරවා ගනිමින්)
         df_usage["Latitude"] = pd.to_numeric(df_usage[lat_col], errors='coerce').fillna(0.0)
         df_usage["Longitude"] = pd.to_numeric(df_usage[lon_col], errors='coerce').fillna(0.0)
         
@@ -463,7 +456,6 @@ with tab1:
                 except Exception as ex:
                     pass
             
-            # 💡 සිතියම යටතේ පින් ගණන සහ ලොකේෂන් නොමැති ගණන පෙන්වීම
             st.caption(f"📍 සිතියම මත පෙන්වන පිරිවෙන් සංඛ්‍යාව: {pins_added} | ⚠️ ලොකේෂන් (Lat/Lon) නොමැති/ශුන්‍ය වූ ගණන: {zero_loc_count}")
         
         st_folium(m, width=None, height=650, key="main_map_display")
