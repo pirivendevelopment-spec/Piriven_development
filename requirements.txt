@@ -1,7 +1,6 @@
-gspread
-oauth2client
-pandas
 streamlit
+pandas
+plotly
 streamlit-folium
-folium
-
+openpyxl
+requests
