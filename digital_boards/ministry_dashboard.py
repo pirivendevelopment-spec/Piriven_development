@@ -158,23 +158,23 @@ if not st.session_state.board_logged_in:
                             break
                         except: pass
                 
-                if df_users is not None:
-                    df_users.columns = df_users.columns.str.strip()
-                    # 💡 ස්වයංක්‍රීයව තීරු නම් (Columns) හඳුනාගැනීම (අක්ෂර දෝෂ මඟහරවා ගනිමින්)
-                    u_col = next((c for c in df_users.columns if 'user' in c.lower()), df_users.columns[0])
-                    p_col = next((c for c in df_users.columns if 'pass' in c.lower()), df_users.columns[1])
-                    n_col = next((c for c in df_users.columns if 'name' in c.lower() and 'user' not in c.lower()), df_users.columns[2])
-                    r_col = next((c for c in df_users.columns if 'role' in c.lower() or 'acc' in c.lower()), df_users.columns[3] if len(df_users.columns) > 3 else df_users.columns[-1])
+               if df_users is not None:
+                    # 💡 සියලු තීරු නම් (Columns) වල ඇති හිස්තැන් සහ අක්ෂර දෝෂ ඉවත් කිරීම
+                    df_users.columns = df_users.columns.astype(str).str.strip()
                     
+                    # 💡 පේළි හරහා ගමන් කර Username සහ Password සසදා බැලීම
                     for _, row in df_users.iterrows():
-                        db_user = str(row.get(u_col, "")).strip()
-                        db_pass = str(row.get(p_col, "")).strip()
+                        # පළමු තීරු දෙක (Column 0 සහ Column 1) පිළිවෙළින් Username සහ Password ලෙස ගැනීම
+                        db_user = str(row.iloc[0]).strip()
+                        db_pass = str(row.iloc[1]).strip()
+                        db_name = str(row.iloc[2]).strip() if len(df_users.columns) > 2 else "Admin"
+                        db_role = str(row.iloc[3]).strip() if len(df_users.columns) > 3 else "Super Admin"
                         
                         if db_user == u_name.strip() and db_pass == u_pass.strip():
                             login_success = True
                             user_details = {
-                                "name": str(row.get(n_col, "Admin")),
-                                "role": str(row.get(r_col, "Super Admin"))
+                                "name": db_name,
+                                "role": db_role
                             }
                             break
                 
