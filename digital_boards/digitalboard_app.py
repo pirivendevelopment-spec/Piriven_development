@@ -1,497 +1,497 @@
-import sys
-import tkinter as tk
-from tkinter import messagebox, ttk
-import webbrowser
-import requests
-import os
+import streamlit as st
+import streamlit.components.v1 as components 
+import folium
+from streamlit_folium import st_folium
+import pandas as pd
 import datetime
-import subprocess
-import psutil 
-import threading 
-import pygetwindow as gw  
-import json  
-import cv2                 # 💡 සැබෑ පින්තූරයෙන් සිසුන් ගණන සෙවීමට
-import winreg              # 💡 Windows Startup එකට ඇප් එක එකතු කිරීමට
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+import base64
+import os
+from urllib.parse import urlparse, parse_qs
+import requests
 
-# 💡 Google Sheets API සම්බන්ධතා සැකසීම
-scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-current_dir = os.path.dirname(os.path.abspath(__file__))
-cred_path = os.path.join(current_dir, "credentials.json")
+# ⚠️ ඔබගේ නිල Firebase Realtime Database URL එක
+FIREBASE_URL = "https://pirivensmartboardmonitor-8ee4f-default-rtdb.asia-southeast1.firebasedatabase.app/"
 
-def get_google_sheet_client():
+# ලංකාවේ නිල දිස්ත්‍රික්ක 25
+SRI_LANKA_DISTRICTS = [
+    "Colombo", "Gampaha", "Kalutara", "Kandy", "Matale", "Nuwara Eliya", 
+    "Galle", "Matara", "Hambantota", "Jaffna", "Kilinochchi", "Mannar", 
+    "Vavuniya", "Mullaitivu", "Batticaloa", "Ampara", "Trincomalee", 
+    "Kurunegala", "Puttalam", "Anuradhapura", "Polonnaruwa", "Badulla", 
+    "Monaragala", "Ratnapura", "Kegalle"
+]
+
+def process_youtube_link(url_or_id):
+    url_str = url_or_id.strip()
+    if "youtube.com" not in url_str and "youtu.be" not in url_str: return {"type": "video", "value": url_str}
     try:
-        if not os.path.exists(cred_path):
-            print("⚠️ credentials.json file not found!")
-            return None
-        creds = ServiceAccountCredentials.from_json_keyfile_name(cred_path, scope)
-        client = gspread.authorize(creds)
-        return client.open("Piriven_Monitoring_DB")
-    except Exception as e:
-        print(f"Google Sheet Connection Error: {e}")
-        return None
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-APPDATA_DIR = os.path.join(os.environ.get('APPDATA', os.environ.get('USERPROFILE', os.path.expanduser('~'))), 'PirivenSystem')
-if not os.path.exists(APPDATA_DIR): os.makedirs(APPDATA_DIR)
-
-CENSUS_FILE = os.path.join(APPDATA_DIR, "census_config.txt")
-LAST_MSG_FILE = os.path.join(APPDATA_DIR, "last_msg_id.txt")
-OFFLINE_LOG_FILE = os.path.join(APPDATA_DIR, "offline_logs.json")  
-
-if getattr(sys, 'frozen', False): BASE_DIR = sys._MEIPASS
-else: BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-STATE_LOGO_PATH = os.path.join(BASE_DIR, "statelogo.png")
-PIRIVEN_LOGO_PATH = os.path.join(BASE_DIR, "pirivenlogo.png")
-
-# OpenCV නිල Haar Cascade AI Face Model එක පද්ධතියට ලෝඩ් කිරීම
-face_cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
-face_cascade = cv2.CascadeClassifier(face_cascade_path)
-
-last_heartbeat_time = datetime.datetime.now()
-
-# 💡 Windows Startup එකට ඇප් එක එකතු කරන ස්මාර්ට් එන්ජිම
-def add_to_windows_startup():
-    try:
-        if getattr(sys, 'frozen', False):
-            app_path = sys.executable 
-        else:
-            app_path = os.path.abspath(__file__)
-            app_path = f'"{sys.executable}" "{app_path}"'
-        
-        key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_WRITE) as reg_key:
-            winreg.SetValueEx(reg_key, "PirivenSmartBoardSystem", 0, winreg.REG_SZ, app_path)
-        print("✅ Startup Registered!")
-    except Exception as e:
-        print(f"⚠️ Startup Error: {e}")
-
-def detect_device_type():
-    try:
-        if psutil.sensors_battery() is not None: return "Laptop"
-        output = subprocess.check_output("wmic computersystem get model", shell=True, stdin=subprocess.DEVNULL, stderr=subprocess.DEVNULL).decode().lower()
-        if "smart" in output or "board" in output or "touch" in output: return "Smart Board"
+        parsed_url = urlparse(url_str)
+        if "list=" in url_str: return {"type": "playlist", "value": url_str}
+        if "/c/" in url_str or "/channel/" in url_str or "/@" in url_str or "user/" in url_str: return {"type": "channel", "value": url_str}
+        if parsed_url.hostname == 'youtu.be': return {"type": "video", "value": parsed_url.path[1:]}
+        if parsed_url.hostname in ('www.youtube.com', 'youtube.com'):
+            if parsed_url.path == '/watch':
+                p = parse_qs(parsed_url.query)
+                return {"type": "video", "value": p['v'][0]}
     except: pass
-    return "Desktop PC"
+    return {"type": "custom", "value": url_str}
 
-def get_board_location():
-    try:
-        res = requests.get('https://ipapi.co/json/', timeout=3)
-        if res.status_code == 200:
-            d = res.json()
-            return {"lat": d.get("latitude", 7.8731), "lon": d.get("longitude", 80.7718), "city": d.get("city", "Unknown City")}
-    except: pass
-    return {"lat": 7.8731, "lon": 80.7718, "city": "Unknown City"}
+st.set_page_config(page_title="Ministry Admin Dashboard", layout="wide")
 
-def get_machine_serial():
-    try:
-        out = subprocess.check_output("wmic bios get serialnumber", shell=True, stdin=subprocess.DEVNULL, stderr=subprocess.DEVNULL).decode().strip().split('\n')
-        if len(out) >= 2 and out[1].strip() and not any(x in out[1].lower() for x in ["default", "filled", "string", "none", "unknown"]): return out[1].strip()
-        out_mb = subprocess.check_output("wmic baseboard get serialnumber", shell=True, stdin=subprocess.DEVNULL, stderr=subprocess.DEVNULL).decode().strip().split('\n')
-        if len(out_mb) >= 2 and out_mb[1].strip() and not any(x in out_mb[1].lower() for x in ["default", "filled", "string", "none", "unknown"]): return out_mb[1].strip()
-    except: pass
-    return "SMART-BOARD-PC"
-
-def get_advanced_device_specs():
-    try:
-        brand = subprocess.check_output("wmic computersystem get manufacturer", shell=True, stdin=subprocess.DEVNULL, stderr=subprocess.DEVNULL).decode().strip().split('\n')[1].strip()
-        model = subprocess.check_output("wmic computersystem get model", shell=True, stdin=subprocess.DEVNULL, stderr=subprocess.DEVNULL).decode().strip().split('\n')[1].strip()
-        processor = subprocess.check_output("wmic cpu get name", shell=True, stdin=subprocess.DEVNULL, stderr=subprocess.DEVNULL).decode().strip().split('\n')[1].strip()
-        ram = f"{round(psutil.virtual_memory().total / (1024 ** 3))} GB"
-        os_v = subprocess.check_output("wmic os get Caption", shell=True, stdin=subprocess.DEVNULL, stderr=subprocess.DEVNULL).decode().strip().split('\n')[1].strip()
-        return {"brand": brand, "model": model, "chipset": "Intel/AMD", "processor": processor, "frequency": "Active", "cache": "N/A", "ram": ram, "harddisk": "512 GB", "os": os_v}
-    except: return {"brand":"N/A","model":"N/A","chipset":"N/A","processor":"N/A","frequency":"N/A","cache":"N/A","ram":"N/A","harddisk":"N/A","os":"N/A"}
-
-# 💡 Google Sheet එකේ Live_Boards ෂීට් එකට සජීවී Ping දත්ත ලිවීම
-def send_live_ping(census_no):
-    try:
-        sheet = get_google_sheet_client()
-        if not sheet: return
+# --- Dark Modern Theme CSS ---
+st.markdown("""
+    <style>
+        .main, .stApp {
+            background-color: #0b0f19 !important;
+            color: #f8fafc !important;
+            font-family: 'Segoe UI', sans-serif;
+        }
+        h1, h2, h3, h4, h5, h6, p, span, label {
+            color: #f8fafc !important;
+        }
         
-        try:
-            ws = sheet.worksheet("Live_Boards")
-        except:
-            ws = sheet.add_worksheet(title="Live_Boards", rows=100, cols=10)
-            ws.append_row(["Census No", "Device Serial", "Device Type", "Latitude", "Longitude", "Status", "Last Ping", "Live Students", "Last Captured"])
-        
-        loc, dev, ser = get_board_location(), detect_device_type(), get_machine_serial()
-        now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
-        records = ws.get_all_records()
-        row_index = None
-        for idx, r in enumerate(records, start=2):
-            if str(r.get("Census No", "")).strip() == str(census_no).strip() and str(r.get("Device Serial", "")).strip() == str(ser).strip():
-                row_index = idx
-                break
-                
-        row_data = [str(census_no), str(ser), str(dev), str(loc["lat"]), str(loc["lon"]), "Active", str(now_str), 0, ""]
-        
-        if row_index:
-            ws.update(f"A{row_index}:G{row_index}", [[str(census_no), str(ser), str(dev), str(loc["lat"]), str(loc["lon"]), "Active", str(now_str)]])
-        else:
-            ws.append_row(row_data)
-    except Exception as e:
-        print(f"Ping Error: {e}")
+        [data-testid="stSidebar"] {
+            background-color: #111827 !important;
+            color: #ffffff !important;
+        }
+        [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3, 
+        [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label {
+            color: #ffffff !important;
+        }
 
-def start_live_ping_watchdog(root, census_no):
-    global last_heartbeat_time
-    try:
-        current_time = datetime.datetime.now()
-        if (current_time - last_heartbeat_time).total_seconds() > 300:
-            threading.Thread(target=lambda: send_live_ping(census_no), daemon=True).start()
+        .stTabs [data-baseweb="tab-list"] { gap: 10px; background-color: #111827; padding: 10px; border-radius: 10px; }
+        .stTabs [data-baseweb="tab"] {
+            background-color: #1f2937; border-radius: 8px;
+            padding: 10px 20px; font-weight: bold; color: #94a3b8;
+            border: 1px solid #374151;
+        }
+        .stTabs [aria-selected="true"] { background-color: #0f766e !important; color: white !important; }
         
-        last_heartbeat_time = current_time
-        threading.Thread(target=lambda: send_live_ping(census_no), daemon=True).start()
-    except: pass
-    root.after(30000, lambda: start_live_ping_watchdog(root, census_no))
+        div[data-testid="stMetric"] {
+            background-color: #111827;
+            padding: 15px;
+            border-radius: 12px;
+            border: 1px solid #374151;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        div[data-testid="stMetricValue"] { 
+            color: #38bdf8 !important; 
+            font-size: 28px; 
+            font-weight: bold;
+        }
+        div[data-testid="stMetricLabel"] p {
+            color: #94a3b8 !important;
+            font-weight: 600;
+        }
+        
+        .stTextInput input, .stSelectbox select, .stTextArea textarea {
+            background-color: #1f2937 !important;
+            color: white !important;
+            border: 1px solid #374151 !important;
+            border-radius: 8px !important;
+        }
+        .stButton>button, div[data-testid="stFormSubmitButton"]>button { 
+            width: 100% !important;
+            border-radius: 8px !important;
+            font-weight: bold !important; 
+            background-color: #0f766e !important; 
+            color: #ffffff !important; 
+            border: none !important;
+            padding: 10px 20px !important;
+        }
+        .stButton>button:hover, div[data-testid="stFormSubmitButton"]>button:hover { 
+            background-color: #115e59 !important; 
+            color: #ffffff !important; 
+        }
+    </style>
+""", unsafe_allow_html=True)
 
-def sync_offline_logs_to_sheet(census_no):
-    if os.path.exists(OFFLINE_LOG_FILE):
-        try:
-            with open(OFFLINE_LOG_FILE, "r") as f: offline_data = json.load(f)
-            if offline_data:
-                sheet = get_google_sheet_client()
-                if not sheet: return
-                try: ws = sheet.worksheet("Software_Analytics")
-                except: ws = sheet.add_worksheet(title="Software_Analytics", rows=100, cols=10)
-                
-                for date_key, apps in offline_data.items():
-                    for app_label, offline_minutes in apps.items():
-                        ws.append_row([str(census_no), str(date_key), str(app_label), int(offline_minutes)])
-                with open(OFFLINE_LOG_FILE, "w") as f: json.dump({}, f)
-        except: pass
+# --- 🔐 Digital Board Module Login Gate ---
+if "board_logged_in" not in st.session_state:
+    st.session_state.board_logged_in = False
+if "board_user" not in st.session_state:
+    st.session_state.board_user = None
 
-def track_software_usage_loop(root, census_no):
-    try:
-        active_win = gw.getActiveWindow()
-        if active_win is not None:
-            window_title = active_win.title.lower()
-            window_pid = active_win._hWnd
-            import ctypes
-            pid = ctypes.c_ulong()
-            ctypes.windll.user32.GetWindowThreadProcessId(window_pid, ctypes.byref(pid))
+if not st.session_state.board_logged_in:
+    st.markdown("<style>[data-testid='stSidebar'] { display: none !important; }</style>", unsafe_allow_html=True)
+    
+    col_l1, col_l2, col_l3 = st.columns([1, 1.3, 1])
+    with col_l2:
+        st.markdown("<div style='height: 60px;'></div>", unsafe_allow_html=True)
+        with st.form("board_login_form"):
+            st.markdown("<h3 style='color: #38bdf8; text-align: center;'>💻 ඩිජිටල් බෝඩ් පාලක මැදිරිය</h3>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align: center; color: #94a3b8; font-size: 13px;'>අමාත්‍යාංශ ඩෑෂ්බෝඩ් එකට පිවිසීමට ඔබේ පරිශීලක නාමය සහ මුරපදය ලබා දෙන්න.</p>", unsafe_allow_html=True)
             
-            if pid.value > 0:
-                process = psutil.Process(pid.value)
-                exe_name = process.name().lower()
+            u_name = st.text_input("👤 පරිශීලක නාමය (Username)")
+            u_pass = st.text_input("🔑 මුරපදය (Password)", type="password")
+            
+            st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+            sub_login = st.form_submit_button("පද්ධතියට ඇතුල් වන්න 🔓", use_container_width=True)
+            
+            if sub_login:
+                login_success = False
+                user_details = {}
                 
-                if "youtube" in window_title: 
-                    app_label = "YouTube (Educational Videos)"
-                elif "powerpnt" in exe_name: app_label = "MS PowerPoint"
-                elif "winword" in exe_name: app_label = "MS Word"
-                elif "excel" in exe_name: app_label = "MS Excel"
-                elif "vlc" in exe_name: app_label = "VLC Media Player"
-                elif "chrome" in exe_name: app_label = "Google Chrome (General Browsing)"
-                elif "msedge" in exe_name: app_label = "Web Browser (MS Edge)"
-                elif "explorer" in exe_name: app_label = None
-                else: app_label = exe_name.replace(".exe", "").capitalize()
-
-                if app_label:
-                    today_str = datetime.datetime.now().strftime("%Y-%m-%d")
-                    try:
-                        sheet = get_google_sheet_client()
-                        if sheet:
-                            sync_offline_logs_to_sheet(census_no)
-                            try: ws = sheet.worksheet("Software_Analytics")
-                            except: ws = sheet.add_worksheet(title="Software_Analytics", rows=100, cols=10)
-                            ws.append_row([str(census_no), str(today_str), str(app_label), 1])
-                    except:
-                        local_data = {}
-                        if os.path.exists(OFFLINE_LOG_FILE):
+                # Admin Bypass for Testing
+                if u_name.strip() == "Admin" and u_pass.strip() == "Admin@2022":
+                    login_success = True
+                    user_details = {"name": "K Chandaloka", "role": "Super Admin"}
+                else:
+                    excel_paths = ["users.xlsx", os.path.join("digital_boards", "users.xlsx"), os.path.join("..", "users.xlsx")]
+                    df_users = None
+                    for path in excel_paths:
+                        if os.path.exists(path):
                             try:
-                                with open(OFFLINE_LOG_FILE, "r") as f: local_data = json.load(f)
-                            except: local_data = {}
-                        
-                        if today_str not in local_data: local_data[today_str] = {}
-                        local_data[today_str][app_label] = local_data[today_str].get(app_label, 0) + 1
-                        with open(OFFLINE_LOG_FILE, "w") as f: json.dump(local_data, f)
-    except: pass
-    root.after(60000, lambda: track_software_usage_loop(root, census_no))
-
-def check_for_live_announcements(root, census_no):
-    try:
-        sheet = get_google_sheet_client()
-        if sheet:
-            ws = sheet.worksheet("Announcements")
-            records = ws.get_all_records()
-            if records:
-                latest = records[-1]
-                title = str(latest.get("Title", ""))
-                body = str(latest.get("Body", ""))
-                curr_id = str(hash(title + body))
-                last_id = ""
-                if os.path.exists(LAST_MSG_FILE):
-                    with open(LAST_MSG_FILE, "r", encoding="utf-8") as f: last_id = f.read().strip()
-                if curr_id != last_id:
-                    with open(LAST_MSG_FILE, "w", encoding="utf-8") as f: f.write(curr_id)
-                    messagebox.showinfo(f"🔔 ALERT: {title}", body)
-    except: pass
-    root.after(10000, lambda: check_for_live_announcements(root, census_no))
-
-def get_piriven_name_from_cloud(census_no):
-    try:
-        sheet = get_google_sheet_client()
-        if sheet:
-            ws = sheet.worksheet("Pirivena_Master")
-            records = ws.get_all_records()
-            for record in records:
-                if not record: continue
-                if str(record.get("Census No", "")).split('.')[0].strip() == str(census_no).strip():
-                    full_name = str(record.get("Piriven Name", "")).strip()
-                    if full_name and full_name.lower() != "nan":
-                        if "," in full_name: return full_name.split(",")[0].strip().upper()
-                        return full_name.upper()
-    except: pass
-    return None
-
-def launch_main_app(census_no):
-    root = tk.Tk()
-    root.title("Connecting to Ministry Network... ⏳")
-    root.geometry("1050x740")
-    root.configure(bg="#f8fafc")
-
-    add_to_windows_startup()
-    
-    header_frame = tk.Frame(root, bg="#1e293b", pady=20); header_frame.pack(fill=tk.X)
-    logo_container = tk.Frame(header_frame, bg="#1e293b"); logo_container.pack(side=tk.LEFT, padx=25)
-    
-    if os.path.exists(STATE_LOGO_PATH):
-        try:
-            state_hdr_img = tk.PhotoImage(file=STATE_LOGO_PATH).subsample(2, 2) 
-            lbl_state = tk.Label(logo_container, image=state_hdr_img, bg="#1e293b")
-            lbl_state.image = state_hdr_img; lbl_state.pack(side=tk.LEFT, padx=8)
-        except: pass
-
-    if os.path.exists(PIRIVEN_LOGO_PATH):
-        try:
-            piriven_hdr_img = tk.PhotoImage(file=PIRIVEN_LOGO_PATH).subsample(2, 2)
-            lbl_piriven = tk.Label(logo_container, image=piriven_hdr_img, bg="#1e293b")
-            lbl_piriven.image = piriven_hdr_img; lbl_piriven.pack(side=tk.LEFT, padx=8)
-        except: pass
-
-    text_container = tk.Frame(header_frame, bg="#1e293b"); text_container.pack(side=tk.LEFT, padx=15)
-    title_label = tk.Label(text_container, text="PIRIVEN SMART BOARD SYSTEM", font=("Segoe UI", 22, "bold"), bg="#1e293b", fg="#f8fafc"); title_label.pack(anchor="w")
-    subtitle_label = tk.Label(text_container, text=f"Census No: {census_no}  |  Google Sheets Network 🟢", font=("Segoe UI", 11), bg="#1e293b", fg="#94a3b8"); subtitle_label.pack(anchor="w")
-
-    clock_label = tk.Label(header_frame, text="", font=("Consolas", 14, "bold"), bg="#1e293b", fg="#60a5fa", justify="right"); clock_label.pack(side=tk.RIGHT, padx=30)
-    def update_live_clock():
-        clock_label.config(text=datetime.datetime.now().strftime("%Y-%m-%d\n%H:%M:%S"))
-        root.after(1000, update_live_clock)
-    update_live_clock()
-
-    def fetch_cloud_data_bg():
-        send_live_ping(census_no)
-        short_piriven_name = get_piriven_name_from_cloud(census_no)
-        if short_piriven_name: root.title(f"{short_piriven_name} - Dashboard"); title_label.config(text=short_piriven_name)
-
-    def trigger_interactive_camera_capture(is_automated=False):
-        try:
-            cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-            if not cap.isOpened(): cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
-
-            if cap.isOpened():
-                countdown = 1 if is_automated else 3
-                start_time = datetime.datetime.now()
+                                df_users = pd.read_excel(path)
+                                break
+                            except: pass
+                    
+                    if df_users is not None:
+                        for _, row in df_users.iterrows():
+                            try:
+                                db_user = str(row.iloc[0]).strip()
+                                db_pass = str(row.iloc[1]).strip()
+                                if db_user == u_name.strip() and db_pass == u_pass.strip():
+                                    login_success = True
+                                    user_details = {
+                                        "name": str(row.iloc[2]).strip() if len(df_users.columns) > 2 else "Admin",
+                                        "role": str(row.iloc[3]).strip() if len(df_users.columns) > 3 else "Super Admin"
+                                    }
+                                    break
+                            except: pass
                 
-                while True:
-                    succ, img = cap.read()
-                    if not succ: break
-                    
-                    display_img = img.copy()
-                    if not is_automated:
-                        cv2.putText(display_img, f"LOOK AT THE CAMERA: {countdown}", (50, 80), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3)
-                        cv2.putText(display_img, "Capturing class attendance...", (50, 130), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-                        cv2.imshow("🏫 PIRIVEN AI ATTENDANCE Desk", display_img)
-                        cv2.waitKey(1)
-                    else:
-                        cv2.waitKey(10)
-                    
-                    if (datetime.datetime.now() - start_time).total_seconds() >= 1.0:
-                        countdown -= 1
-                        start_time = datetime.datetime.now()
-                    
-                    if countdown <= 0:
-                        gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-                        faces = face_cascade.detectMultiScale(gray_img, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
-                        student_count = len(faces)
-                        
-                        try:
-                            sheet = get_google_sheet_client()
-                            if sheet:
-                                att_ws = sheet.worksheet("Live_Boards")
-                                records = att_ws.get_all_records()
-                                ser = get_machine_serial()
-                                for idx, r in enumerate(records, start=2):
-                                    if str(r.get("Census No", "")).strip() == str(census_no).strip() and str(r.get("Device Serial", "")).strip() == str(ser).strip():
-                                        att_ws.update_cell(idx, 8, int(student_count))
-                                        att_ws.update_cell(idx, 9, datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-                                        break
-                        except: pass
-                        
-                        if not is_automated:
-                            messagebox.showinfo("📊 Attendance Logged", f"පන්තියේ පැමිණීම සාර්ථකව සටහන් විය!\n👨‍🎓 කැමරාවෙන් හඳුනාගත් සැබෑ සිසුන් ගණන: {student_count}")
-                        break
-                cap.release()
-                cv2.destroyAllWindows()
-        except: pass
-
-    def automated_camera_scheduler_loop():
-        trigger_interactive_camera_capture(is_automated=True)
-        root.after(900000, automated_camera_scheduler_loop)
-
-    root.after(1000, lambda: threading.Thread(target=fetch_cloud_data_bg, daemon=True).start())
-    root.after(2000, lambda: check_for_live_announcements(root, census_no))
-    root.after(4000, lambda: start_live_ping_watchdog(root, census_no)) 
-    root.after(6000, lambda: track_software_usage_loop(root, census_no))
-    root.after(10000, automated_camera_scheduler_loop)
-
-    content_frame = tk.Frame(root, bg="#f8fafc", pady=35); content_frame.pack(expand=True, fill=tk.BOTH)
-
-    def open_lessons():
-        try:
-            sheet = get_google_sheet_client()
-            if sheet:
-                settings_ws = sheet.worksheet("Settings")
-                link_value = str(settings_ws.cell(1, 1).value).strip()
-                if link_value:
-                    if "youtube.com" not in link_value and "youtu.be" not in link_value:
-                        webbrowser.open(f"https://www.youtube.com/watch?v={link_value}")
-                    else: webbrowser.open(link_value)
-                else: messagebox.showwarning("No Lessons", "අමාත්‍යාංශය විසින් දැනට සක්‍රිය පාඩම් මාලාවක් විකාශනය කර නොමැත.")
-        except: messagebox.showerror("Error", "Google Sheet සර්වර් පද්ධතිය සමඟ සම්බන්ධ වීමට නොහැකි විය.")
-
-    def open_syllabus(): webbrowser.open("http://www.edupub.gov.lk/")
-
-    def open_messages():
-        msg_win = tk.Toplevel(root); msg_win.title("Ministry Live Announcements"); msg_win.geometry("550x300"); msg_win.configure(bg="#ffffff")
-        tk.Label(msg_win, text="📢 Ministry Official Broadcasts (පොදු නිවේදන)", font=("Segoe UI", 12, "bold"), bg="#ffffff", fg="#1e3a8a").pack(anchor="w", padx=20, pady=15)
-        ann_box = tk.Text(msg_win, height=8, font=("Segoe UI", 11), bg="#f8fafc", fg="#1e293b", bd=0, highlightthickness=1, highlightbackground="#cbd5e1", padx=12, pady=12); ann_box.pack(fill=tk.X, padx=20)
-        try:
-            sheet = get_google_sheet_client()
-            if sheet:
-                ws = sheet.worksheet("Announcements")
-                records = ws.get_all_records()
-                if records:
-                    latest = records[-1]
-                    ann_box.insert(tk.END, f"📌 {latest.get('Title', '')}\n\n{latest.get('Body', '')}")
-                else: ann_box.insert(tk.END, "විශේෂ නිවේදන කිසිවක් නොමැත.")
-        except: pass
-        ann_box.config(state=tk.DISABLED)
-
-    def open_bug_report():
-        report_win = tk.Toplevel(root); report_win.title("Technical Support Desk & Private Chat"); report_win.geometry("1000x620"); report_win.configure(bg="#ffffff"); report_win.grab_set()
-        left_frame = tk.Frame(report_win, bg="#ffffff", width=400, padx=20, pady=10); left_frame.pack(side=tk.LEFT, fill=tk.BOTH)
-        tk.Label(left_frame, text="🛠️ Report New Issue", font=("Segoe UI", 14, "bold"), bg="#ffffff", fg="#1e293b").pack(anchor="w", pady=10)
+                if login_success:
+                    st.session_state.board_logged_in = True
+                    st.session_state.board_user = user_details
+                    st.success("✅ ප්‍රවේශය සාර්ථකයි!")
+                    st.rerun()
+                else:
+                    st.error("⚠️ පරිශීලක නාමය හෝ මුරපදය වැරදියයි!")
         
-        ser_no = get_machine_serial()
-        tk.Label(left_frame, text=f"Serial: {ser_no}", font=("Segoe UI", 9, "bold"), bg="#f1f5f9", fg="#475569", padx=8, pady=4).pack(anchor="w", pady=5)
-        
-        issue_type = tk.StringVar(left_frame); issue_type.set("Select Category")
-        dropdown = tk.OptionMenu(left_frame, issue_type, "Audio/Sound Issue", "Display/Touch Issue", "Internet Connectivity", "Other Issue (වෙනත් ගැටලු)")
-        dropdown.config(font=("Segoe UI", 10), bg="#f8fafc"); dropdown.pack(fill=tk.X, pady=8)
-        
-        tk.Label(left_frame, text="Describe your issue / ගැටලුවේ විස්තරය:", font=("Segoe UI", 10), bg="#ffffff", fg="#64748b").pack(anchor="w", pady=2)
-        desc_box = tk.Text(left_frame, height=6, font=("Segoe UI", 10), bg="#f8fafc", highlightthickness=1, highlightbackground="#cbd5e1", padx=8, pady=8); desc_box.pack(fill=tk.X, pady=5)
+        st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
+        if st.button("🏠 ප්‍රධාන මුල් පිටුවට (Home) ආපසු යන්න", key="home_btn_login", use_container_width=True):
+            st.switch_page("app.py")
+    st.stop()
 
-        right_frame = tk.Frame(report_win, bg="#f8fafc", padx=20, pady=10); right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
-        tk.Label(right_frame, text="💬 Support Tickets Status", font=("Segoe UI", 14, "bold"), bg="#f8fafc", fg="#b91c1c").pack(anchor="w", pady=10)
-        
-        tree = ttk.Treeview(right_frame, columns=("ID", "Category", "Status"), show="headings", height=4)
-        tree.heading("ID", text="Ticket ID"); tree.heading("Category", text="Category"); tree.heading("Status", text="Status")
-        tree.column("ID", width=70); tree.column("Category", width=140); tree.column("Status", width=120); tree.pack(fill=tk.X, pady=5)
-
-        def refresh_ticket_grid():
-            for row in tree.get_children(): tree.delete(row)
-            try:
-                sheet = get_google_sheet_client()
-                if sheet:
-                    try: ws = sheet.worksheet("Support_Tickets")
-                    except: ws = sheet.add_worksheet(title="Support_Tickets", rows=100, cols=10)
-                    records = ws.get_all_records()
-                    for idx, r in enumerate(records, start=2):
-                        if str(r.get("Census No", "")).strip() == str(census_no).strip():
-                            tree.insert("", tk.END, values=(idx, r.get("Issue Type"), r.get("Status")))
-            except: pass
-
-        def submit_new_issue():
-            if issue_type.get() == "Select Category" or not desc_box.get("1.0", tk.END).strip():
-                messagebox.showwarning("Incomplete", "කරුණාකර සියලු විස්තර සපුරන්න.")
-                return
-            try:
-                sheet = get_google_sheet_client()
-                if sheet:
-                    try: ws = sheet.worksheet("Support_Tickets")
-                    except: ws = sheet.add_worksheet(title="Support_Tickets", rows=100, cols=10)
-                    ws.append_row([str(census_no), str(ser_no), str(issue_type.get()), str(desc_box.get("1.0", tk.END).strip()), "Pending", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
-                    messagebox.showinfo("✅ Success", "ගැටලුව සාර්ථකව අධ්‍යාපන අමාත්‍යාංශය වෙත යොමු වුණා!")
-                    desc_box.delete("1.0", tk.END); issue_type.set("Select Category"); refresh_ticket_grid()
-            except: pass
-
-        tk.Button(left_frame, text="📤 SUBMIT REPORT", bg="#ef4444", fg="white", font=("Segoe UI", 11, "bold"), bd=0, pady=10, command=submit_new_issue).pack(fill=tk.X, pady=15)
-        refresh_ticket_grid()
-
-    card_frame = tk.Frame(content_frame, bg="#f8fafc"); card_frame.pack()
-    def create_modern_card(parent, text, color, cmd, row, col):
-        btn = tk.Button(parent, text=text, font=("Segoe UI", 13, "bold"), bg=color, fg="white", bd=0, width=24, height=8, cursor="hand2", command=cmd, relief="flat")
-        btn.grid(row=row, column=col, padx=25, pady=25)
-
-    create_modern_card(card_frame, "📺\n\nREMOTE LESSONS\n\n(Live Video Education)", "#ef4444", open_lessons, 0, 0)
-    create_modern_card(card_frame, "📚\n\nSYLLABUS & BOOKS\n\n(Digital Library)", "#3b82f6", open_syllabus, 0, 1)
-    create_modern_card(card_frame, "🔔\n\nMINISTRY MESSAGES\n\n(Announcements)", "#10b981", open_messages, 0, 2)
-
-    tk.Button(root, text="📸    START AI CLASS ATTENDANCE DETECTOR (සජීවී සිසුන් සංඛ්‍යාව ගණනය කරන්න)", 
-              font=("Segoe UI", 11, "bold"), bg="#dc2626", fg="white", bd=0, pady=16, cursor="hand2", 
-              command=lambda: trigger_interactive_camera_capture(is_automated=False)).pack(pady=10, padx=85, fill=tk.X)
-
-    tk.Button(root, text="🛠    REPORT TECHNICAL ISSUES & PRIVATE CHAT SYSTEM", font=("Segoe UI", 11, "bold"), bg="#475569", fg="white", bd=0, pady=16, cursor="hand2", command=open_bug_report).pack(pady=15, padx=85, fill=tk.X)
+with st.sidebar:
+    if st.button("🏠 ප්‍රධාන මුල් පිටුවට", key="home_btn_sidebar", use_container_width=True):
+        st.switch_page("app.py")
     
-    def on_ui_close_safeguard():
-        root.withdraw()
-        print("🔒 UI Hidden by user, but Piriven Core Service is still running in the background...")
+    if st.session_state.board_user:
+        u_info = st.session_state.board_user
+        st.markdown(f"""
+            <div style="background: #1f2937; padding: 10px; border-radius: 8px; border-left: 4px solid #0f766e; margin-bottom: 15px;">
+                <div style="font-size: 13px; font-weight: bold; color: #f3f4f6;">👤 {u_info['name']}</div>
+                <div style="font-size: 11px; color: #38bdf8; margin-top: 3px;">තනතුර: <b>{u_info['role']}</b></div>
+            </div>
+        """, unsafe_allow_html=True)
         
-    root.protocol("WM_DELETE_WINDOW", on_ui_close_safeguard)
-    
-    footer_frame = tk.Frame(root, bg="#1e293b", pady=18); footer_frame.pack(side=tk.BOTTOM, fill=tk.X)
-    footer_frame.columnconfigure(0, weight=1); footer_frame.columnconfigure(1, weight=2); footer_frame.columnconfigure(2, weight=1)
-    tk.Label(footer_frame, text=f"Piriven Development Branch\n📧 info.pirivendevelopment@gmail.com\n© {datetime.datetime.now().year} | Ministry of Education, Sri Lanka.", font=("Segoe UI", 9), bg="#1e293b", fg="#cbd5e1", justify="center").grid(row=0, column=1, sticky="ew")
-    root.mainloop()
+    st.markdown("---")
+    st.header("📁 Data Source Status")
+    st.success("✅ Connected to Firebase Cloud")
 
-def enable_windows_camera_permission():
+col_title, col_clock = st.columns([4, 1])
+with col_title:
+    st.markdown("<h2 style='color: #f8fafc; margin-top: -10px;'>🏛️ Ministry of Education - Piriven Division</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #94a3b8; font-size: 14px; font-weight: bold; margin-top: -15px;'>Central Control, Analytics & Monitoring Dashboard (Firebase)</p>", unsafe_allow_html=True)
+with col_clock:
+    st.markdown("<p style='text-align:center; margin-bottom:0px; font-weight:bold; color:#cbd5e1; font-size:12px;'>💻 DEVICE TIME</p>", unsafe_allow_html=True)
+    clock_html = """
+    <div id="clock-span" style="background-color: #111827; color: #38bdf8; padding: 8px; border-radius: 8px; text-align: center; font-family: monospace; font-size: 14px; font-weight: bold; border: 1px solid #374151;">Loading...</div>
+    <script>
+        function updateClock() {
+            var now = new Date();
+            var year = now.getFullYear();
+            var month = String(now.getMonth() + 1).padStart(2, '0');
+            var day = String(now.getDate()).padStart(2, '0');
+            var hours = String(now.getHours()).padStart(2, '0');
+            var minutes = String(now.getMinutes()).padStart(2, '0');
+            var seconds = String(now.getSeconds()).padStart(2, '0');
+            document.getElementById('clock-span').innerText = year + '-' + month + '-' + day + ' ' + hours + ':' + minutes + ':' + seconds;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+    </script>
+    """
+    components.html(clock_html, height=60)
+
+st.write("---")
+
+# Fetch Live Boards from Firebase
+live_boards_data = {}
+try:
+    res = requests.get(f"{FIREBASE_URL}live_boards.json", timeout=4)
+    if res.status_code == 200 and res.json():
+        live_boards_data = res.json()
+except Exception as e:
+    st.error(f"Firebase Read Error: {e}")
+
+# Load Registry from CSV
+csv_path = "piriven_registry.csv"
+df_usage = None
+
+if os.path.exists(csv_path):
     try:
-        import winreg
-        keys = [r"Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\webcam", r"Software\Microsoft\Windows\CurrentVersion\DeviceAccess\Global\{E5323777-F976-4f5b-9B55-B94699C46E44}"]
-        for key_path in keys:
-            key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, key_path)
-            winreg.SetValueEx(key, "Value", 0, winreg.REG_SZ, "Allow"); winreg.CloseKey(key)
+        df_usage = pd.read_csv(csv_path)
+        df_usage.columns = df_usage.columns.str.strip()
+        
+        col_map_dict = {c.lower(): c for c in df_usage.columns}
+        c_no_col = col_map_dict.get('census no', 'Census No')
+        p_name_col = col_map_dict.get('piriven name', 'Piriven Name')
+        dist_col = col_map_dict.get('district', 'District')
+        lat_col = col_map_dict.get('latitude', 'Latitude')
+        lon_col = col_map_dict.get('longitude', 'Longitude')
+        
+        df_usage["Census No"] = df_usage[c_no_col].fillna("").astype(str).str.strip().apply(lambda x: x.split('.')[0] if '.' in x else x)
+        df_usage["Piriven Name"] = df_usage[p_name_col].fillna("").astype(str).str.strip()
+        df_usage["District"] = df_usage[dist_col].fillna("").astype(str).str.strip().str.title()
+        
+        df_usage["Latitude"] = pd.to_numeric(df_usage[lat_col], errors='coerce').fillna(0.0)
+        df_usage["Longitude"] = pd.to_numeric(df_usage[lon_col], errors='coerce').fillna(0.0)
+    except Exception as e:
+        st.error(f"⚠️ CSV Read Error: {e}")
+
+if df_usage is None or df_usage.empty:
+    df_usage = pd.DataFrame({"Census No": ["0542"], "Piriven Name": ["Sample Pirivena"], "District": ["Colombo"], "Zone": ["Central"], "Status": ["Offline"], "Latitude": [6.9271], "Longitude": [79.8612], "Monthly Usage (Hours)": [0]})
+
+def is_device_actually_active(last_ping_str):
+    try:
+        if not last_ping_str: return False
+        last_ping_time = datetime.datetime.strptime(last_ping_str, "%Y-%m-%d %H:%M:%S")
+        srilanka_now = datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)
+        time_difference = (srilanka_now - last_ping_time).total_seconds()
+        if 0 <= time_difference < 600: return True
     except: pass
+    return False
 
-def show_setup_screen():
-    setup = tk.Tk(); setup.title("System Activation"); setup.geometry("460x320"); setup.configure(bg="#ffffff")
-    setup.resizable(False, False)
-    tk.Label(setup, text="⚙️ Board Initialization", font=("Segoe UI", 18, "bold"), bg="#ffffff", fg="#1e293b").pack(pady=20)
-    tk.Label(setup, text="⚠️ IMPORTANT NOTICE:\nThis app requires Web Camera access for live class analysis.\nPlease ensure Windows Camera Privacy settings are allowed.", 
-             font=("Segoe UI", 9, "bold"), bg="#fee2e2", fg="#991b1b", justify="center", pady=8, padx=10).pack(pady=5)
-    tk.Label(setup, text="Enter Piriven Census Number:", font=("Segoe UI", 11), bg="#ffffff", fg="#64748b").pack(pady=5)
-    entry = tk.Entry(setup, font=("Segoe UI", 14), width=18, justify="center", bg="#f1f5f9", bd=0, highlightthickness=1); entry.pack(pady=5)
+live_census_list = []
+for c_id, devices in live_boards_data.items():
+    if isinstance(devices, dict):
+        for d_id, d_info in devices.items():
+            if d_id != "attendance" and isinstance(d_info, dict) and is_device_actually_active(d_info.get("last_ping")):
+                live_census_list.append(str(c_id).strip())
+                break
+
+df_usage["Status"] = ["Active" if str(row["Census No"]).strip() in live_census_list else "Offline" for i, row in df_usage.iterrows()]
+census_to_name = dict(zip(df_usage["Census No"].astype(str), df_usage["Piriven Name"]))
+
+st.sidebar.write("---")
+st.sidebar.header("🔍 Live Filters")
+dist_list = ["All Island"] + sorted([d for d in df_usage["District"].unique().tolist() if d and d != "Nan"])
+selected_district = st.sidebar.selectbox("Select District:", dist_list)
+df_step1 = df_usage[df_usage["District"] == selected_district] if selected_district != "All Island" else df_usage.copy()
+
+pir_list = ["All Piriven"] + sorted(df_step1["Piriven Name"].unique().tolist())
+selected_piriven = st.sidebar.selectbox("Select Piriven Name:", pir_list)
+df_filtered = df_step1[df_step1["Piriven Name"] == selected_piriven] if selected_piriven != "All Piriven" else df_step1.copy()
+
+tab1, tab2, tab3 = st.tabs(["🗺️ Live Map & Remote Control", "📊 Analytics & Usage Stats", "🛠️ Support Tickets & Live Chat"])
+
+with tab2:
+    st.subheader("📊 Performance Analytics")
+    c_left, c_middle, c_right = st.columns(3) 
+    c_left.metric("Registered Boards", len(df_filtered))
     
-    def save():
-        c = entry.get().strip()
-        if c:
-            enable_windows_camera_permission()
-            try:
-                test_cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-                if test_cap.isOpened(): test_cap.release()
-            except: pass
-            with open(CENSUS_FILE, "w") as f: f.write(c)
-            setup.destroy(); launch_main_app(c)
-        else: messagebox.showwarning("Incomplete", "Census number is required.")
+    total_active_devices = 0
+    total_live_students = 0
+    filtered_census_nos = df_filtered["Census No"].astype(str).tolist()
+    
+    for c_no in filtered_census_nos:
+        if c_no in live_boards_data and isinstance(live_boards_data[c_no], dict):
+            for dev_id, dev_info in live_boards_data[c_no].items():
+                if dev_id != "attendance" and isinstance(dev_info, dict) and is_device_actually_active(dev_info.get("last_ping")):
+                    total_active_devices += 1
+            if "attendance" in live_boards_data[c_no] and isinstance(live_boards_data[c_no]["attendance"], dict):
+                att_info = live_boards_data[c_no]["attendance"]
+                if is_device_actually_active(att_info.get("last_captured")):
+                    total_live_students += int(att_info.get("live_student_count", 0))
+            
+    c_middle.metric("Total Active Devices Now", total_active_devices)
+    c_right.metric("👨‍🎓 Total Live Students Learning Now", total_live_students) 
+    st.write("---")
+    
+    app_hours_dict = {}
+    try:
+        res_sw = requests.get(f"{FIREBASE_URL}software_analytics.json", timeout=3)
+        if res_sw.status_code == 200 and res_sw.json():
+            sw_data = res_sw.json()
+            for c_no, dates in sw_data.items():
+                if str(c_no).strip() in filtered_census_nos and isinstance(dates, dict):
+                    for date_str, apps in dates.items():
+                        if isinstance(apps, dict):
+                            for app_name, mins in apps.items():
+                                if app_name not in app_hours_dict: app_hours_dict[app_name] = 0.0
+                                app_hours_dict[app_name] += round(float(mins) / 60.0, 2)
+    except: pass
+    if not app_hours_dict: app_hours_dict = {"No Software Tracked Yet": 0.0}
+    software_chart_data = pd.DataFrame({"Software Application": list(app_hours_dict.keys()), "Total Active Execution (Hours)": list(app_hours_dict.values())})
+    
+    st.markdown("### ⏱️ Select Time Analytics View")
+    time_view = st.selectbox(
+        "Display Usage Data In:",
+        ["Hours (පැය)", "Days (දවස්)", "Weeks (සති)", "Months (මාස)", "Years (අවුරුදු)"],
+        key="time_view_filter"
+    )
+    
+    conversion_factor = 1.0
+    unit_label = "Hours"
+    if "Days" in time_view: conversion_factor, unit_label = 24.0, "Days"
+    elif "Weeks" in time_view: conversion_factor, unit_label = 168.0, "Weeks"
+    elif "Months" in time_view: conversion_factor, unit_label = 730.0, "Months"
+    elif "Years" in time_view: conversion_factor, unit_label = 8760.0, "Years"
 
-    tk.Button(setup, text="ACTIVATE BOARD & ALLOW CAMERA", bg="#3b82f6", fg="white", font=("Segoe UI", 11, "bold"), bd=0, pady=10, padx=25, command=save).pack(pady=15)
-    setup.mainloop()
+    software_chart_data["Total Active Execution"] = (software_chart_data["Total Active Execution (Hours)"] / conversion_factor).round(2)
+    software_chart_data_view = software_chart_data[["Software Application", "Total Active Execution"]].rename(
+        columns={"Total Active Execution": f"Total Active Execution ({unit_label})"}
+    )
 
-if __name__ == "__main__":
-    if os.path.exists(CENSUS_FILE):
-        with open(CENSUS_FILE, "r") as f: launch_main_app(f.read().strip())
-    else: show_setup_screen()
+    col_sw1, col_sw2 = st.columns(2)
+    with col_sw1: 
+        st.markdown(f"**Software Usage Comparison ({unit_label})**")
+        st.bar_chart(software_chart_data_view.set_index("Software Application"))
+    with col_sw2: 
+        st.markdown(f"**Application Screen-Time Breakdown ({unit_label})**")
+        st.dataframe(software_chart_data_view, use_container_width=True)
+            
+    st.write("---")
+    df_filtered_time = df_filtered.copy()
+    df_filtered_time[f"Usage ({unit_label})"] = (df_filtered_time.get("Monthly Usage (Hours)", 0) / conversion_factor).round(2)
+    st.markdown(f"**Overall Board Runtime Log ({unit_label})**")
+    st.bar_chart(df_filtered_time.set_index("Piriven Name")[f"Usage ({unit_label})"])
+    
+    st.write("---")
+    st.markdown("### 📋 Device Registry & Quick Map Link")
+    styled_df = df_filtered.drop(columns=["Latitude", "Longitude"], errors="ignore")
+    st.dataframe(styled_df, use_container_width=True)
+
+map_center = [7.8731, 80.7718]
+map_zoom = 8
+if selected_piriven != "All Piriven" and not df_filtered.empty:
+    first_row = df_filtered.iloc[0]
+    if float(first_row.get("Latitude", 0.0)) != 0.0: 
+        map_center = [float(first_row["Latitude"]), float(first_row["Longitude"])]
+        map_zoom = 14
+
+with tab1:
+    col_map, col_ctrl = st.columns([2.5, 1.2])
+    with col_map:
+        st.subheader("Live Board Tracking")
+        m = folium.Map(location=map_center, zoom_start=map_zoom, tiles="OpenStreetMap")
+        
+        target_df = df_filtered if not df_filtered.empty else df_usage
+        pins_added = 0
+        zero_loc_count = 0
+        
+        if target_df is not None and not target_df.empty:
+            for _, r in target_df.iterrows():
+                try:
+                    lat = float(r.get("Latitude", 0.0))
+                    lon = float(r.get("Longitude", 0.0))
+                    p_name = str(r.get("Piriven Name", "Unknown Pirivena"))
+                    c_no = str(r.get("Census No", ""))
+                    district = str(r.get("District", ""))
+                    status = str(r.get("Status", "Offline"))
+                    
+                    if lat != 0.0 and lon != 0.0:
+                        pins_added += 1
+                        color = "green" if status == "Active" else "red"
+                        
+                        popup_html = f"""
+                        <div style='font-family: sans-serif; font-size: 12px; line-height: 1.5; min-width: 220px; background-color: #1e293b; color: white; padding: 10px; border-radius: 8px;'>
+                            <h3 style='margin: 0 0 5px 0; color: #38bdf8;'>🏛️ {p_name}</h3>
+                            <p style='margin: 4px 0;'><b>Census No:</b> {c_no}</p>
+                            <p style='margin: 4px 0;'><b>District:</b> {district}</p>
+                            <span style='background-color: {"#064e3b" if status=="Active" else "#7f1d1d"}; color: {"#a7f3d0" if status=="Active" else "#fecaca"}; padding: 2px 6px; border-radius: 4px; font-weight: bold;'>● Status: {status}</span>
+                        </div>
+                        """
+                        folium.Marker(
+                            location=[lat, lon],
+                            popup=popup_html,
+                            icon=folium.Icon(color=color, icon="university", prefix="fa")
+                        ).add_to(m)
+                    else:
+                        zero_loc_count += 1
+                except: pass
+            
+            st.caption(f"📍 සිතියම මත පෙන්වන පිරිවෙන් සංඛ්‍යාව: {pins_added} | ⚠️ ලොකේෂන් නොමැති ගණන: {zero_loc_count}")
+        
+        st_folium(m, width=None, height=650, key="main_map_display")
+
+    with col_ctrl:
+        st.subheader("📢 Command Center")
+        yt_input = st.text_input("YouTube URL:")
+        if st.button("🚀 BROADCAST TO ALL BOARDS", key="broadcast_btn"):
+            if yt_input:
+                try:
+                    payload = {"type": process_youtube_link(yt_input)["type"], "value": yt_input.strip()}
+                    requests.put(f"{FIREBASE_URL}current_lesson.json", json=payload, timeout=3)
+                    st.success("✅ Broadcast Successful via Firebase!")
+                except Exception as e:
+                    st.error(f"Error: {e}")
+                        
+        st.write("---")
+        ann_t = st.text_input("Announcement Title:")
+        ann_b = st.text_area("Message Body:")
+        if st.button("📢 PUSH LIVE NOTIFICATION", key="push_notif_btn"):
+            if ann_t and ann_b:
+                try:
+                    payload = {"title": ann_t, "body": ann_b, "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+                    requests.post(f"{FIREBASE_URL}announcements.json", json=payload, timeout=3)
+                    requests.put(f"{FIREBASE_URL}latest_announcement.json", json=payload, timeout=3)
+                    st.success("✅ Message Pushed Successfully via Firebase!")
+                except Exception as e:
+                    st.error(f"Error: {e}")
+
+with tab3:
+    st.subheader("🛠️ Technical Support & Ticket Interactive Chat Panel")
+    try:
+        res_t = requests.get(f"{FIREBASE_URL}support_tickets.json", timeout=3)
+        if res_t.status_code == 200 and res_t.json():
+            tickets = res_t.json()
+            for tid, t in tickets.items():
+                c_no = str(t.get("Census No", "")).strip()
+                p_name = census_to_name.get(c_no, f"Unknown ({c_no})")
+                if selected_piriven != "All Piriven" and p_name != selected_piriven: continue
+                
+                status_label = "🔴 Pending" if t.get('Status') == "Pending" else "🟢 Solved"
+                with st.expander(f"🎫 TICKET #{tid[:6]} | 🏛️ {p_name} - [{t.get('Issue Type')}] (⏱️ {t.get('Reported At', 'N/A')}) - Status: {status_label}"):
+                    st.markdown(f"**📝 Issue Description:** {t.get('Description')}")
+                    st.caption(f"Device Serial: {t.get('Device Serial', 'N/A')}")
+        else:
+            st.info("No reported tickets found.")
+    except Exception as e:
+        st.error(f"Error loading tickets: {e}")
+
+st.write("---")
+cur_year = datetime.datetime.now().year
+
+def get_base64_image(img_path):
+    if os.path.exists(img_path):
+        with open(img_path, "rb") as image_file: return "data:image/png;base64," + base64.b64encode(image_file.read()).decode()
+    return ""
+
+state_img_base64 = get_base64_image("statelogo.png")
+piriven_img_base64 = get_base64_image("pirivenlogo.png")
+
+footer_html = f"""
+<div style="background-color: #111827; padding: 25px; border-radius: 12px; text-align: center; color: white; margin-top: 40px; font-family: sans-serif; border: 1px solid #374151;">
+    <table style="width: 100%; border-collapse: collapse; border: none; background-color: transparent; margin: 0 auto;">
+        <tr style="border: none; background-color: transparent;">
+            <td style="width: 20%; text-align: right; border: none; background-color: transparent; padding: 10px; vertical-align: middle;">
+                {"<img src='" + state_img_base64 + "' style='height: 60px; max-width: 100%; object-fit: contain;'>" if state_img_base64 else ""}
+            </td>
+            <td style="width: 60%; text-align: center; border-top: none; border-bottom: none; border-left: 2px solid #374151; border-right: 2px solid #374151; background-color: transparent; padding: 10px 20px; vertical-align: middle;">
+                <p style="margin: 0; font-size: 16px; font-weight: bold; color: #38bdf8; letter-spacing: 0.5px;">Piriven Development Branch</p>
+                <p style="margin: 6px 0 0 0; font-size: 13px; color: #94a3b8;">📧 Email: <a href="mailto:info.pirivendevelopment@gmail.com" style="color: #38bdf8; text-decoration: none; font-weight: bold;">info.pirivendevelopment@gmail.com</a></p>
+            </td>
+            <td style="width: 20%; text-align: left; border: none; background-color: transparent; padding: 10px; vertical-align: middle;">
+                {"<img src='" + piriven_img_base64 + "' style='height: 60px; max-width: 100%; object-fit: contain;'>" if piriven_img_base64 else ""}
+            </td>
+        </tr>
+    </table>
+    <div style="font-size: 11px; color: #94a3b8; margin-top: 20px; padding-top: 15px; border-top: 1px solid #374151; line-height: 1.5;">
+        © {cur_year} | All Rights Reserved | Development Branch, Piriven Division, Ministry of Education, Higher Education and Vocational Education.
+    </div>
+</div>
+"""
+st.markdown(footer_html, unsafe_allow_html=True)
