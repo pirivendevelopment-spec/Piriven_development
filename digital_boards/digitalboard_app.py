@@ -9,10 +9,9 @@ import os
 from urllib.parse import urlparse, parse_qs
 import requests
 
-# ⚠️ ඔබගේ නිල Firebase Realtime Database URL එක
+# ⚠️ නිල Firebase Realtime Database URL එක
 FIREBASE_URL = "https://pirivensmartboardmonitor-8ee4f-default-rtdb.asia-southeast1.firebasedatabase.app/"
 
-# ලංකාවේ නිල දිස්ත්‍රික්ක 25
 SRI_LANKA_DISTRICTS = [
     "Colombo", "Gampaha", "Kalutara", "Kandy", "Matale", "Nuwara Eliya", 
     "Galle", "Matara", "Hambantota", "Jaffna", "Kilinochchi", "Mannar", 
@@ -49,7 +48,6 @@ st.markdown("""
         h1, h2, h3, h4, h5, h6, p, span, label {
             color: #f8fafc !important;
         }
-        
         [data-testid="stSidebar"] {
             background-color: #111827 !important;
             color: #ffffff !important;
@@ -58,7 +56,6 @@ st.markdown("""
         [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label {
             color: #ffffff !important;
         }
-
         .stTabs [data-baseweb="tab-list"] { gap: 10px; background-color: #111827; padding: 10px; border-radius: 10px; }
         .stTabs [data-baseweb="tab"] {
             background-color: #1f2937; border-radius: 8px;
@@ -66,7 +63,6 @@ st.markdown("""
             border: 1px solid #374151;
         }
         .stTabs [aria-selected="true"] { background-color: #0f766e !important; color: white !important; }
-        
         div[data-testid="stMetric"] {
             background-color: #111827;
             padding: 15px;
@@ -83,7 +79,6 @@ st.markdown("""
             color: #94a3b8 !important;
             font-weight: 600;
         }
-        
         .stTextInput input, .stSelectbox select, .stTextArea textarea {
             background-color: #1f2937 !important;
             color: white !important;
@@ -132,7 +127,6 @@ if not st.session_state.board_logged_in:
                 login_success = False
                 user_details = {}
                 
-                # Admin Bypass for Testing
                 if u_name.strip() == "Admin" and u_pass.strip() == "Admin@2022":
                     login_success = True
                     user_details = {"name": "K Chandaloka", "role": "Super Admin"}
@@ -217,7 +211,7 @@ with col_clock:
 
 st.write("---")
 
-# Fetch Live Boards from Firebase
+# 💡 Firebase එකෙන් Live Boards දත්ත ලබා ගැනීම
 live_boards_data = {}
 try:
     res = requests.get(f"{FIREBASE_URL}live_boards.json", timeout=4)
@@ -226,7 +220,6 @@ try:
 except Exception as e:
     st.error(f"Firebase Read Error: {e}")
 
-# Load Registry from CSV
 csv_path = "piriven_registry.csv"
 df_usage = None
 
@@ -442,21 +435,29 @@ with tab1:
                 except Exception as e:
                     st.error(f"Error: {e}")
 
+# 💡 Firebase එකෙන් Support Tickets ලබාගෙන ඩෑෂ්බෝඩ් එකේ පෙන්වීම
 with tab3:
-    st.subheader("🛠️ Technical Support & Ticket Interactive Chat Panel")
+    st.subheader("🛠️ Support Tickets & Live Chat")
     try:
         res_t = requests.get(f"{FIREBASE_URL}support_tickets.json", timeout=3)
         if res_t.status_code == 200 and res_t.json():
             tickets = res_t.json()
             for tid, t in tickets.items():
-                c_no = str(t.get("Census No", "")).strip()
+                c_no = str(t.get("Census No", t.get("census_no", ""))).strip()
                 p_name = census_to_name.get(c_no, f"Unknown ({c_no})")
                 if selected_piriven != "All Piriven" and p_name != selected_piriven: continue
                 
-                status_label = "🔴 Pending" if t.get('Status') == "Pending" else "🟢 Solved"
-                with st.expander(f"🎫 TICKET #{tid[:6]} | 🏛️ {p_name} - [{t.get('Issue Type')}] (⏱️ {t.get('Reported At', 'N/A')}) - Status: {status_label}"):
-                    st.markdown(f"**📝 Issue Description:** {t.get('Description')}")
-                    st.caption(f"Device Serial: {t.get('Device Serial', 'N/A')}")
+                status_val = t.get('Status', t.get('status', 'Pending'))
+                status_label = "🔴 Pending" if status_val == "Pending" else "🟢 Solved"
+                
+                issue_cat = t.get('Issue Type', t.get('issue_type', 'General Issue'))
+                desc_text = t.get('Description', t.get('description', ''))
+                rep_at = t.get('Reported At', t.get('reported_at', 'N/A'))
+                dev_ser = t.get('Device Serial', t.get('device_serial', 'N/A'))
+
+                with st.expander(f"🎫 TICKET #{tid[:6]} | 🏛️ {p_name} - [{issue_cat}] (⏱️ {rep_at}) - Status: {status_label}"):
+                    st.markdown(f"**📝 Issue Description:** {desc_text}")
+                    st.caption(f"Device Serial: {dev_ser}")
         else:
             st.info("No reported tickets found.")
     except Exception as e:
