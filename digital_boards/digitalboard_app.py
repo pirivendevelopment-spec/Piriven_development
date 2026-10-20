@@ -12,9 +12,25 @@ import pygetwindow as gw
 import json  
 import cv2                 # 💡 සැබෑ පින්තූරයෙන් සිසුන් ගණන සෙවීමට
 import winreg              # 💡 Windows Startup එකට ඇප් එක එකතු කිරීමට
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
-# ⚠️ Firebase API URL
-FIREBASE_URL = "https://pirivensmartboardmonitoring-default-rtdb.asia-southeast1.firebasedatabase.app/"
+# 💡 Google Sheets API සම්බන්ධතා සැකසීම
+scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+current_dir = os.path.dirname(os.path.abspath(__file__))
+cred_path = os.path.join(current_dir, "credentials.json")
+
+def get_google_sheet_client():
+    try:
+        if not os.path.exists(cred_path):
+            print("⚠️ credentials.json file not found!")
+            return None
+        creds = ServiceAccountCredentials.from_json_keyfile_name(cred_path, scope)
+        client = gspread.authorize(creds)
+        return client.open("Piriven_Monitoring_DB")
+    except Exception as e:
+        print(f"Google Sheet Connection Error: {e}")
+        return None
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 APPDATA_DIR = os.path.join(os.environ.get('APPDATA', os.environ.get('USERPROFILE', os.path.expanduser('~'))), 'PirivenSystem')
@@ -88,12 +104,36 @@ def get_advanced_device_specs():
         return {"brand": brand, "model": model, "chipset": "Intel/AMD", "processor": processor, "frequency": "Active", "cache": "N/A", "ram": ram, "harddisk": "512 GB", "os": os_v}
     except: return {"brand":"N/A","model":"N/A","chipset":"N/A","processor":"N/A","frequency":"N/A","cache":"N/A","ram":"N/A","harddisk":"N/A","os":"N/A"}
 
+# 💡 Google Sheet එකේ Live_Boards ෂීට් එකට සජීවී Ping දත්ත ලිවීම
 def send_live_ping(census_no):
     try:
-        loc, dev, ser, specs = get_board_location(), detect_device_type(), get_machine_serial(), get_advanced_device_specs()
-        ping_data = {"census_no": census_no, "device_type": dev, "device_serial": ser, "live_lat": loc["lat"], "live_lon": loc["lon"], "live_city": loc["city"], "status": "Active", "last_ping": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "spec_advanced": specs}
-        requests.put(f"{FIREBASE_URL}live_boards/{census_no}/{ser}.json", json=ping_data, timeout=3)
-    except: pass
+        sheet = get_google_sheet_client()
+        if not sheet: return
+        
+        try:
+            ws = sheet.worksheet("Live_Boards")
+        except:
+            ws = sheet.add_worksheet(title="Live_Boards", rows=100, cols=10)
+            ws.append_row(["Census No", "Device Serial", "Device Type", "Latitude", "Longitude", "Status", "Last Ping", "Live Students", "Last Captured"])
+        
+        loc, dev, ser = get_board_location(), detect_device_type(), get_machine_serial()
+        now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        records = ws.get_all_records()
+        row_index = None
+        for idx, r in enumerate(records, start=2):
+            if str(r.get("Census No", "")).strip() == str(census_no).strip() and str(r.get("Device Serial", "")).strip() == str(ser).strip():
+                row_index = idx
+                break
+                
+        row_data = [str(census_no), str(ser), str(dev), str(loc["lat"]), str(loc["lon"]), "Active", str(now_str), 0, ""]
+        
+        if row_index:
+            ws.update(f"A{row_index}:G{row_index}", [[str(census_no), str(ser), str(dev), str(loc["lat"]), str(loc["lon"]), "Active", str(now_str)]])
+        else:
+            ws.append_row(row_data)
+    except Exception as e:
+        print(f"Ping Error: {e}")
 
 def start_live_ping_watchdog(root, census_no):
     global last_heartbeat_time
@@ -103,27 +143,23 @@ def start_live_ping_watchdog(root, census_no):
             threading.Thread(target=lambda: send_live_ping(census_no), daemon=True).start()
         
         last_heartbeat_time = current_time
-        loc, dev, ser, specs = get_board_location(), detect_device_type(), get_machine_serial(), get_advanced_device_specs()
-        ping_data = {"census_no": census_no, "device_type": dev, "device_serial": ser, "live_lat": loc["lat"], "live_lon": loc["lon"], "live_city": loc["city"], "status": "Active", "last_ping": current_time.strftime("%Y-%m-%d %H:%M:%S"), "spec_advanced": specs}
-        
-        def target_ping():
-            try: requests.put(f"{FIREBASE_URL}live_boards/{census_no}/{ser}.json", json=ping_data, timeout=3)
-            except: pass
-        threading.Thread(target=target_ping, daemon=True).start()
+        threading.Thread(target=lambda: send_live_ping(census_no), daemon=True).start()
     except: pass
     root.after(30000, lambda: start_live_ping_watchdog(root, census_no))
 
-def sync_offline_logs_to_cloud(census_no):
+def sync_offline_logs_to_sheet(census_no):
     if os.path.exists(OFFLINE_LOG_FILE):
         try:
             with open(OFFLINE_LOG_FILE, "r") as f: offline_data = json.load(f)
             if offline_data:
+                sheet = get_google_sheet_client()
+                if not sheet: return
+                try: ws = sheet.worksheet("Software_Analytics")
+                except: ws = sheet.add_worksheet(title="Software_Analytics", rows=100, cols=10)
+                
                 for date_key, apps in offline_data.items():
                     for app_label, offline_minutes in apps.items():
-                        res = requests.get(f"{FIREBASE_URL}software_analytics/{census_no}/{date_key}/{app_label}.json", timeout=3)
-                        current_cloud_minutes = res.json() if res.status_code == 200 and res.json() else 0
-                        total_minutes = current_cloud_minutes + offline_minutes
-                        requests.put(f"{FIREBASE_URL}software_analytics/{census_no}/{date_key}/{app_label}.json", json=total_minutes, timeout=3)
+                        ws.append_row([str(census_no), str(date_key), str(app_label), int(offline_minutes)])
                 with open(OFFLINE_LOG_FILE, "w") as f: json.dump({}, f)
         except: pass
 
@@ -155,11 +191,12 @@ def track_software_usage_loop(root, census_no):
                 if app_label:
                     today_str = datetime.datetime.now().strftime("%Y-%m-%d")
                     try:
-                        res = requests.get(f"{FIREBASE_URL}software_analytics/{census_no}/{today_str}/{app_label}.json", timeout=3)
-                        if res.status_code == 200:
-                            sync_offline_logs_to_cloud(census_no)
-                            curr = res.json() if res.json() else 0
-                            requests.put(f"{FIREBASE_URL}software_analytics/{census_no}/{today_str}/{app_label}.json", json=curr + 1, timeout=3)
+                        sheet = get_google_sheet_client()
+                        if sheet:
+                            sync_offline_logs_to_sheet(census_no)
+                            try: ws = sheet.worksheet("Software_Analytics")
+                            except: ws = sheet.add_worksheet(title="Software_Analytics", rows=100, cols=10)
+                            ws.append_row([str(census_no), str(today_str), str(app_label), 1])
                     except:
                         local_data = {}
                         if os.path.exists(OFFLINE_LOG_FILE):
@@ -175,32 +212,37 @@ def track_software_usage_loop(root, census_no):
 
 def check_for_live_announcements(root, census_no):
     try:
-        res = requests.get(f"{FIREBASE_URL}latest_announcement.json", timeout=3)
-        if res.status_code == 200 and res.json():
-            d = res.json()
-            curr_id = str(hash(d.get("title","") + d.get("body","")))
-            last_id = ""
-            if os.path.exists(LAST_MSG_FILE):
-                with open(LAST_MSG_FILE, "r", encoding="utf-8") as f: last_id = f.read().strip()
-            if curr_id != last_id:
-                with open(LAST_MSG_FILE, "w", encoding="utf-8") as f: f.write(curr_id)
-                messagebox.showinfo(f"🔔 ALERT: {d.get('title')}", d.get('body'))
+        sheet = get_google_sheet_client()
+        if sheet:
+            ws = sheet.worksheet("Announcements")
+            records = ws.get_all_records()
+            if records:
+                latest = records[-1]
+                title = str(latest.get("Title", ""))
+                body = str(latest.get("Body", ""))
+                curr_id = str(hash(title + body))
+                last_id = ""
+                if os.path.exists(LAST_MSG_FILE):
+                    with open(LAST_MSG_FILE, "r", encoding="utf-8") as f: last_id = f.read().strip()
+                if curr_id != last_id:
+                    with open(LAST_MSG_FILE, "w", encoding="utf-8") as f: f.write(curr_id)
+                    messagebox.showinfo(f"🔔 ALERT: {title}", body)
     except: pass
     root.after(10000, lambda: check_for_live_announcements(root, census_no))
 
 def get_piriven_name_from_cloud(census_no):
     try:
-        res = requests.get(f"{FIREBASE_URL}ministry_excel_registry.json", timeout=4)
-        if res.status_code == 200 and res.json():
-            registry = res.json()
-            if isinstance(registry, list):
-                for record in registry:
-                    if not record: continue
-                    if str(record.get("Census No", "")).split('.')[0].strip() == str(census_no).strip():
-                        full_name = str(record.get("Piriven Name", "")).strip()
-                        if full_name and full_name.lower() != "nan":
-                            if "," in full_name: return full_name.split(",")[0].strip().upper()
-                            return full_name.upper()
+        sheet = get_google_sheet_client()
+        if sheet:
+            ws = sheet.worksheet("Pirivena_Master")
+            records = ws.get_all_records()
+            for record in records:
+                if not record: continue
+                if str(record.get("Census No", "")).split('.')[0].strip() == str(census_no).strip():
+                    full_name = str(record.get("Piriven Name", "")).strip()
+                    if full_name and full_name.lower() != "nan":
+                        if "," in full_name: return full_name.split(",")[0].strip().upper()
+                        return full_name.upper()
     except: pass
     return None
 
@@ -210,7 +252,6 @@ def launch_main_app(census_no):
     root.geometry("1050x740")
     root.configure(bg="#f8fafc")
 
-    # 💡 Windows Startup එක සක්‍රිය කිරීම
     add_to_windows_startup()
     
     header_frame = tk.Frame(root, bg="#1e293b", pady=20); header_frame.pack(fill=tk.X)
@@ -232,7 +273,7 @@ def launch_main_app(census_no):
 
     text_container = tk.Frame(header_frame, bg="#1e293b"); text_container.pack(side=tk.LEFT, padx=15)
     title_label = tk.Label(text_container, text="PIRIVEN SMART BOARD SYSTEM", font=("Segoe UI", 22, "bold"), bg="#1e293b", fg="#f8fafc"); title_label.pack(anchor="w")
-    subtitle_label = tk.Label(text_container, text=f"Census No: {census_no}  |  Live Network 🟢", font=("Segoe UI", 11), bg="#1e293b", fg="#94a3b8"); subtitle_label.pack(anchor="w")
+    subtitle_label = tk.Label(text_container, text=f"Census No: {census_no}  |  Google Sheets Network 🟢", font=("Segoe UI", 11), bg="#1e293b", fg="#94a3b8"); subtitle_label.pack(anchor="w")
 
     clock_label = tk.Label(header_frame, text="", font=("Consolas", 14, "bold"), bg="#1e293b", fg="#60a5fa", justify="right"); clock_label.pack(side=tk.RIGHT, padx=30)
     def update_live_clock():
@@ -245,7 +286,6 @@ def launch_main_app(census_no):
         short_piriven_name = get_piriven_name_from_cloud(census_no)
         if short_piriven_name: root.title(f"{short_piriven_name} - Dashboard"); title_label.config(text=short_piriven_name)
 
-    # සැබෑ මුහුණු ගණන මැන, සර්වර් එකේ සමස්ත ඓතිහාසික ශිෂ්‍ය සංඛ්‍යාව එකතු කරන එන්ජිම
     def trigger_interactive_camera_capture(is_automated=False):
         try:
             cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
@@ -277,17 +317,17 @@ def launch_main_app(census_no):
                         faces = face_cascade.detectMultiScale(gray_img, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
                         student_count = len(faces)
                         
-                        for (x, y, w, h) in faces:
-                            cv2.rectangle(img, (x, y), (x+w, y+h), (0, 255, 0), 2)
-                        
-                        attendance_data = {"live_student_count": student_count, "last_captured": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
-                        requests.patch(f"{FIREBASE_URL}live_boards/{census_no}/attendance.json", json=attendance_data, timeout=3)
-                        
                         try:
-                            res_cum = requests.get(f"{FIREBASE_URL}live_boards/{census_no}/attendance/cumulative_student_lessons.json", timeout=3)
-                            current_cumulative = res_cum.json() if res_cum.status_code == 200 and res_cum.json() else 0
-                            new_cumulative = current_cumulative + student_count
-                            requests.put(f"{FIREBASE_URL}live_boards/{census_no}/attendance/cumulative_student_lessons.json", json=new_cumulative, timeout=3)
+                            sheet = get_google_sheet_client()
+                            if sheet:
+                                att_ws = sheet.worksheet("Live_Boards")
+                                records = att_ws.get_all_records()
+                                ser = get_machine_serial()
+                                for idx, r in enumerate(records, start=2):
+                                    if str(r.get("Census No", "")).strip() == str(census_no).strip() and str(r.get("Device Serial", "")).strip() == str(ser).strip():
+                                        att_ws.update_cell(idx, 8, int(student_count))
+                                        att_ws.update_cell(idx, 9, datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+                                        break
                         except: pass
                         
                         if not is_automated:
@@ -297,7 +337,6 @@ def launch_main_app(census_no):
                 cv2.destroyAllWindows()
         except: pass
 
-    # 🤖 සෑම විනාඩි 15කට වරක්ම කැමරාව පණගන්වන එන්ජිම
     def automated_camera_scheduler_loop():
         trigger_interactive_camera_capture(is_automated=True)
         root.after(900000, automated_camera_scheduler_loop)
@@ -312,17 +351,16 @@ def launch_main_app(census_no):
 
     def open_lessons():
         try:
-            res = requests.get(f"{FIREBASE_URL}current_lesson.json", timeout=4)
-            if res.status_code == 200 and res.json():
-                data = res.json()
-                link_type = data.get("type", "video")
-                link_value = data.get("value", "").strip()
+            sheet = get_google_sheet_client()
+            if sheet:
+                settings_ws = sheet.worksheet("Settings")
+                link_value = str(settings_ws.cell(1, 1).value).strip()
                 if link_value:
-                    if link_type == "video" and "youtube.com" not in link_value and "youtu.be" not in link_value:
+                    if "youtube.com" not in link_value and "youtu.be" not in link_value:
                         webbrowser.open(f"https://www.youtube.com/watch?v={link_value}")
                     else: webbrowser.open(link_value)
                 else: messagebox.showwarning("No Lessons", "අමාත්‍යාංශය විසින් දැනට සක්‍රිය පාඩම් මාලාවක් විකාශනය කර නොමැත.")
-        except: messagebox.showerror("Error", "Cloud සර්වර් පද්ධතිය සමඟ සම්බන්ධ වීමට නොහැකි විය.")
+        except: messagebox.showerror("Error", "Google Sheet සර්වර් පද්ධතිය සමඟ සම්බන්ධ වීමට නොහැකි විය.")
 
     def open_syllabus(): webbrowser.open("http://www.edupub.gov.lk/")
 
@@ -331,10 +369,14 @@ def launch_main_app(census_no):
         tk.Label(msg_win, text="📢 Ministry Official Broadcasts (පොදු නිවේදන)", font=("Segoe UI", 12, "bold"), bg="#ffffff", fg="#1e3a8a").pack(anchor="w", padx=20, pady=15)
         ann_box = tk.Text(msg_win, height=8, font=("Segoe UI", 11), bg="#f8fafc", fg="#1e293b", bd=0, highlightthickness=1, highlightbackground="#cbd5e1", padx=12, pady=12); ann_box.pack(fill=tk.X, padx=20)
         try:
-            res = requests.get(f"{FIREBASE_URL}latest_announcement.json", timeout=3)
-            if res.status_code == 200 and res.json():
-                d = res.json(); ann_box.insert(tk.END, f"📌 {d.get('title', '')}\n\n{d.get('body', '')}")
-            else: ann_box.insert(tk.END, "විශේෂ නිවේදන කිසිවක් නොමැත.")
+            sheet = get_google_sheet_client()
+            if sheet:
+                ws = sheet.worksheet("Announcements")
+                records = ws.get_all_records()
+                if records:
+                    latest = records[-1]
+                    ann_box.insert(tk.END, f"📌 {latest.get('Title', '')}\n\n{latest.get('Body', '')}")
+                else: ann_box.insert(tk.END, "විශේෂ නිවේදන කිසිවක් නොමැත.")
         except: pass
         ann_box.config(state=tk.DISABLED)
 
@@ -354,49 +396,23 @@ def launch_main_app(census_no):
         desc_box = tk.Text(left_frame, height=6, font=("Segoe UI", 10), bg="#f8fafc", highlightthickness=1, highlightbackground="#cbd5e1", padx=8, pady=8); desc_box.pack(fill=tk.X, pady=5)
 
         right_frame = tk.Frame(report_win, bg="#f8fafc", padx=20, pady=10); right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
-        tk.Label(right_frame, text="💬 Private Chat & Ticket Status", font=("Segoe UI", 14, "bold"), bg="#f8fafc", fg="#b91c1c").pack(anchor="w", pady=10)
+        tk.Label(right_frame, text="💬 Support Tickets Status", font=("Segoe UI", 14, "bold"), bg="#f8fafc", fg="#b91c1c").pack(anchor="w", pady=10)
         
         tree = ttk.Treeview(right_frame, columns=("ID", "Category", "Status"), show="headings", height=4)
         tree.heading("ID", text="Ticket ID"); tree.heading("Category", text="Category"); tree.heading("Status", text="Status")
         tree.column("ID", width=70); tree.column("Category", width=140); tree.column("Status", width=120); tree.pack(fill=tk.X, pady=5)
 
-        chat_text = tk.Text(right_frame, height=10, font=("Segoe UI", 10), bg="#ffffff", state=tk.DISABLED, padx=8, pady=8); chat_text.pack(fill=tk.BOTH, expand=True, pady=5)
-        chat_input = tk.Entry(right_frame, font=("Segoe UI", 11)); chat_input.pack(fill=tk.X, pady=5)
-
-        selected_ticket_id = [None]
-
-        def load_ticket_chats(tid):
-            selected_ticket_id[0] = tid
-            chat_text.config(state=tk.NORMAL); chat_text.delete("1.0", tk.END)
-            try:
-                res = requests.get(f"{FIREBASE_URL}support_tickets/{tid}.json").json()
-                chats = res.get("chats", {})
-                status = res.get("status", "Pending")
-                chat_text.insert(tk.END, f"=== [CHATS FOR TICKET: {tid}] ===\n👉 {res.get('description')}\n---------------------------------------\n")
-                if chats:
-                    for cid, c in chats.items():
-                        sender = "🏛️ Ministry" if c.get("sender") == "ministry" else "🏫 You"
-                        chat_text.insert(tk.END, f"[{c.get('time')[11:16]}] {sender}: {c.get('msg')}\n")
-                if status == "Solved":
-                    chat_input.config(state=tk.DISABLED); send_btn.config(state=tk.DISABLED, text="🔒 CHAT CLOSED (SOLVED)")
-                    chat_text.insert(tk.END, "\n⚠️ [අමාත්‍යාංශ දැනුම්දීම]: මෙම තාක්ෂණික ගැටලුව නිරාකරණය කර ඇති බැවින් සජීවී චැට් පද්ධතිය වසා ඇත.")
-                else: chat_input.config(state=tk.NORMAL); send_btn.config(state=tk.NORMAL, text="✉️ Send Reply / පිළිතුර යවන්න")
-            except: pass
-            chat_text.config(state=tk.DISABLED); chat_text.see(tk.END)
-
-        def auto_refresh_chat_loop():
-            if report_win.winfo_exists():
-                tid = selected_ticket_id[0]
-                if tid: load_ticket_chats(tid)
-                report_win.after(3000, auto_refresh_chat_loop)
-
         def refresh_ticket_grid():
             for row in tree.get_children(): tree.delete(row)
             try:
-                all_t = requests.get(f"{FIREBASE_URL}support_tickets.json").json()
-                if all_t:
-                    for tid, info in all_t.items():
-                        if str(info.get("census_no")).strip() == str(census_no).strip(): tree.insert("", tk.END, values=(tid, info.get("issue_type"), info.get("status")))
+                sheet = get_google_sheet_client()
+                if sheet:
+                    try: ws = sheet.worksheet("Support_Tickets")
+                    except: ws = sheet.add_worksheet(title="Support_Tickets", rows=100, cols=10)
+                    records = ws.get_all_records()
+                    for idx, r in enumerate(records, start=2):
+                        if str(r.get("Census No", "")).strip() == str(census_no).strip():
+                            tree.insert("", tk.END, values=(idx, r.get("Issue Type"), r.get("Status")))
             except: pass
 
         def submit_new_issue():
@@ -404,24 +420,17 @@ def launch_main_app(census_no):
                 messagebox.showwarning("Incomplete", "කරුණාකර සියලු විස්තර සපුරන්න.")
                 return
             try:
-                requests.post(f"{FIREBASE_URL}support_tickets.json", json={"census_no": census_no, "issue_type": issue_type.get(), "description": desc_box.get("1.0", tk.END).strip(), "device_serial": ser_no, "status": "Pending", "reported_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
-                messagebox.showinfo("✅ Success", "ගැටලුව සාර්ථකව අධ්‍යාපන අමාත්‍යාංශය වෙත යොමු වුණා!")
-                desc_box.delete("1.0", tk.END); issue_type.set("Select Category"); refresh_ticket_grid()
+                sheet = get_google_sheet_client()
+                if sheet:
+                    try: ws = sheet.worksheet("Support_Tickets")
+                    except: ws = sheet.add_worksheet(title="Support_Tickets", rows=100, cols=10)
+                    ws.append_row([str(census_no), str(ser_no), str(issue_type.get()), str(desc_box.get("1.0", tk.END).strip()), "Pending", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
+                    messagebox.showinfo("✅ Success", "ගැටලුව සාර්ථකව අධ්‍යාපන අමාත්‍යාංශය වෙත යොමු වුණා!")
+                    desc_box.delete("1.0", tk.END); issue_type.set("Select Category"); refresh_ticket_grid()
             except: pass
 
-        def send_chat_message():
-            tid = selected_ticket_id[0]
-            msg = chat_input.get().strip()
-            if tid and msg:
-                new_msg = {"sender": "piriven", "msg": msg, "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
-                requests.post(f"{FIREBASE_URL}support_tickets/{tid}/chats.json", json=new_msg)
-                chat_input.delete(0, tk.END); load_ticket_chats(tid)
-
-        tree.bind("<<TreeviewSelect>>", lambda e: load_ticket_chats(tree.item(tree.selection()[0])['values'][0]) if tree.selection() else None)
         tk.Button(left_frame, text="📤 SUBMIT REPORT", bg="#ef4444", fg="white", font=("Segoe UI", 11, "bold"), bd=0, pady=10, command=submit_new_issue).pack(fill=tk.X, pady=15)
-        send_btn = tk.Button(right_frame, text="✉️ Send Reply / පිළිතුර යවන්න", bg="#10b981", fg="white", font=("Segoe UI", 10, "bold"), bd=0, pady=8, command=send_chat_message)
-        send_btn.pack(fill=tk.X, pady=5)
-        auto_refresh_chat_loop(); refresh_ticket_grid()
+        refresh_ticket_grid()
 
     card_frame = tk.Frame(content_frame, bg="#f8fafc"); card_frame.pack()
     def create_modern_card(parent, text, color, cmd, row, col):
@@ -438,9 +447,8 @@ def launch_main_app(census_no):
 
     tk.Button(root, text="🛠    REPORT TECHNICAL ISSUES & PRIVATE CHAT SYSTEM", font=("Segoe UI", 11, "bold"), bg="#475569", fg="white", bd=0, pady=16, cursor="hand2", command=open_bug_report).pack(pady=15, padx=85, fill=tk.X)
     
-    # 💡 [නව ආරක්ෂිත රීතිය] ගුරුවරයා UI එක Close (X) කළත් ඇප් එක Kill නොකර බැක්ග්‍රවුන්ඩ් සඟවන ආරක්ෂිත රීතිය
     def on_ui_close_safeguard():
-        root.withdraw() # UI එක පමණක් සඟවයි (Destroy නොකරයි)
+        root.withdraw()
         print("🔒 UI Hidden by user, but Piriven Core Service is still running in the background...")
         
     root.protocol("WM_DELETE_WINDOW", on_ui_close_safeguard)
