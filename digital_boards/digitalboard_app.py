@@ -211,7 +211,7 @@ with col_clock:
 
 st.write("---")
 
-# 💡 Firebase එකෙන් Live Boards දත්ත ලබා ගැනීම
+# 💡 Firebase එකෙන් Live Boards දත්ත ලබා ගැනීම (Robust Parsing)
 live_boards_data = {}
 try:
     res = requests.get(f"{FIREBASE_URL}live_boards.json", timeout=4)
@@ -250,10 +250,11 @@ if df_usage is None or df_usage.empty:
 def is_device_actually_active(last_ping_str):
     try:
         if not last_ping_str: return False
-        last_ping_time = datetime.datetime.strptime(last_ping_str, "%Y-%m-%d %H:%M:%S")
+        last_ping_time = datetime.datetime.strptime(str(last_ping_str).strip(), "%Y-%m-%d %H:%M:%S")
         srilanka_now = datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)
         time_difference = (srilanka_now - last_ping_time).total_seconds()
-        if 0 <= time_difference < 600: return True
+        # කාල පරතරය විනාඩි 15ක් (විනාඩි 900ක්) දක්වා දීර්ඝ කර ඇත
+        if 0 <= time_difference < 900: return True
     except: pass
     return False
 
@@ -261,9 +262,11 @@ live_census_list = []
 for c_id, devices in live_boards_data.items():
     if isinstance(devices, dict):
         for d_id, d_info in devices.items():
-            if d_id != "attendance" and isinstance(d_info, dict) and is_device_actually_active(d_info.get("last_ping")):
-                live_census_list.append(str(c_id).strip())
-                break
+            if isinstance(d_info, dict):
+                ping_time = d_info.get("last_ping") or d_info.get("Last Ping")
+                if is_device_actually_active(ping_time):
+                    live_census_list.append(str(c_id).strip())
+                    break
 
 df_usage["Status"] = ["Active" if str(row["Census No"]).strip() in live_census_list else "Offline" for i, row in df_usage.iterrows()]
 census_to_name = dict(zip(df_usage["Census No"].astype(str), df_usage["Piriven Name"]))
@@ -292,12 +295,16 @@ with tab2:
     for c_no in filtered_census_nos:
         if c_no in live_boards_data and isinstance(live_boards_data[c_no], dict):
             for dev_id, dev_info in live_boards_data[c_no].items():
-                if dev_id != "attendance" and isinstance(dev_info, dict) and is_device_actually_active(dev_info.get("last_ping")):
-                    total_active_devices += 1
-            if "attendance" in live_boards_data[c_no] and isinstance(live_boards_data[c_no]["attendance"], dict):
-                att_info = live_boards_data[c_no]["attendance"]
-                if is_device_actually_active(att_info.get("last_captured")):
-                    total_live_students += int(att_info.get("live_student_count", 0))
+                if isinstance(dev_info, dict):
+                    ping_time = dev_info.get("last_ping") or dev_info.get("Last Ping")
+                    if is_device_actually_active(ping_time):
+                        total_active_devices += 1
+                    
+                    # Attendance check
+                    stud_cnt = dev_info.get("live_student_count")
+                    cap_time = dev_info.get("last_captured")
+                    if stud_cnt is not None and is_device_actually_active(cap_time):
+                        total_live_students += int(stud_cnt)
             
     c_middle.metric("Total Active Devices Now", total_active_devices)
     c_right.metric("👨‍🎓 Total Live Students Learning Now", total_live_students) 
@@ -435,29 +442,33 @@ with tab1:
                 except Exception as e:
                     st.error(f"Error: {e}")
 
-# 💡 Firebase එකෙන් Support Tickets ලබාගෙන ඩෑෂ්බෝඩ් එකේ පෙන්වීම
+# 💡 Firebase එකෙන් Support Tickets ලබාගෙන ඩෑෂ්බෝඩ් එකේ පෙන්වීම (Flexible Keys)
 with tab3:
     st.subheader("🛠️ Support Tickets & Live Chat")
     try:
         res_t = requests.get(f"{FIREBASE_URL}support_tickets.json", timeout=3)
         if res_t.status_code == 200 and res_t.json():
             tickets = res_t.json()
-            for tid, t in tickets.items():
-                c_no = str(t.get("Census No", t.get("census_no", ""))).strip()
-                p_name = census_to_name.get(c_no, f"Unknown ({c_no})")
-                if selected_piriven != "All Piriven" and p_name != selected_piriven: continue
-                
-                status_val = t.get('Status', t.get('status', 'Pending'))
-                status_label = "🔴 Pending" if status_val == "Pending" else "🟢 Solved"
-                
-                issue_cat = t.get('Issue Type', t.get('issue_type', 'General Issue'))
-                desc_text = t.get('Description', t.get('description', ''))
-                rep_at = t.get('Reported At', t.get('reported_at', 'N/A'))
-                dev_ser = t.get('Device Serial', t.get('device_serial', 'N/A'))
+            if isinstance(tickets, dict):
+                for tid, t in tickets.items():
+                    if not isinstance(t, dict): continue
+                    c_no = str(t.get("Census No") or t.get("census_no") or "").strip()
+                    p_name = census_to_name.get(c_no, f"Pirivena ({c_no})")
+                    if selected_piriven != "All Piriven" and p_name != selected_piriven: continue
+                    
+                    status_val = t.get('Status') or t.get('status') or 'Pending'
+                    status_label = "🔴 Pending" if status_val == "Pending" else "🟢 Solved"
+                    
+                    issue_cat = t.get('Issue Type') or t.get('issue_type') or 'General Issue'
+                    desc_text = t.get('Description') or t.get('description') or ''
+                    rep_at = t.get('Reported At') or t.get('reported_at') or 'N/A'
+                    dev_ser = t.get('Device Serial') or t.get('device_serial') or 'N/A'
 
-                with st.expander(f"🎫 TICKET #{tid[:6]} | 🏛️ {p_name} - [{issue_cat}] (⏱️ {rep_at}) - Status: {status_label}"):
-                    st.markdown(f"**📝 Issue Description:** {desc_text}")
-                    st.caption(f"Device Serial: {dev_ser}")
+                    with st.expander(f"🎫 TICKET #{str(tid)[:6]} | 🏛️ {p_name} - [{issue_cat}] (⏱️ {rep_at}) - Status: {status_label}"):
+                        st.markdown(f"**📝 Issue Description:** {desc_text}")
+                        st.caption(f"Device Serial: {dev_ser}")
+            else:
+                st.info("No reported tickets found.")
         else:
             st.info("No reported tickets found.")
     except Exception as e:
