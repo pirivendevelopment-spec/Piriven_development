@@ -10,7 +10,6 @@ from urllib.parse import urlparse, parse_qs
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
-# 💡 Google Sheets සම්බන්ධතා සැකසීම
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 current_dir = os.path.dirname(os.path.abspath(__file__))
 cred_path = os.path.join(current_dir, "credentials.json")
@@ -24,7 +23,6 @@ def get_google_sheet():
     except Exception as e:
         return None
 
-# ලංකාවේ නිල දිස්ත්‍රික්ක 25
 SRI_LANKA_DISTRICTS = [
     "Colombo", "Gampaha", "Kalutara", "Kandy", "Matale", "Nuwara Eliya", 
     "Galle", "Matara", "Hambantota", "Jaffna", "Kilinochchi", "Mannar", 
@@ -50,7 +48,6 @@ def process_youtube_link(url_or_id):
 
 st.set_page_config(page_title="Ministry Admin Dashboard", layout="wide")
 
-# --- Dark Modern Theme CSS ---
 st.markdown("""
     <style>
         .main, .stApp {
@@ -61,8 +58,6 @@ st.markdown("""
         h1, h2, h3, h4, h5, h6, p, span, label {
             color: #f8fafc !important;
         }
-        
-        /* Sidebar Styling */
         [data-testid="stSidebar"] {
             background-color: #111827 !important;
             color: #ffffff !important;
@@ -71,8 +66,6 @@ st.markdown("""
         [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label {
             color: #ffffff !important;
         }
-
-        /* Tabs Styling */
         .stTabs [data-baseweb="tab-list"] { gap: 10px; background-color: #111827; padding: 10px; border-radius: 10px; }
         .stTabs [data-baseweb="tab"] {
             background-color: #1f2937; border-radius: 8px;
@@ -80,8 +73,6 @@ st.markdown("""
             border: 1px solid #374151;
         }
         .stTabs [aria-selected="true"] { background-color: #0f766e !important; color: white !important; }
-        
-        /* Metrics Card Styling */
         div[data-testid="stMetric"] {
             background-color: #111827;
             padding: 15px;
@@ -98,8 +89,6 @@ st.markdown("""
             color: #94a3b8 !important;
             font-weight: 600;
         }
-        
-        /* Inputs & Buttons */
         .stTextInput input, .stSelectbox select, .stTextArea textarea {
             background-color: #1f2937 !important;
             color: white !important;
@@ -148,31 +137,33 @@ if not st.session_state.board_logged_in:
                 login_success = False
                 user_details = {}
                 
-                excel_paths = ["users.xlsx", os.path.join("digital_boards", "users.xlsx"), os.path.join("..", "users.xlsx")]
-                df_users = None
-                
-                for path in excel_paths:
-                    if os.path.exists(path):
-                        try:
-                            df_users = pd.read_excel(path)
-                            break
-                        except: pass
-                
-                if df_users is not None:
-                    df_users.columns = df_users.columns.astype(str).str.strip()
-                    for _, row in df_users.iterrows():
-                        db_user = str(row.iloc[0]).strip()
-                        db_pass = str(row.iloc[1]).strip()
-                        db_name = str(row.iloc[2]).strip() if len(df_users.columns) > 2 else "Admin"
-                        db_role = str(row.iloc[3]).strip() if len(df_users.columns) > 3 else "Super Admin"
-                        
-                        if db_user == u_name.strip() and db_pass == u_pass.strip():
-                            login_success = True
-                            user_details = {
-                                "name": db_name,
-                                "role": db_role
-                            }
-                            break
+                # 💡 තාවකාලිකව කඩිනමින් ලොග් වීම සඳහා ඩිෆෝල්ට් ඇමින් ප්‍රවේශය (Default Admin Bypass)
+                if u_name.strip() == "Admin" and u_pass.strip() == "Admin@2022":
+                    login_success = True
+                    user_details = {"name": "K Chandaloka", "role": "Super Admin"}
+                else:
+                    excel_paths = ["users.xlsx", os.path.join("digital_boards", "users.xlsx"), os.path.join("..", "users.xlsx")]
+                    df_users = None
+                    for path in excel_paths:
+                        if os.path.exists(path):
+                            try:
+                                df_users = pd.read_excel(path)
+                                break
+                            except: pass
+                    
+                    if df_users is not None:
+                        for _, row in df_users.iterrows():
+                            try:
+                                db_user = str(row.iloc[0]).strip()
+                                db_pass = str(row.iloc[1]).strip()
+                                if db_user == u_name.strip() and db_pass == u_pass.strip():
+                                    login_success = True
+                                    user_details = {
+                                        "name": str(row.iloc[2]).strip() if len(df_users.columns) > 2 else "Admin",
+                                        "role": str(row.iloc[3]).strip() if len(df_users.columns) > 3 else "Super Admin"
+                                    }
+                                    break
+                            except: pass
                 
                 if login_success:
                     st.session_state.board_logged_in = True
@@ -205,7 +196,6 @@ with st.sidebar:
     st.header("📁 Data Source Status")
     st.success("✅ Registry Loaded from Local CSV (`piriven_registry.csv`)")
 
-# 💡 වින්ඩෝස් පද්ධතියේ නියම වෙලාව පෙන්වන සජීවී ඔරලෝසු ව්‍යුහය
 col_title, col_clock = st.columns([4, 1])
 with col_title:
     st.markdown("<h2 style='color: #f8fafc; margin-top: -10px;'>🏛️ Ministry of Education - Piriven Division</h2>", unsafe_allow_html=True)
@@ -233,7 +223,6 @@ with col_clock:
 
 st.write("---")
 
-# Google Sheets සම්බන්ධතාවය (Live Boards සහ Support Tickets සඳහා)
 sheet = get_google_sheet()
 live_boards_data = {}
 
@@ -255,7 +244,6 @@ try:
 except Exception as e:
     st.error(f"Google Sheet Read Error: {e}")
 
-# 💡 ප්‍රොජෙක්ට් ෆෝල්ඩරයේ ඇති 'piriven_registry.csv' ගොනුව නිවැරදිව කියවා ගැනීම
 csv_path = "piriven_registry.csv"
 df_usage = None
 
@@ -263,10 +251,6 @@ if os.path.exists(csv_path):
     try:
         df_usage = pd.read_csv(csv_path)
         df_usage.columns = df_usage.columns.str.strip()
-        
-        st.sidebar.write("---")
-        st.sidebar.markdown(f"**📁 Columns Found:** `{list(df_usage.columns)}`")
-        st.sidebar.markdown(f"**📊 Total Rows in CSV:** `{len(df_usage)}`")
         
         col_map_dict = {c.lower(): c for c in df_usage.columns}
         c_no_col = col_map_dict.get('census no', 'Census No')
@@ -281,11 +265,8 @@ if os.path.exists(csv_path):
         
         df_usage["Latitude"] = pd.to_numeric(df_usage[lat_col], errors='coerce').fillna(0.0)
         df_usage["Longitude"] = pd.to_numeric(df_usage[lon_col], errors='coerce').fillna(0.0)
-        
     except Exception as e:
         st.error(f"⚠️ CSV Read Error: {e}")
-else:
-    st.error(f"⚠️ ප්‍රොජෙක්ට් ෆෝල්ඩරය තුළ '{csv_path}' ගොනුව හමු නොවීය! කරුණාකර එය එම ෆෝල්ඩරයට එකතු කරන්න.")
 
 if df_usage is None or df_usage.empty:
     df_usage = pd.DataFrame({"Census No": ["0542"], "Piriven Name": ["Sample Pirivena"], "District": ["Colombo"], "Zone": ["Central"], "Status": ["Offline"], "Latitude": [6.9271], "Longitude": [79.8612], "Monthly Usage (Hours)": [0]})
@@ -311,7 +292,6 @@ for c_id, devices in live_boards_data.items():
 df_usage["Status"] = ["Active" if str(row["Census No"]).strip() in live_census_list else "Offline" for i, row in df_usage.iterrows()]
 census_to_name = dict(zip(df_usage["Census No"].astype(str), df_usage["Piriven Name"]))
 
-# Filters
 st.sidebar.write("---")
 st.sidebar.header("🔍 Live Filters")
 dist_list = ["All Island"] + sorted([d for d in df_usage["District"].unique().tolist() if d and d != "Nan"])
@@ -398,11 +378,7 @@ with tab2:
     
     st.write("---")
     st.markdown("### 📋 Device Registry & Quick Map Link")
-    
-    styled_df = df_filtered.drop(columns=["Latitude", "Longitude"], errors="ignore").style.map(
-        lambda v: "background-color: #064e3b; color: #a7f3d0; font-weight: bold;" if v == "Active" else ("background-color: #7f1d1d; color: #fecaca; font-weight: bold;" if v == "Offline" else ""),
-        subset=["Status"]
-    )
+    styled_df = df_filtered.drop(columns=["Latitude", "Longitude"], errors="ignore")
     st.dataframe(styled_df, use_container_width=True)
 
 map_center = [7.8731, 80.7718]
@@ -445,7 +421,6 @@ with tab1:
                             <span style='background-color: {"#064e3b" if status=="Active" else "#7f1d1d"}; color: {"#a7f3d0" if status=="Active" else "#fecaca"}; padding: 2px 6px; border-radius: 4px; font-weight: bold;'>● Status: {status}</span>
                         </div>
                         """
-                        
                         folium.Marker(
                             location=[lat, lon],
                             popup=popup_html,
@@ -453,10 +428,9 @@ with tab1:
                         ).add_to(m)
                     else:
                         zero_loc_count += 1
-                except Exception as ex:
-                    pass
+                except: pass
             
-            st.caption(f"📍 සිතියම මත පෙන්වන පිරිවෙන් සංඛ්‍යාව: {pins_added} | ⚠️ ලොකේෂන් (Lat/Lon) නොමැති/ශුන්‍ය වූ ගණන: {zero_loc_count}")
+            st.caption(f"📍 සිතියම මත පෙන්වන පිරිවෙන් සංඛ්‍යාව: {pins_added} | ⚠️ ලොකේෂන් නොමැති ගණන: {zero_loc_count}")
         
         st_folium(m, width=None, height=650, key="main_map_display")
 
@@ -468,7 +442,7 @@ with tab1:
                 try:
                     settings_ws = sheet.worksheet("Settings")
                     settings_ws.update('A1', [[yt_input]])
-                    st.success("✅ Broadcast Successful via Google Sheets!")
+                    st.success("✅ Broadcast Successful!")
                 except Exception as e:
                     st.error(f"Error: {e}")
                         
@@ -480,7 +454,7 @@ with tab1:
                 try:
                     ann_ws = sheet.worksheet("Announcements")
                     ann_ws.append_row([ann_t, ann_b, datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
-                    st.success("✅ Message Pushed Successfully via Google Sheets!")
+                    st.success("✅ Message Pushed Successfully!")
                 except Exception as e:
                     st.error(f"Error: {e}")
 
@@ -497,18 +471,14 @@ with tab3:
                     if selected_piriven != "All Piriven" and p_name != selected_piriven: continue
                     
                     status_label = "🔴 Pending" if t.get('Status') == "Pending" else "🟢 Solved"
-                    
                     with st.expander(f"🎫 TICKET #{idx} | 🏛️ {p_name} - [{t.get('Issue Type')}] (⏱️ {t.get('Reported At', 'N/A')}) - Status: {status_label}"):
                         st.markdown(f"**📝 Issue Description:** {t.get('Description')}")
                         st.caption(f"Device Serial: {t.get('Device Serial', 'N/A')}")
-                        st.write("---")
-                        st.markdown("💬 **Support Panel Active**")
             else:
                 st.info("No reported tickets found.")
         except Exception as e:
             st.error(f"Error loading tickets: {e}")
 
-# Footer Section
 st.write("---")
 cur_year = datetime.datetime.now().year
 
