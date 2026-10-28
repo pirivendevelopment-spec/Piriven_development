@@ -1,7 +1,8 @@
 streamlit
 pandas
-plotly
+requests
+folium
 streamlit-folium
 openpyxl
-requests
 gspread
+oauth2client
