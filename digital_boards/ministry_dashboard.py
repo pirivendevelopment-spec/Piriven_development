@@ -6,22 +6,11 @@ import pandas as pd
 import datetime
 import base64
 import os
+import requests
 from urllib.parse import urlparse, parse_qs
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
 
-scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-current_dir = os.path.dirname(os.path.abspath(__file__))
-cred_path = os.path.join(current_dir, "credentials.json")
-
-@st.cache_resource
-def get_google_sheet():
-    try:
-        creds = ServiceAccountCredentials.from_json_keyfile_name(cred_path, scope)
-        client = gspread.authorize(creds)
-        return client.open("Piriven_Monitoring_DB")
-    except Exception as e:
-        return None
+# ⚠️ ඔබේ නව නිවැරදි Firebase API URL එක
+FIREBASE_URL = "https://pirivensmartboardmonitor-8ee4f-default-rtdb.asia-southeast1.firebasedatabase.app/"
 
 SRI_LANKA_DISTRICTS = [
     "Colombo", "Gampaha", "Kalutara", "Kandy", "Matale", "Nuwara Eliya", 
@@ -111,7 +100,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- 🔐 Digital Board Module Login Gate ---
+# --- 🔐 Login Gate ---
 if "board_logged_in" not in st.session_state:
     st.session_state.board_logged_in = False
 if "board_user" not in st.session_state:
@@ -130,59 +119,19 @@ if not st.session_state.board_logged_in:
             u_name = st.text_input("👤 පරිශීලක නාමය (Username)")
             u_pass = st.text_input("🔑 මුරපදය (Password)", type="password")
             
-            st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
             sub_login = st.form_submit_button("පද්ධතියට ඇතුල් වන්න 🔓", use_container_width=True)
             
             if sub_login:
-                login_success = False
-                user_details = {}
-                
-                # 💡 තාවකාලිකව කඩිනමින් ලොග් වීම සඳහා ඩිෆෝල්ට් ඇමින් ප්‍රවේශය (Default Admin Bypass)
                 if u_name.strip() == "Admin" and u_pass.strip() == "Admin@2022":
-                    login_success = True
-                    user_details = {"name": "K Chandaloka", "role": "Super Admin"}
-                else:
-                    excel_paths = ["users.xlsx", os.path.join("digital_boards", "users.xlsx"), os.path.join("..", "users.xlsx")]
-                    df_users = None
-                    for path in excel_paths:
-                        if os.path.exists(path):
-                            try:
-                                df_users = pd.read_excel(path)
-                                break
-                            except: pass
-                    
-                    if df_users is not None:
-                        for _, row in df_users.iterrows():
-                            try:
-                                db_user = str(row.iloc[0]).strip()
-                                db_pass = str(row.iloc[1]).strip()
-                                if db_user == u_name.strip() and db_pass == u_pass.strip():
-                                    login_success = True
-                                    user_details = {
-                                        "name": str(row.iloc[2]).strip() if len(df_users.columns) > 2 else "Admin",
-                                        "role": str(row.iloc[3]).strip() if len(df_users.columns) > 3 else "Super Admin"
-                                    }
-                                    break
-                            except: pass
-                
-                if login_success:
                     st.session_state.board_logged_in = True
-                    st.session_state.board_user = user_details
+                    st.session_state.board_user = {"name": "K Chandaloka", "role": "Super Admin"}
                     st.success("✅ ප්‍රවේශය සාර්ථකයි!")
                     st.rerun()
                 else:
                     st.error("⚠️ පරිශීලක නාමය හෝ මුරපදය වැරදියයි!")
-        
-        st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
-        if st.button("🏠 ප්‍රධාන මුල් පිටුවට (Home) ආපසු යන්න", key="home_btn_login", use_container_width=True):
-            st.switch_page("app.py")
     st.stop()
 
-# ලොග් වූ පසු සයිඩ්බාර් එක පෙන්වීම
 with st.sidebar:
-    if st.button("🏠 ප්‍රධාන මුල් පිටුවට", key="home_btn_sidebar", use_container_width=True):
-        st.switch_page("app.py")
-    
     if st.session_state.board_user:
         u_info = st.session_state.board_user
         st.markdown(f"""
@@ -194,12 +143,12 @@ with st.sidebar:
         
     st.markdown("---")
     st.header("📁 Data Source Status")
-    st.success("✅ Registry Loaded from Local CSV (`piriven_registry.csv`)")
+    st.success("☁️ Firebase Realtime Database Active")
 
 col_title, col_clock = st.columns([4, 1])
 with col_title:
     st.markdown("<h2 style='color: #f8fafc; margin-top: -10px;'>🏛️ Ministry of Education - Piriven Division</h2>", unsafe_allow_html=True)
-    st.markdown("<p style='color: #94a3b8; font-size: 14px; font-weight: bold; margin-top: -15px;'>Central Control, Analytics & Monitoring Dashboard</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #94a3b8; font-size: 14px; font-weight: bold; margin-top: -15px;'>Central Control, Analytics & Monitoring Dashboard (Firebase)</p>", unsafe_allow_html=True)
 with col_clock:
     st.markdown("<p style='text-align:center; margin-bottom:0px; font-weight:bold; color:#cbd5e1; font-size:12px;'>💻 DEVICE TIME</p>", unsafe_allow_html=True)
     clock_html = """
@@ -223,52 +172,36 @@ with col_clock:
 
 st.write("---")
 
-sheet = get_google_sheet()
+# --- Firebase දත්ත ලබා ගැනීම (Fetching from Firebase) ---
 live_boards_data = {}
-
 try:
-    if sheet:
-        live_ws = sheet.worksheet("Live_Boards")
-        live_records = live_ws.get_all_records()
-        for r in live_records:
-            c_no = str(r.get("Census No", ""))
-            ser = str(r.get("Device Serial", ""))
-            if c_no not in live_boards_data: live_boards_data[c_no] = {}
-            live_boards_data[c_no][ser] = {
-                "device_type": r.get("Device Type", "Smart Board"),
-                "live_lat": float(r.get("Latitude", 0)),
-                "live_lon": float(r.get("Longitude", 0)),
-                "status": r.get("Status", "Offline"),
-                "last_ping": r.get("Last Ping", "")
-            }
+    res_live = requests.get(f"{FIREBASE_URL}live_boards.json", timeout=4)
+    if res_live.status_code == 200 and res_live.json():
+        live_boards_data = res_live.json()
 except Exception as e:
-    st.error(f"Google Sheet Read Error: {e}")
+    st.error(f"Firebase Live Boards Read Error: {e}")
 
-csv_path = "piriven_registry.csv"
+# Registry දත්ත ලබා ගැනීම (Firebase එකේ ministry_excel_registry හෝ CSV මඟින්)
 df_usage = None
-
-if os.path.exists(csv_path):
-    try:
-        df_usage = pd.read_csv(csv_path)
-        df_usage.columns = df_usage.columns.str.strip()
-        
-        col_map_dict = {c.lower(): c for c in df_usage.columns}
-        c_no_col = col_map_dict.get('census no', 'Census No')
-        p_name_col = col_map_dict.get('piriven name', 'Piriven Name')
-        dist_col = col_map_dict.get('district', 'District')
-        lat_col = col_map_dict.get('latitude', 'Latitude')
-        lon_col = col_map_dict.get('longitude', 'Longitude')
-        
-        df_usage["Census No"] = df_usage[c_no_col].fillna("").astype(str).str.strip().apply(lambda x: x.split('.')[0] if '.' in x else x)
-        df_usage["Piriven Name"] = df_usage[p_name_col].fillna("").astype(str).str.strip()
-        df_usage["District"] = df_usage[dist_col].fillna("").astype(str).str.strip().str.title()
-        
-        df_usage["Latitude"] = pd.to_numeric(df_usage[lat_col], errors='coerce').fillna(0.0)
-        df_usage["Longitude"] = pd.to_numeric(df_usage[lon_col], errors='coerce').fillna(0.0)
-    except Exception as e:
-        st.error(f"⚠️ CSV Read Error: {e}")
+try:
+    res_reg = requests.get(f"{FIREBASE_URL}ministry_excel_registry.json", timeout=4)
+    if res_reg.status_code == 200 and res_reg.json():
+        df_usage = pd.DataFrame(res_reg.json())
+except: pass
 
 if df_usage is None or df_usage.empty:
+    csv_path = "piriven_registry.csv"
+    if os.path.exists(csv_path):
+        df_usage = pd.read_csv(csv_path)
+
+if df_usage is not None and not df_usage.empty:
+    df_usage.columns = df_usage.columns.str.strip()
+    df_usage["Census No"] = df_usage["Census No"].fillna("").astype(str).str.strip().apply(lambda x: x.split('.')[0] if '.' in x else x)
+    df_usage["Piriven Name"] = df_usage["Piriven Name"].fillna("").astype(str).str.strip()
+    df_usage["District"] = df_usage["District"].fillna("").astype(str).str.strip().str.title()
+    df_usage["Latitude"] = pd.to_numeric(df_usage.get("Latitude", 0), errors='coerce').fillna(0.0)
+    df_usage["Longitude"] = pd.to_numeric(df_usage.get("Longitude", 0), errors='coerce').fillna(0.0)
+else:
     df_usage = pd.DataFrame({"Census No": ["0542"], "Piriven Name": ["Sample Pirivena"], "District": ["Colombo"], "Zone": ["Central"], "Status": ["Offline"], "Latitude": [6.9271], "Longitude": [79.8612], "Monthly Usage (Hours)": [0]})
 
 def is_device_actually_active(last_ping_str):
@@ -327,19 +260,20 @@ with tab2:
     c_right.metric("👨‍🎓 Total Live Students Learning Now", total_live_students) 
     st.write("---")
     
+    # Software Analytics Firebase එකෙන් ලබා ගැනීම
     app_hours_dict = {}
     try:
-        if sheet:
-            sw_ws = sheet.worksheet("Software_Analytics")
-            sw_records = sw_ws.get_all_records()
-            for row in sw_records:
-                c_no = str(row.get("Census No", ""))
-                if c_no in filtered_census_nos:
-                    app_name = row.get("App Name", "Unknown")
-                    mins = float(row.get("Minutes", 0))
-                    if app_name not in app_hours_dict: app_hours_dict[app_name] = 0.0
-                    app_hours_dict[app_name] += round(mins / 60.0, 2)
+        res_sw = requests.get(f"{FIREBASE_URL}software_analytics.json", timeout=4)
+        if res_sw.status_code == 200 and res_sw.json():
+            sw_data = res_sw.json()
+            for c_no in filtered_census_nos:
+                if c_no in sw_data and isinstance(sw_data[c_no], dict):
+                    for date_str, apps in sw_data[c_no].items():
+                        if isinstance(apps, dict):
+                            for app_name, mins in apps.items():
+                                app_hours_dict[app_name] = app_hours_dict.get(app_name, 0.0) + round(float(mins) / 60.0, 2)
     except: pass
+
     if not app_hours_dict: app_hours_dict = {"No Software Tracked Yet": 0.0}
     software_chart_data = pd.DataFrame({"Software Application": list(app_hours_dict.keys()), "Total Active Execution (Hours)": list(app_hours_dict.values())})
     
@@ -438,46 +372,46 @@ with tab1:
         st.subheader("📢 Command Center")
         yt_input = st.text_input("YouTube URL:")
         if st.button("🚀 BROADCAST TO ALL BOARDS", key="broadcast_btn"):
-            if yt_input and sheet:
+            if yt_input:
                 try:
-                    settings_ws = sheet.worksheet("Settings")
-                    settings_ws.update('A1', [[yt_input]])
+                    link_data = process_youtube_link(yt_input)
+                    requests.put(f"{FIREBASE_URL}current_lesson.json", json=link_data)
                     st.success("✅ Broadcast Successful!")
                 except Exception as e:
                     st.error(f"Error: {e}")
-                        
+                    
         st.write("---")
         ann_t = st.text_input("Announcement Title:")
         ann_b = st.text_area("Message Body:")
         if st.button("📢 PUSH LIVE NOTIFICATION", key="push_notif_btn"):
-            if ann_t and ann_b and sheet:
+            if ann_t and ann_b:
                 try:
-                    ann_ws = sheet.worksheet("Announcements")
-                    ann_ws.append_row([ann_t, ann_b, datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
+                    ann_data = {"title": ann_t, "body": ann_b, "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+                    requests.put(f"{FIREBASE_URL}latest_announcement.json", json=ann_data)
                     st.success("✅ Message Pushed Successfully!")
                 except Exception as e:
                     st.error(f"Error: {e}")
 
 with tab3:
     st.subheader("🛠️ Technical Support & Ticket Interactive Chat Panel")
-    if sheet:
-        try:
-            t_ws = sheet.worksheet("Support_Tickets")
-            tickets = t_ws.get_all_records()
-            if tickets:
-                for idx, t in enumerate(tickets, 1):
-                    c_no = str(t.get("Census No", "")).strip()
+    try:
+        res_t = requests.get(f"{FIREBASE_URL}support_tickets.json", timeout=4)
+        if res_t.status_code == 200 and res_t.json():
+            tickets = res_t.json()
+            for tid, t in tickets.items():
+                if isinstance(t, dict):
+                    c_no = str(t.get("census_no", "")).strip()
                     p_name = census_to_name.get(c_no, f"Unknown ({c_no})")
                     if selected_piriven != "All Piriven" and p_name != selected_piriven: continue
                     
-                    status_label = "🔴 Pending" if t.get('Status') == "Pending" else "🟢 Solved"
-                    with st.expander(f"🎫 TICKET #{idx} | 🏛️ {p_name} - [{t.get('Issue Type')}] (⏱️ {t.get('Reported At', 'N/A')}) - Status: {status_label}"):
-                        st.markdown(f"**📝 Issue Description:** {t.get('Description')}")
-                        st.caption(f"Device Serial: {t.get('Device Serial', 'N/A')}")
-            else:
-                st.info("No reported tickets found.")
-        except Exception as e:
-            st.error(f"Error loading tickets: {e}")
+                    status_label = "🔴 Pending" if t.get('status') == "Pending" else "🟢 Solved"
+                    with st.expander(f"🎫 TICKET | 🏛️ {p_name} - [{t.get('issue_type')}] (⏱️ {t.get('reported_at', 'N/A')}) - Status: {status_label}"):
+                        st.markdown(f"**📝 Issue Description:** {t.get('description')}")
+                        st.caption(f"Device Serial: {t.get('device_serial', 'N/A')}")
+        else:
+            st.info("No reported tickets found.")
+    except Exception as e:
+        st.error(f"Error loading tickets: {e}")
 
 st.write("---")
 cur_year = datetime.datetime.now().year
