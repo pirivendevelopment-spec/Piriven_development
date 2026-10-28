@@ -390,12 +390,53 @@ with tab1:
                 st.success("✅ Message Pushed Successfully!")
 
 # --- 🛠️ 3 වන ටැබය: සීරියල් අංකයෙන් ටිකට් හඳුනා ගැනීම සහ Pending/Solved කළ හැකි සජීවී චැට් පැනලය ---
+
+# --- 🛠️ 3 වන ටැබය: සීරියල් අංකයෙන් ටිකට් හඳුනා ගැනීම, සජීවී චැට් සහ Excel ඩවුන්ලෝඩ් පහසුකම ---
 with tab3:
     st.subheader("🛠️ Technical Support & Live Chat Panel (Serial-Based)")
+    
     try:
         res_t = requests.get(f"{FIREBASE_URL}support_tickets.json", timeout=4)
         if res_t.status_code == 200 and res_t.json():
             tickets = res_t.json()
+            
+            # 💡 සැපයුම්කරුට යැවීම සඳහා ටිකට් දත්ත එක්සෙල් (Excel) එකක් ලෙස සකස් කිරීම
+            ticket_rows = []
+            for tid, tinfo in tickets.items():
+                if isinstance(tinfo, dict):
+                    c_no = str(tinfo.get("census_no", "")).strip()
+                    p_name = census_to_name.get(c_no, f"Unknown ({c_no})")
+                    ticket_rows.append({
+                        "Ticket ID": tid,
+                        "Piriven Name": p_name,
+                        "Census No": c_no,
+                        "Device Type": tinfo.get("device_type", "N/A"),
+                        "Device Serial": tinfo.get("device_serial", "N/A"),
+                        "Issue Category": tinfo.get("issue_type", "N/A"),
+                        "Description": tinfo.get("description", "N/A"),
+                        "Status": tinfo.get("status", "Pending"),
+                        "Reported At": tinfo.get("reported_at", "N/A")
+                    })
+            
+            if ticket_rows:
+                df_tickets = pd.DataFrame(ticket_rows)
+                
+                # Excel බෆර් එක සකස් කිරීම
+                ticket_excel_buffer = io.BytesIO()
+                with pd.ExcelWriter(ticket_excel_buffer, engine='openpyxl') as writer:
+                    df_tickets.to_excel(writer, index=False, sheet_name="Support Tickets")
+                ticket_excel_bytes = ticket_excel_buffer.getvalue()
+                
+                # 📥 Excel Download Button එක පෙන්වීම
+                st.download_button(
+                    label="📥 Download All Support Tickets for Supplier (.xlsx)",
+                    data=ticket_excel_bytes,
+                    file_name=f"Piriven_Support_Tickets_Supplier_Report_{datetime.date.today()}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+                st.write("---")
+
+            # ටිකට් ලැයිස්තුව සහ සජීවී චැට් පෙන්වීම
             for tid, t in tickets.items():
                 if isinstance(t, dict):
                     c_no = str(t.get("census_no", "")).strip()
@@ -408,9 +449,9 @@ with tab3:
                     
                     status_badge = "🔴 Pending" if current_status == "Pending" else "🟢 Solved"
                     
-                    with st.expander(f"🎫 TICKET | 🏛️ {p_name} | 💻 [{dev_type} - {dev_serial}] - Issue: {t.get('issue_type')} ({status_badge})"):
+                    with st.expander(f"🎫 TICKET: {tid} | 🏛️ {p_name} | 💻 [{dev_type}] - Issue: {t.get('issue_type')} ({status_badge})"):
                         st.markdown(f"**📝 Issue Description:** {t.get('description')}")
-                        st.caption(f"Reported At: {t.get('reported_at', 'N/A')} | Ticket DB ID: {tid}")
+                        st.caption(f"Device Serial: {dev_serial} | Reported At: {t.get('reported_at', 'N/A')}")
                         
                         st.write("---")
                         st.markdown("💬 **Live Discussion / අමාත්‍යාංශ සංවාදය:**")
@@ -447,16 +488,3 @@ with tab3:
             st.info("No reported tickets found.")
     except Exception as e:
         st.error(f"Error loading tickets: {e}")
-
-st.write("---")
-cur_year = datetime.datetime.now().year
-footer_html = f"""
-<div style="background-color: #111827; padding: 25px; border-radius: 12px; text-align: center; color: white; margin-top: 40px; font-family: sans-serif; border: 1px solid #374151;">
-    <p style="margin: 0; font-size: 16px; font-weight: bold; color: #38bdf8;">Piriven Development Branch</p>
-    <p style="margin: 6px 0 0 0; font-size: 13px; color: #94a3b8;">📧 Email: <a href="mailto:info.pirivendevelopment@gmail.com" style="color: #38bdf8;">info.pirivendevelopment@gmail.com</a></p>
-    <div style="font-size: 11px; color: #94a3b8; margin-top: 15px; border-top: 1px solid #374151; padding-top: 10px;">
-        © {cur_year} | Ministry of Education, Sri Lanka.
-    </div>
-</div>
-"""
-st.markdown(footer_html, unsafe_allow_html=True)
