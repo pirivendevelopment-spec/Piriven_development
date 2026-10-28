@@ -306,7 +306,6 @@ with tab1:
         st.subheader("Live Board Tracking (Device Category Pins)")
         m = folium.Map(location=map_center, zoom_start=map_zoom, tiles="OpenStreetMap")
         
-        # සිතියම මත ඩිවයිස් වර්ගය අනුව වර්ණ ගැන්වීම (Smart Board -> Light Green, Laptop -> Blue, Desktop -> Orange)
         for c_no, devices in live_boards_data.items():
             if isinstance(devices, dict):
                 matched_row = df_usage[df_usage["Census No"].astype(str).str.strip() == str(c_no).strip()]
@@ -319,7 +318,6 @@ with tab1:
                         for d_id, d_info in devices.items():
                             if d_id != "attendance" and isinstance(d_info, dict) and is_device_actually_active(d_info.get("last_ping")):
                                 dtype = d_info.get("device_type", "Smart Board")
-                                # වර්ණ තේරීම: Smart Board -> lightgreen, Laptop -> blue, Desktop PC -> orange
                                 pin_color = "lightgreen" if dtype == "Smart Board" else ("blue" if dtype == "Laptop" else "orange")
                                 
                                 popup_html = f"""
@@ -383,9 +381,9 @@ with tab3:
                         st.markdown("💬 **Live Discussion / අමාත්‍යාංශ සංවාදය:**")
                         chats = t.get("chats", {})
                         if chats:
-    for cid, cmsg in chats.items():
-        sender_label = "🏛️ Ministry" if cmsg.get("sender") == "ministry" else "🏫 Piriven Device"
-        st.markdown(f"**{sender_label}:** {cmsg.get('msg')}  *<small>({cmsg.get('time')})</small>*", unsafe_allow_html=True)
+                            for cid, cmsg in chats.items():
+                                sender_label = "🏛️ Ministry" if cmsg.get("sender") == "ministry" else "🏫 Piriven Device"
+                                st.markdown(f"**{sender_label}:** {cmsg.get('msg')}  *<small>({cmsg.get('time')})</small>*", unsafe_allow_html=True)
                         else:
                             st.info("No chat messages yet.")
 
