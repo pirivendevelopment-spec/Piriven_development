@@ -383,9 +383,9 @@ with tab3:
                         st.markdown("💬 **Live Discussion / අමාත්‍යාංශ සංවාදය:**")
                         chats = t.get("chats", {})
                         if chats:
-                            for cid, cmsg in chats.items():
-                                sender_label = "🏛️ Ministry" if cmsg.get("sender") == "ministry" else "🏫 Piriven Device"
-                                st.markdown(f"**{senderLabel}:** {cmsg.get('msg')}  *<small>({cmsg.get('time')})</small>*", unsafe_allow_html=True)
+    for cid, cmsg in chats.items():
+        sender_label = "🏛️ Ministry" if cmsg.get("sender") == "ministry" else "🏫 Piriven Device"
+        st.markdown(f"**{sender_label}:** {cmsg.get('msg')}  *<small>({cmsg.get('time')})</small>*", unsafe_allow_html=True)
                         else:
                             st.info("No chat messages yet.")
 
