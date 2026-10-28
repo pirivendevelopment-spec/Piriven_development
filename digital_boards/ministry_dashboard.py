@@ -7,6 +7,7 @@ import datetime
 import base64
 import os
 import requests
+import io
 from urllib.parse import urlparse, parse_qs
 
 # ⚠️ නිවැරදි Firebase API URL එක
@@ -259,7 +260,9 @@ with tab2:
     c_right.metric("👨‍🎓 Total Live Students Learning Now", total_live_students) 
     st.write("---")
 
+    # Software Analytics සහ යූසෙජ් පැය ගණන ලබා ගැනීම
     app_hours_dict = {}
+    piriven_total_hours = 0.0
     try:
         res_sw = requests.get(f"{FIREBASE_URL}software_analytics.json", timeout=4)
         if res_sw.status_code == 200 and res_sw.json():
@@ -269,14 +272,22 @@ with tab2:
                     for date_str, apps in sw_data[c_no].items():
                         if isinstance(apps, dict):
                             for app_name, mins in apps.items():
-                                app_hours_dict[app_name] = app_hours_dict.get(app_name, 0.0) + round(float(mins) / 60.0, 2)
+                                hrs = round(float(mins) / 60.0, 2)
+                                app_hours_dict[app_name] = app_hours_dict.get(app_name, 0.0) + hrs
+                                piriven_total_hours += hrs
     except: pass
+
+    # තෝරාගත් පිරිවෙනට අදාළ මුළු භාවිත පැය ගණන පෙන්වීම
+    if selected_piriven != "All Piriven":
+        st.info(fk := f"🏛️ **{selected_piriven}** සඳහා තෝරාගත් කාල සීමාව තුළ සමස්ත භාවිත පැය ගණන (Total Runtime): **{piriven_total_hours:.2f} Hours**")
 
     if not app_hours_dict: app_hours_dict = {"No Software Tracked Yet": 0.0}
     software_chart_data = pd.DataFrame({"Software Application": list(app_hours_dict.keys()), "Total Active Execution (Hours)": list(app_hours_dict.values())})
     
-    st.markdown("### ⏱️ Select Time Analytics View")
-    time_view = st.selectbox("Display Usage Data In:", ["Hours (පැය)", "Days (දවස්)", "Weeks (සති)", "Months (මාස)", "Years (අවුරුදු)"], key="time_view_filter")
+    st.markdown("### ⏱️ Select Time Analytics View & Excel Export")
+    col_v1, col_v2 = st.columns([2, 1])
+    with col_v1:
+        time_view = st.selectbox("Display Usage Data In:", ["Hours (පැය)", "Days (දවස්)", "Weeks (සති)", "Months (මාස)", "Years (අවුරුදු)"], key="time_view_filter")
     
     conversion_factor = 1.0
     unit_label = "Hours"
@@ -287,6 +298,20 @@ with tab2:
 
     software_chart_data["Total Active Execution"] = (software_chart_data["Total Active Execution (Hours)"] / conversion_factor).round(2)
     software_chart_data_view = software_chart_data[["Software Application", "Total Active Execution"]].rename(columns={"Total Active Execution": f"Total Active Execution ({unit_label})"})
+
+    with col_v2:
+        st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+        # සම්පූර්ණ භාවිත වාර්තාව Excel එකක් ලෙස ඩවුන්ලෝඩ් කරගැනීම
+        excel_buffer = io.BytesIO()
+        with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
+            software_chart_data_view.to_excel(writer, index=False, sheet_name=f"Usage_{unit_label}")
+        excel_bytes = excel_buffer.getvalue()
+        st.download_button(
+            label=f"📥 Download Usage ({unit_label}) .xlsx",
+            data=excel_bytes,
+            file_name=f"Piriven_Usage_Report_{unit_label}_{datetime.date.today()}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
 
     col_sw1, col_sw2 = st.columns(2)
     with col_sw1: st.bar_chart(software_chart_data_view.set_index("Software Application"))
@@ -303,36 +328,46 @@ if selected_piriven != "All Piriven" and not df_filtered.empty:
 with tab1:
     col_map, col_ctrl = st.columns([2.5, 1.2])
     with col_map:
-        st.subheader("Live Board Tracking (Device Category Pins)")
+        st.subheader("Live Board Tracking (Active = Green/Blue/Orange, Offline = Red)")
         m = folium.Map(location=map_center, zoom_start=map_zoom, tiles="OpenStreetMap")
         
-        for c_no, devices in live_boards_data.items():
-            if isinstance(devices, dict):
-                matched_row = df_usage[df_usage["Census No"].astype(str).str.strip() == str(c_no).strip()]
-                if not matched_row.empty:
-                    lat = float(matched_row.iloc[0].get("Latitude", 0.0))
-                    lon = float(matched_row.iloc[0].get("Longitude", 0.0))
-                    p_name = matched_row.iloc[0].get("Piriven Name", "Unknown")
+        for _, r in df_usage.iterrows():
+            try:
+                c_no = str(r.get("Census No", "")).strip()
+                p_name = r.get("Piriven Name", "Unknown")
+                lat = float(r.get("Latitude", 0.0))
+                lon = float(r.get("Longitude", 0.0))
+                
+                if lat != 0.0 and lon != 0.0:
+                    is_online = False
+                    pin_color = "red" # ඩිවයිස් එක ඔෆ් ලයින් නම් රතු පාටින් පෙන්වයි
+                    dtype = "Offline / No Device"
+                    serial_txt = "N/A"
 
-                    if lat != 0.0 and lon != 0.0:
-                        for d_id, d_info in devices.items():
+                    if c_no in live_boards_data and isinstance(live_boards_data[c_no], dict):
+                        for d_id, d_info in live_boards_data[c_no].items():
                             if d_id != "attendance" and isinstance(d_info, dict) and is_device_actually_active(d_info.get("last_ping")):
+                                is_online = True
                                 dtype = d_info.get("device_type", "Smart Board")
+                                serial_txt = d_id
+                                # Smart Board -> lightgreen, Laptop -> blue, Desktop PC -> orange
                                 pin_color = "lightgreen" if dtype == "Smart Board" else ("blue" if dtype == "Laptop" else "orange")
-                                
-                                popup_html = f"""
-                                <div style='font-family: sans-serif; font-size: 12px; line-height: 1.5; min-width: 220px; background-color: #1e293b; color: white; padding: 10px; border-radius: 8px;'>
-                                    <h3 style='margin: 0 0 5px 0; color: #38bdf8;'>🏛️ {p_name}</h3>
-                                    <p style='margin: 4px 0;'><b>Device:</b> {dtype}</p>
-                                    <p style='margin: 4px 0;'><b>Serial:</b> {d_id}</p>
-                                    <span style='background-color: #064e3b; color: #a7f3d0; padding: 2px 6px; border-radius: 4px; font-weight: bold;'>● Active Online</span>
-                                </div>
-                                """
-                                folium.Marker(
-                                    location=[lat, lon],
-                                    popup=popup_html,
-                                    icon=folium.Icon(color=pin_color, icon="laptop" if dtype=="Laptop" else "desktop", prefix="fa")
-                                ).add_to(m)
+                                break
+
+                    popup_html = f"""
+                    <div style='font-family: sans-serif; font-size: 12px; line-height: 1.5; min-width: 220px; background-color: #1e293b; color: white; padding: 10px; border-radius: 8px;'>
+                        <h3 style='margin: 0 0 5px 0; color: #38bdf8;'>🏛️ {p_name}</h3>
+                        <p style='margin: 4px 0;'><b>Device:</b> {dtype}</p>
+                        <p style='margin: 4px 0;'><b>Serial:</b> {serial_txt}</p>
+                        <span style='background-color: {"#064e3b" if is_online else "#7f1d1d"}; color: {"#a7f3d0" if is_online else "#fecaca"}; padding: 2px 6px; border-radius: 4px; font-weight: bold;'>{"● Active Online" if is_online else "● Offline"}</span>
+                    </div>
+                    """
+                    folium.Marker(
+                        location=[lat, lon],
+                        popup=popup_html,
+                        icon=folium.Icon(color=pin_color, icon="laptop" if dtype=="Laptop" else ("desktop" if dtype=="Smart Board" else "remove-sign"), prefix="fa")
+                    ).add_to(m)
+            except: pass
 
         st_folium(m, width=None, height=650, key="main_map_display")
 
@@ -387,7 +422,6 @@ with tab3:
                         else:
                             st.info("No chat messages yet.")
 
-                        # අමාත්‍යාංශයෙන් පිළිතුරු යැවීමේ පහසුකම
                         if current_status == "Pending":
                             reply_msg = st.text_input("Type ministry reply / පිළිතුර ලියන්න:", key=f"reply_{tid}")
                             col_send, col_sol = st.columns([2, 1])
