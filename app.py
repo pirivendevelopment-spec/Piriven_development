@@ -34,7 +34,6 @@ def run_sub_module(file_path):
             if "st.set_page_config(" in line:
                 fixed_lines.append("# " + line)
             elif "users_df, results_df, master_df = load_data()" in line:
-                # දත්ත නැතිනම් හේතුව පෙන්වන ආරක්ෂිත කේතය
                 replacement = (
                     "load_res = load_data()\n"
                     "users_df = load_res[0] if (load_res and len(load_res) > 0) else None\n"
@@ -45,7 +44,6 @@ def run_sub_module(file_path):
                 )
                 fixed_lines.append(replacement)
             elif "st.stop()" in line and "load_data" in code_content:
-                # st.stop() වෙනුවට Warning එකක් දී Login එක ඉදිරියට ගෙන යාම
                 fixed_lines.append("# " + line)
             else:
                 fixed_lines.append(line)
@@ -93,7 +91,7 @@ footer { visibility: hidden !important; }
 .header-section {
     background: linear-gradient(135deg, #0f766e, #115e59);
     color: white;
-    padding: 35px 0;
+    padding: 35px 15px;
     border-radius: 0 0 20px 20px;
     margin-bottom: 35px;
     box-shadow: 0 4px 15px rgba(0,0,0,0.1);
@@ -101,12 +99,16 @@ footer { visibility: hidden !important; }
 }
 .header-section h2 {
     font-weight: 700;
-    font-size: 26px;
-    margin-bottom: 6px;
-    color: #ffffff;
+    font-size: 24px;
+    margin-bottom: 8px;
+    color: #ffffff !important;
+}
+.header-section p {
+    color: #ccfbf1 !important;
+    font-size: 14px;
 }
 .card-custom {
-    background: white;
+    background: #ffffff !important;
     border-radius: 16px;
     padding: 24px;
     box-shadow: 0 4px 15px rgba(0,0,0,0.05);
@@ -121,6 +123,15 @@ footer { visibility: hidden !important; }
     transform: translateY(-5px);
     box-shadow: 0 10px 25px rgba(0,0,0,0.1);
 }
+.card-custom h5 {
+    color: #0f172a !important;
+    font-weight: 700;
+    font-size: 18px;
+}
+.card-custom p {
+    color: #475569 !important;
+    font-size: 13.5px;
+}
 .card-exam { border-top: 5px solid #2563eb; }
 .card-fin { border-top: 5px solid #10b981; }
 .card-census { border-top: 5px solid #8b5cf6; }
@@ -130,7 +141,7 @@ footer { visibility: hidden !important; }
 
 .btn-portal {
     width: 100%;
-    padding: 10px;
+    padding: 11px;
     font-weight: 700;
     border-radius: 10px;
     border: none;
@@ -151,20 +162,20 @@ footer { visibility: hidden !important; }
 <div class="header-section">
 <div class="container">
 <h2><i class="fa-solid fa-landmark"></i> පිරිවෙන් අංශයේ ප්‍රධාන කළමනාකරණ පෝටලය</h2>
-<p class="mb-0 text-light">අධ්‍යාපන අමාත්‍යාංශය - ශ්‍රී ලංකා | කේන්ද්‍රීය කළමනාකරණ මධ්‍යස්ථානය</p>
+<p class="mb-0">අධ්‍යාපන අමාත්‍යාංශය - ශ්‍රී ලංකා | කේන්ද්‍රීය කළමනාකරණ මධ්‍යස්ථානය</p>
 </div>
 </div>
 
 <div class="container">
-<h4 class="mb-4 text-secondary fw-bold">🚀 පද්ධති මොඩියුල සහ කළමනාකරණ අංශ</h4>
+<h4 class="mb-4 text-dark fw-bold" style="font-size: 20px;">🚀 පද්ධති මොඩියුල සහ කළමනාකරණ අංශ</h4>
 
 <div class="row g-4">
 <!-- 1. විභාග විශ්ලේෂණය -->
 <div class="col-md-6 col-lg-4">
 <div class="card-custom card-exam">
 <div>
-<h5><i class="fa-solid fa-chart-line text-primary"></i> 1. විභාග ප්‍රතිඵල විශ්ලේෂණය</h5>
-<p class="text-muted small mt-2">පිරිවෙන් සාමාන්‍ය පෙළ විභාග ප්‍රතිඵල, Quality Score (QS) සහ කලාපීය ප්‍රගති ප්‍රස්තාර.</p>
+<h5><i class="fa-solid fa-chart-line text-primary me-2"></i> 1. විභාග ප්‍රතිඵල විශ්ලේෂණය</h5>
+<p class="mt-2">පිරිවෙන් සාමාන්‍ය පෙළ විභාග ප්‍රතිඵල, Quality Score (QS) සහ කලාපීය ප්‍රගති ප්‍රස්තාර.</p>
 </div>
 <a href="?module=exam" target="_self" class="btn-portal mt-3" style="background-color: #2563eb;">විභාග විශ්ලේෂණයට පිවිසෙන්න</a>
 </div>
@@ -174,8 +185,8 @@ footer { visibility: hidden !important; }
 <div class="col-md-6 col-lg-4">
 <div class="card-custom card-fin">
 <div>
-<h5><i class="fa-solid fa-coins text-success"></i> 2. AIP මූල්‍ය හා ප්‍රගති පාලනය</h5>
-<p class="text-muted small mt-2">ප්‍රාග්ධන සහ පුනරාවර්තන වැය ශීර්ෂ, වවුචර් ලොග් සහ මූල්‍ය ප්‍රගති වාර්තා.</p>
+<h5><i class="fa-solid fa-coins text-success me-2"></i> 2. AIP මූල්‍ය හා ප්‍රගති පාලනය</h5>
+<p class="mt-2">ප්‍රාග්ධන සහ පුනරාවර්තන වැය ශීර්ෂ, වවුචර් ලොග් සහ මූල්‍ය ප්‍රගති වාර්තා.</p>
 </div>
 <a href="?module=aip" target="_self" class="btn-portal mt-3" style="background-color: #10b981;">මූල්‍ය පාලන පද්ධතියට පිවිසෙන්න</a>
 </div>
@@ -185,8 +196,8 @@ footer { visibility: hidden !important; }
 <div class="col-md-6 col-lg-4">
 <div class="card-custom card-census">
 <div>
-<h5><i class="fa-solid fa-users-rectangle" style="color: #8b5cf6;"></i> 3. පිරිවෙන් සංගණන දත්ත</h5>
-<p class="text-muted small mt-2">පිරිවෙන් ආයතන, ගුරු මණ්ඩලය, පැවිදි/ගිහි ශිෂ්‍ය සංචිතය සහ දිස්ත්‍රික් වාර්තා.</p>
+<h5><i class="fa-solid fa-users-rectangle me-2" style="color: #8b5cf6;"></i> 3. පිරිවෙන් සංගණන දත්ත</h5>
+<p class="mt-2">පිරිවෙන් ආයතන, ගුරු මණ්ඩලය, පැවිදි/ගිහි ශිෂ්‍ය සංචිතය සහ දිස්ත්‍රික් වාර්තා.</p>
 </div>
 <a href="?module=census" target="_self" class="btn-portal mt-3" style="background-color: #8b5cf6;">සංගණන දත්ත වෙත පිවිසෙන්න</a>
 </div>
@@ -196,8 +207,8 @@ footer { visibility: hidden !important; }
 <div class="col-md-6 col-lg-4">
 <div class="card-custom card-board">
 <div>
-<h5><i class="fa-solid fa-desktop text-warning"></i> 4. ඩිජිටල් බෝඩ් මොනිටරින්</h5>
-<p class="text-muted small mt-2">අමාත්‍යාංශ මට්ටමේ සජීවී සිතියම් ලුහුබැඳීම, විකාශන (Broadcast) සහ ටිකට් පද්ධතිය.</p>
+<h5><i class="fa-solid fa-desktop text-warning me-2"></i> 4. ඩිජිටල් බෝඩ් මොනිටරින්</h5>
+<p class="mt-2">අමාත්‍යාංශ මට්ටමේ සජීවී සිතියම් ලුහුබැඳීම, විකාශන (Broadcast) සහ ටිකට් පද්ධතිය.</p>
 </div>
 <a href="?module=board" target="_self" class="btn-portal mt-3" style="background-color: #f59e0b;">අමාත්‍යාංශ මොනිටරින් වෙත පිවිසෙන්න</a>
 </div>
@@ -207,8 +218,8 @@ footer { visibility: hidden !important; }
 <div class="col-md-6 col-lg-4">
 <div class="card-custom card-inv">
 <div>
-<h5><i class="fa-solid fa-boxes-stacked text-danger"></i> 5. ඉන්වෙන්ට්‍රි සහ සම්පත් කළමනාකරණය</h5>
-<p class="text-muted small mt-2">මූල්‍ය ප්‍රතිපාදන, බඩු වට්ටෝරු (පොදු 44), තොග පොත් (පොදු 198) සහ නිකුත් කිරීම්.</p>
+<h5><i class="fa-solid fa-boxes-stacked text-danger me-2"></i> 5. ඉන්වෙන්ට්‍රි සහ සම්පත් කළමනාකරණය</h5>
+<p class="mt-2">මූල්‍ය ප්‍රතිපාදන, බඩු වට්ටෝරු (පොදු 44), තොග පොත් (පොදු 198) සහ නිකුත් කිරීම්.</p>
 </div>
 <a href="?module=inventory" target="_self" class="btn-portal mt-3" style="background-color: #ef4444;">ඉන්වෙන්ට්‍රි පද්ධතියට පිවිසෙන්න</a>
 </div>
@@ -218,15 +229,15 @@ footer { visibility: hidden !important; }
 <div class="col-md-6 col-lg-4">
 <div class="card-custom card-peqi">
 <div>
-<h5><i class="fa-solid fa-clipboard-check text-info"></i> 6. පිරිවෙන් ප්‍රමිති (PEQI) ලකුණු</h5>
-<p class="text-muted small mt-2">පිරිවෙන්වල ප්‍රමිති 10 සඳහා නව ලකුණු ඇතුළත් කිරීම, වාර 5 ලුහුබැඳීම සහ PDF වාර්තා.</p>
+<h5><i class="fa-solid fa-clipboard-check text-info me-2"></i> 6. පිරිවෙන් ප්‍රමිති (PEQI) ලකුණු</h5>
+<p class="mt-2">පිරිවෙන්වල ප්‍රමිති 10 සඳහා නව ලකුණු ඇතුළත් කිරීම, වාර 5 ලුහුබැඳීම සහ PDF වාර්තා.</p>
 </div>
 <a href="?module=peqi" target="_self" class="btn-portal mt-3" style="background-color: #06b6d4;">PEQI පද්ධතියට පිවිසෙන්න</a>
 </div>
 </div>
 </div>
 
-<footer class="text-center mt-5 mb-4 text-muted small">
+<footer class="text-center mt-5 mb-4 text-secondary small">
 <hr>
 <p>© 2026 Piriven Development Branch | Ministry of Education - Sri Lanka</p>
 </footer>
@@ -239,7 +250,6 @@ footer { visibility: hidden !important; }
 # 2. මොඩියුල පිටු
 # =========================================================================
 else:
-    # ආපසු ප්‍රධාන Dashboard එකට යාමට Sidebar එකේ Button එක
     st.sidebar.markdown("""
 <div style='padding-bottom: 12px; margin-bottom: 15px;'>
 <a href="?" target="_self" style="text-decoration: none;">
@@ -254,39 +264,32 @@ font-weight: 700; width: 100%; cursor: pointer;">
 <hr style="border: 0.5px solid rgba(255,255,255,0.1); margin: 10px 0;">
 """, unsafe_allow_html=True)
 
-    # 1. විභාග ප්‍රතිඵල විශ්ලේෂණය
-    # 1. විභාග ප්‍රතිඵල විශ්ලේෂණය
     if active_module == "exam":
         exam_file = os.path.join(BASE_DIR, "exam_analytics", "result_app.py")
         if not os.path.exists(exam_file):
             exam_file = os.path.join(BASE_DIR, "result_app.py")
         run_sub_module(exam_file)
 
-    # 2. AIP මූල්‍ය හා ප්‍රගති පාලනය
     elif active_module == "aip":
         aip_file = os.path.join(BASE_DIR, "aip_financial", "aip_app.py")
         run_sub_module(aip_file)
 
-    # 3. සංගණන දත්ත
     elif active_module == "census":
         st.title("👥 පිරිවෙන් සංගණන දත්ත පද්ධතිය")
         st.info("පද්ධතිය සූදානම් වෙමින් පවතී...")
 
-    # 4. ඩිජිටල් බෝඩ්
     elif active_module == "board":
         b_file = os.path.join(BASE_DIR, "digital_boards", "app.py")
         if not os.path.exists(b_file):
             b_file = os.path.join(BASE_DIR, "digital_boards", "ministry_dashboard.py")
         run_sub_module(b_file)
 
-    # 5. ඉන්වෙන්ට්‍රි
     elif active_module == "inventory":
         inv_file = os.path.join(BASE_DIR, "inventory_management", "app.py")
         if not os.path.exists(inv_file):
             inv_file = os.path.join(BASE_DIR, "inventory_management", "inventory_app.py")
         run_sub_module(inv_file)
 
-    # 6. PEQI
     elif active_module == "peqi":
         p_file = os.path.join(BASE_DIR, "peqi_module", "app.py")
         if not os.path.exists(p_file):
