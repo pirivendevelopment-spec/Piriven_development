@@ -188,66 +188,36 @@ def main():
     # 1. PREMIUM LOGIN SCREEN
     # =========================================================================
     if not st.session_state.logged_in:
-        st.markdown("""
-        <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Sinhala:wght@400;600;700;800&display=swap');
-            
-            .stApp {
-                background: radial-gradient(circle at top right, #1e1b4b 0%, #0f172a 100%) !important;
-                font-family: 'Inter', 'Noto Sans Sinhala', sans-serif !important;
-            }
-            
-            section[data-testid="stSidebar"] {
-                display: none !important;
-            }
+     st.markdown("""
+    <style>
+        /* මුළු යෙදුම සඳහාම ස්ථාවර වර්ණ සහ අකුරු සැකසීම */
+        .stApp {
+            background-color: #f8fafc !important;
+            color: #1e293b !important;
+        }
+        
+        /* සියලුම සිරස්තල සහ පෙළ අකුරු පැහැදිලි තද පැහැයෙන් තැබීම */
+        h1, h2, h3, h4, h5, h6, p, span, label, div {
+            color: #1e293b !important;
+        }
 
-            div[data-testid="stForm"] {
-                background: #ffffff !important;
-                border-radius: 20px !important;
-                padding: 35px 30px !important;
-                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45) !important;
-                border: 1px solid rgba(255, 255, 255, 0.2) !important;
-            }
+        /* ඩාර්ක් මෝඩ් ගැටලු මඟහරවා ගැනීමට කාඩ්පත් සහ ආදාන පෙට්ටි (Inputs) */
+        div.stTextInput input, div.stSelectbox select, div.stTextArea textarea {
+            background-color: #ffffff !important;
+            color: #0f172a !important;
+            border: 1px solid #cbd5e1 !important;
+        }
 
-            div[data-testid="stTextInput"] input {
-                background-color: #f8fafc !important;
-                border: 1.5px solid #e2e8f0 !important;
-                border-radius: 10px !important;
-                color: #0f172a !important;
-                font-size: 14px !important;
-                padding: 12px 14px !important;
-            }
-            div[data-testid="stTextInput"] input:focus {
-                border-color: #1e40af !important;
-                box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.15) !important;
-            }
-
-            div[data-testid="stTextInput"] label p {
-                color: #475569 !important;
-                font-weight: 700 !important;
-                font-size: 12.5px !important;
-            }
-
-            div[data-testid="stFormSubmitButton"] > button {
-                background: #1e40af !important;
-                color: #ffffff !important;
-                border: none !important;
-                padding: 13px !important;
-                border-radius: 10px !important;
-                font-weight: 800 !important;
-                font-size: 15px !important;
-                transition: all 0.2s ease !important;
-                box-shadow: 0 4px 15px rgba(30, 64, 175, 0.35) !important;
-                margin-top: 10px !important;
-                width: 100% !important;
-            }
-            div[data-testid="stFormSubmitButton"] > button:hover {
-                background: #1e3a8a !important;
-                transform: translateY(-2px) !important;
-                box-shadow: 0 6px 20px rgba(30, 64, 175, 0.45) !important;
-            }
-        </style>
-        """, unsafe_allow_html=True)
+        /* සයිඩ්බාර් එක සඳහා වෙනම පැහැදිලි ඩාර්ක් තීම් එකක් */
+        [data-testid="stSidebar"] {
+            background-color: #1e1b4b !important;
+        }
+        [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3, 
+        [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label {
+            color: #ffffff !important;
+        }
+    </style>
+""", unsafe_allow_html=True)
 
         col1, col2, col3 = st.columns([1.2, 1.6, 1.2])
         with col2:
