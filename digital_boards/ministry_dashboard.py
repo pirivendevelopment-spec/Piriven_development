@@ -174,12 +174,22 @@ with col_clock:
 
 st.write("---")
 
-# --- Firebase දත්ත ලබා ගැනීම ---
+# --- Firebase දත්ත ලබා ගැනීම සහ Attendance ස්වයංක්‍රීයව පරික්ෂා කිරීම / සකස් කිරීම ---
 live_boards_data = {}
 try:
     res_live = requests.get(f"{FIREBASE_URL}live_boards.json", timeout=4)
     if res_live.status_code == 200 and res_live.json():
         live_boards_data = res_live.json()
+        
+        # 💡 Firebase හි attendance නෝඩ් එක මැකී ගොස් ඇත්නම් ස්වයංක්‍රීයව නැවත සකස් කිරීම (Auto-initialization)
+        for c_no, devices in live_boards_data.items():
+            if isinstance(devices, dict) and "attendance" not in devices:
+                default_attendance = {
+                    "live_student_count": 0,
+                    "last_captured": "N/A",
+                    "cumulative_student_lessons": 0
+                }
+                requests.put(f"{FIREBASE_URL}live_boards/{c_no}/attendance.json", json=default_attendance)
 except Exception as e:
     st.error(f"Firebase Live Boards Read Error: {e}")
 
@@ -345,14 +355,13 @@ with tab1:
                                 dtype = d_info.get("device_type", "Smart Board")
                                 serial_txt = d_id
                                 
-                                # 💡 ඩිවයිස් එක ඔන්ලයින් නම් වින්ඩෝස් පින්, ඕෆ්ලයින් (OPS/Android) නම් වෙනස් පින් වර්ණයක්
                                 if is_online:
                                     pin_color = "lightgreen" if dtype == "Smart Board" else "blue"
                                     status_label = "● Active Online (Windows/OPS Mode)"
                                     status_bg = "#064e3b"
                                     status_color = "#a7f3d0"
                                 else:
-                                    pin_color = "orange" # OPS/Android මෝඩ් එකට මාරු වී ඇති බව හැඟවීමට
+                                    pin_color = "orange"
                                     status_label = "● Switched to Android/OPS (Windows Paused)"
                                     status_bg = "#78350f"
                                     status_color = "#fde68a"
@@ -407,6 +416,22 @@ with tab1:
                 ann_data = {"title": ann_t, "body": ann_b, "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
                 requests.put(f"{FIREBASE_URL}latest_announcement.json", json=ann_data)
                 st.success("✅ Message Pushed Successfully!")
+
+        # 💡 අමාත්‍යාංශ ඩෑෂ්බෝඩ් එකෙන් මැනුවල් ලෙස Attendance / Live Data යළි සකස් කරගැනීමේ පැනලය
+        st.write("---")
+        with st.expander("🛠️ Manual Attendance Reset Panel"):
+            manual_census = st.text_input("Enter Census No for Reset:", value="430001")
+            manual_students = st.number_input("Set Student Count:", min_value=0, value=0, step=1)
+            if st.button("🔄 Reset / Force Create Attendance Node"):
+                if manual_census:
+                    reset_data = {
+                        "live_student_count": manual_students,
+                        "last_captured": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "cumulative_student_lessons": 0
+                    }
+                    requests.put(f"{FIREBASE_URL}live_boards/{manual_census.strip()}/attendance.json", json=reset_data)
+                    st.success(f"✅ Census No {manual_census} සඳහා Attendance දත්ත සාර්ථකව යළි සකස් විය!")
+                    st.rerun()
 
 with tab3:
     st.subheader("🛠️ Technical Support & Live Chat Panel (Device-Serial Specific)")
@@ -505,5 +530,4 @@ with tab3:
                             st.info("🔒 මෙම ගැටලුව විසඳා ඇති බැවින් (Solved) චැට් එක වසා ඇත.")
         else:
             st.info("No reported tickets found.")
-    except Exception as e:
-        st.error(f"Error loading tickets: {e}")
+    except: pass
