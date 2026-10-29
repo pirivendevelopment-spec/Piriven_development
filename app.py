@@ -61,7 +61,7 @@ query_params = st.query_params
 active_module = query_params.get("module", None)
 
 # =========================================================================
-# 1. ප්‍රධාන ඩෑෂ්බෝඩ් එක (NO IFRAME - NATIVE BOOTSTRAP)
+# 1. ප්‍රධාන ඩෑෂ්බෝඩ් එක (Bootstrap UI)
 # =========================================================================
 if not active_module:
     st.markdown("""
@@ -247,7 +247,7 @@ footer { visibility: hidden !important; }
     st.markdown(dashboard_html, unsafe_allow_html=True)
 
 # =========================================================================
-# 2. මොඩියුල පිටු
+# 2. අනු-මොඩියුල ධාවනය කිරීම
 # =========================================================================
 else:
     st.sidebar.markdown("""
