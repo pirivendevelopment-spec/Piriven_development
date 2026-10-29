@@ -313,11 +313,11 @@ def main():
             color: #ffffff !important;
         }
 
-        /* Sidebar Navigation Buttons */
-        div[data-testid="stSidebar"] div.stButton > button {
+        /* Sidebar Navigation Buttons - Fixed Text Visibility & Styling */
+        section[data-testid="stSidebar"] div.stButton > button {
             background-color: #272757 !important;
             color: #ffffff !important;
-            border: 1px solid rgba(255, 255, 255, 0.12) !important;
+            border: 1px solid rgba(255, 255, 255, 0.15) !important;
             text-align: left !important;
             justify-content: flex-start !important;
             padding: 12px 18px !important;
@@ -330,7 +330,13 @@ def main():
             box-shadow: 0 2px 5px rgba(0,0,0,0.2) !important;
         }
         
-        div[data-testid="stSidebar"] div.stButton > button:hover {
+        /* බටන් එක තුළ ඇති text සහ p ටැග් වලට සුදු පාට බලහත්කාරයෙන් යෙදීම */
+        section[data-testid="stSidebar"] div.stButton > button p,
+        section[data-testid="stSidebar"] div.stButton > button span {
+            color: #ffffff !important;
+        }
+        
+        section[data-testid="stSidebar"] div.stButton > button:hover {
             background-color: #1e40af !important;
             color: #ffffff !important;
             border-color: #3b82f6 !important;
@@ -339,7 +345,7 @@ def main():
         }
 
         /* Logout Button */
-        div[data-testid="stSidebar"] div.logout-btn-container > div.stButton > button {
+        section[data-testid="stSidebar"] div.logout-btn-container div.stButton > button {
             background-color: #b91c1c !important;
             color: #ffffff !important;
             border: 1px solid #ef4444 !important;
@@ -349,7 +355,12 @@ def main():
             text-align: center !important;
             margin-top: 25px !important;
         }
-        div[data-testid="stSidebar"] div.logout-btn-container > div.stButton > button:hover {
+        section[data-testid="stSidebar"] div.logout-btn-container div.stButton > button p,
+        section[data-testid="stSidebar"] div.logout-btn-container div.stButton > button span {
+            color: #ffffff !important;
+        }
+        
+        section[data-testid="stSidebar"] div.logout-btn-container div.stButton > button:hover {
             background-color: #dc2626 !important;
             color: #ffffff !important;
             transform: none !important;
