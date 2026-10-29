@@ -38,6 +38,7 @@ def process_youtube_link(url_or_id):
 
 st.set_page_config(page_title="Ministry Admin Dashboard", layout="wide")
 
+# --- ස්ථාවර Dark Modern Theme CSS (Theme ගැටලු මඟහරවා ගැනීමට) ---
 st.markdown("""
     <style>
         .main, .stApp {
@@ -45,7 +46,7 @@ st.markdown("""
             color: #f8fafc !important;
             font-family: 'Segoe UI', sans-serif;
         }
-        h1, h2, h3, h4, h5, h6, p, span, label {
+        h1, h2, h3, h4, h5, h6, p, span, label, div {
             color: #f8fafc !important;
         }
         [data-testid="stSidebar"] {
@@ -81,7 +82,7 @@ st.markdown("""
         }
         .stTextInput input, .stSelectbox select, .stTextArea textarea {
             background-color: #1f2937 !important;
-            color: white !important;
+            color: #ffffff !important;
             border: 1px solid #374151 !important;
             border-radius: 8px !important;
         }
@@ -260,7 +261,6 @@ with tab2:
     c_right.metric("👨‍🎓 Total Live Students Learning Now", total_live_students) 
     st.write("---")
 
-    # Software Analytics සහ යූසෙජ් පැය ගණන ලබා ගැනීම
     app_hours_dict = {}
     piriven_total_hours = 0.0
     try:
@@ -277,9 +277,8 @@ with tab2:
                                 piriven_total_hours += hrs
     except: pass
 
-    # තෝරාගත් පිරිවෙනට අදාළ මුළු භාවිත පැය ගණන පෙන්වීම
     if selected_piriven != "All Piriven":
-        st.info(fk := f"🏛️ **{selected_piriven}** සඳහා තෝරාගත් කාල සීමාව තුළ සමස්ත භාවිත පැය ගණන (Total Runtime): **{piriven_total_hours:.2f} Hours**")
+        st.info(f"🏛️ **{selected_piriven}** සඳහා තෝරාගත් කාල සීමාව තුළ සමස්ත භාවිත පැය ගණන (Total Runtime): **{piriven_total_hours:.2f} Hours**")
 
     if not app_hours_dict: app_hours_dict = {"No Software Tracked Yet": 0.0}
     software_chart_data = pd.DataFrame({"Software Application": list(app_hours_dict.keys()), "Total Active Execution (Hours)": list(app_hours_dict.values())})
@@ -301,7 +300,6 @@ with tab2:
 
     with col_v2:
         st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
-        # සම්පූර්ණ භාවිත වාර්තාව Excel එකක් ලෙස ඩවුන්ලෝඩ් කරගැනීම
         excel_buffer = io.BytesIO()
         with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
             software_chart_data_view.to_excel(writer, index=False, sheet_name=f"Usage_{unit_label}")
@@ -328,7 +326,7 @@ if selected_piriven != "All Piriven" and not df_filtered.empty:
 with tab1:
     col_map, col_ctrl = st.columns([2.5, 1.2])
     with col_map:
-        st.subheader("Live Board Tracking (Active = Green/Blue/Orange, Offline = Red)")
+        st.subheader("Live Board Tracking")
         m = folium.Map(location=map_center, zoom_start=map_zoom, tiles="OpenStreetMap")
         
         for _, r in df_usage.iterrows():
@@ -340,7 +338,7 @@ with tab1:
                 
                 if lat != 0.0 and lon != 0.0:
                     is_online = False
-                    pin_color = "red" # ඩිවයිස් එක ඔෆ් ලයින් නම් රතු පාටින් පෙන්වයි
+                    pin_color = "red"
                     dtype = "Offline / No Device"
                     serial_txt = "N/A"
 
@@ -350,7 +348,6 @@ with tab1:
                                 is_online = True
                                 dtype = d_info.get("device_type", "Smart Board")
                                 serial_txt = d_id
-                                # Smart Board -> lightgreen, Laptop -> blue, Desktop PC -> orange
                                 pin_color = "lightgreen" if dtype == "Smart Board" else ("blue" if dtype == "Laptop" else "orange")
                                 break
 
@@ -379,7 +376,7 @@ with tab1:
                 link_data = process_youtube_link(yt_input)
                 requests.put(f"{FIREBASE_URL}current_lesson.json", json=link_data)
                 st.success("✅ Broadcast Successful!")
-                    
+                        
         st.write("---")
         ann_t = st.text_input("Announcement Title:")
         ann_b = st.text_area("Message Body:")
@@ -389,18 +386,13 @@ with tab1:
                 requests.put(f"{FIREBASE_URL}latest_announcement.json", json=ann_data)
                 st.success("✅ Message Pushed Successfully!")
 
-# --- 🛠️ 3 වන ටැබය: සීරියල් අංකයෙන් ටිකට් හඳුනා ගැනීම සහ Pending/Solved කළ හැකි සජීවී චැට් පැනලය ---
-
-# --- 🛠️ 3 වන ටැබය: සීරියල් අංකයෙන් ටිකට් හඳුනා ගැනීම, සජීවී චැට් සහ Excel ඩවුන්ලෝඩ් පහසුකම ---
 with tab3:
     st.subheader("🛠️ Technical Support & Live Chat Panel (Serial-Based)")
-    
     try:
         res_t = requests.get(f"{FIREBASE_URL}support_tickets.json", timeout=4)
         if res_t.status_code == 200 and res_t.json():
             tickets = res_t.json()
             
-            # 💡 සැපයුම්කරුට යැවීම සඳහා ටිකට් දත්ත එක්සෙල් (Excel) එකක් ලෙස සකස් කිරීම
             ticket_rows = []
             for tid, tinfo in tickets.items():
                 if isinstance(tinfo, dict):
@@ -420,14 +412,11 @@ with tab3:
             
             if ticket_rows:
                 df_tickets = pd.DataFrame(ticket_rows)
-                
-                # Excel බෆර් එක සකස් කිරීම
                 ticket_excel_buffer = io.BytesIO()
                 with pd.ExcelWriter(ticket_excel_buffer, engine='openpyxl') as writer:
                     df_tickets.to_excel(writer, index=False, sheet_name="Support Tickets")
                 ticket_excel_bytes = ticket_excel_buffer.getvalue()
                 
-                # 📥 Excel Download Button එක පෙන්වීම
                 st.download_button(
                     label="📥 Download All Support Tickets for Supplier (.xlsx)",
                     data=ticket_excel_bytes,
@@ -436,7 +425,6 @@ with tab3:
                 )
                 st.write("---")
 
-            # ටිකට් ලැයිස්තුව සහ සජීවී චැට් පෙන්වීම
             for tid, t in tickets.items():
                 if isinstance(t, dict):
                     c_no = str(t.get("census_no", "")).strip()
