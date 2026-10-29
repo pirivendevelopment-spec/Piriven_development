@@ -38,7 +38,7 @@ def process_youtube_link(url_or_id):
 
 st.set_page_config(page_title="Ministry Admin Dashboard", layout="wide")
 
-# --- ස්ථාවර Dark Modern Theme CSS (Theme ගැටලු මඟහරවා ගැනීමට) ---
+# --- ස්ථාවර Dark Modern Theme CSS ---
 st.markdown("""
     <style>
         .main, .stApp {
@@ -326,7 +326,7 @@ if selected_piriven != "All Piriven" and not df_filtered.empty:
 with tab1:
     col_map, col_ctrl = st.columns([2.5, 1.2])
     with col_map:
-        st.subheader("Live Board Tracking")
+        st.subheader("Live Board Tracking (Multi-Device Map)")
         m = folium.Map(location=map_center, zoom_start=map_zoom, tiles="OpenStreetMap")
         
         for _, r in df_usage.iterrows():
@@ -337,33 +337,46 @@ with tab1:
                 lon = float(r.get("Longitude", 0.0))
                 
                 if lat != 0.0 and lon != 0.0:
-                    is_online = False
-                    pin_color = "red"
-                    dtype = "Offline / No Device"
-                    serial_txt = "N/A"
-
                     if c_no in live_boards_data and isinstance(live_boards_data[c_no], dict):
+                        device_idx = 0
                         for d_id, d_info in live_boards_data[c_no].items():
-                            if d_id != "attendance" and isinstance(d_info, dict) and is_device_actually_active(d_info.get("last_ping")):
-                                is_online = True
+                            if d_id != "attendance" and isinstance(d_info, dict):
+                                is_online = is_device_actually_active(d_info.get("last_ping"))
                                 dtype = d_info.get("device_type", "Smart Board")
                                 serial_txt = d_id
                                 pin_color = "lightgreen" if dtype == "Smart Board" else ("blue" if dtype == "Laptop" else "orange")
-                                break
+                                
+                                # 💡 එකම ස්ථානයේ ඩිවයිස් එකකට වඩා වැඩි ගණනක් තිබේ නම් පිං එකිනෙක මත වැසී යාම වැළැක්වීමට කුඩා offset එකක් එකතු කිරීම
+                                offset_lat = lat + (device_idx * 0.00015)
+                                offset_lon = lon + (device_idx * 0.00015)
+                                device_idx += 1
 
-                    popup_html = f"""
-                    <div style='font-family: sans-serif; font-size: 12px; line-height: 1.5; min-width: 220px; background-color: #1e293b; color: white; padding: 10px; border-radius: 8px;'>
-                        <h3 style='margin: 0 0 5px 0; color: #38bdf8;'>🏛️ {p_name}</h3>
-                        <p style='margin: 4px 0;'><b>Device:</b> {dtype}</p>
-                        <p style='margin: 4px 0;'><b>Serial:</b> {serial_txt}</p>
-                        <span style='background-color: {"#064e3b" if is_online else "#7f1d1d"}; color: {"#a7f3d0" if is_online else "#fecaca"}; padding: 2px 6px; border-radius: 4px; font-weight: bold;'>{"● Active Online" if is_online else "● Offline"}</span>
-                    </div>
-                    """
-                    folium.Marker(
-                        location=[lat, lon],
-                        popup=popup_html,
-                        icon=folium.Icon(color=pin_color, icon="laptop" if dtype=="Laptop" else ("desktop" if dtype=="Smart Board" else "remove-sign"), prefix="fa")
-                    ).add_to(m)
+                                popup_html = f"""
+                                <div style='font-family: sans-serif; font-size: 12px; line-height: 1.5; min-width: 220px; background-color: #1e293b; color: white; padding: 10px; border-radius: 8px;'>
+                                    <h3 style='margin: 0 0 5px 0; color: #38bdf8;'>🏛️ {p_name}</h3>
+                                    <p style='margin: 4px 0;'><b>Device Type:</b> {dtype}</p>
+                                    <p style='margin: 4px 0;'><b>Serial:</b> {serial_txt}</p>
+                                    <span style='background-color: {"#064e3b" if is_online else "#7f1d1d"}; color: {"#a7f3d0" if is_online else "#fecaca"}; padding: 2px 6px; border-radius: 4px; font-weight: bold;'>{"● Active Online" if is_online else "● Offline"}</span>
+                                </div>
+                                """
+                                folium.Marker(
+                                    location=[offset_lat, offset_lon],
+                                    popup=popup_html,
+                                    icon=folium.Icon(color=pin_color, icon="laptop" if dtype=="Laptop" else ("desktop" if dtype=="Smart Board" else "info-sign"), prefix="fa")
+                                ).add_to(m)
+                    else:
+                        # Offline පෙන්වීම
+                        popup_html = f"""
+                        <div style='font-family: sans-serif; font-size: 12px; line-height: 1.5; min-width: 220px; background-color: #1e293b; color: white; padding: 10px; border-radius: 8px;'>
+                            <h3 style='margin: 0 0 5px 0; color: #38bdf8;'>🏛️ {p_name}</h3>
+                            <p style='margin: 4px 0;'><b>Status:</b> Offline / No Active Device</p>
+                        </div>
+                        """
+                        folium.Marker(
+                            location=[lat, lon],
+                            popup=popup_html,
+                            icon=folium.Icon(color="red", icon="remove-sign", prefix="fa")
+                        ).add_to(m)
             except: pass
 
         st_folium(m, width=None, height=650, key="main_map_display")
@@ -387,7 +400,11 @@ with tab1:
                 st.success("✅ Message Pushed Successfully!")
 
 with tab3:
-    st.subheader("🛠️ Technical Support & Live Chat Panel (Serial-Based)")
+    st.subheader("🛠️ Technical Support & Live Chat Panel (Device-Serial Specific)")
+    
+    # 💡 ඩිවයිස් සීරියල් අනුව ටිකට් පෙරළා බැලීමට ෆිල්ටර් එකක් එකතු කිරීම
+    filter_serial = st.text_input("🔍 Filter by Device Serial Number (Optional):", placeholder="Enter serial to filter...")
+
     try:
         res_t = requests.get(f"{FIREBASE_URL}support_tickets.json", timeout=4)
         if res_t.status_code == 200 and res_t.json():
@@ -398,12 +415,17 @@ with tab3:
                 if isinstance(tinfo, dict):
                     c_no = str(tinfo.get("census_no", "")).strip()
                     p_name = census_to_name.get(c_no, f"Unknown ({c_no})")
+                    d_serial = tinfo.get("device_serial", "N/A")
+                    
+                    if filter_serial and filter_serial.strip().lower() not in d_serial.lower():
+                        continue
+
                     ticket_rows.append({
                         "Ticket ID": tid,
                         "Piriven Name": p_name,
                         "Census No": c_no,
                         "Device Type": tinfo.get("device_type", "N/A"),
-                        "Device Serial": tinfo.get("device_serial", "N/A"),
+                        "Device Serial": d_serial,
                         "Issue Category": tinfo.get("issue_type", "N/A"),
                         "Description": tinfo.get("description", "N/A"),
                         "Status": tinfo.get("status", "Pending"),
@@ -434,10 +456,11 @@ with tab3:
                     current_status = t.get("status", "Pending")
                     
                     if selected_piriven != "All Piriven" and p_name != selected_piriven: continue
+                    if filter_serial and filter_serial.strip().lower() not in dev_serial.lower(): continue
                     
                     status_badge = "🔴 Pending" if current_status == "Pending" else "🟢 Solved"
                     
-                    with st.expander(f"🎫 TICKET: {tid} | 🏛️ {p_name} | 💻 [{dev_type}] - Issue: {t.get('issue_type')} ({status_badge})"):
+                    with st.expander(f"🎫 TICKET: {tid} | 🏛️ {p_name} | 💻 [{dev_type} - {dev_serial}] - {t.get('issue_type')} ({status_badge})"):
                         st.markdown(f"**📝 Issue Description:** {t.get('description')}")
                         st.caption(f"Device Serial: {dev_serial} | Reported At: {t.get('reported_at', 'N/A')}")
                         
@@ -446,7 +469,7 @@ with tab3:
                         chats = t.get("chats", {})
                         if chats:
                             for cid, cmsg in chats.items():
-                                sender_label = "🏛️ Ministry" if cmsg.get("sender") == "ministry" else "🏫 Piriven Device"
+                                sender_label = "🏛️ Ministry" if cmsg.get("sender") == "ministry" else f"🏫 Device ({dev_serial})"
                                 st.markdown(f"**{sender_label}:** {cmsg.get('msg')}  *<small>({cmsg.get('time')})</small>*", unsafe_allow_html=True)
                         else:
                             st.info("No chat messages yet.")
