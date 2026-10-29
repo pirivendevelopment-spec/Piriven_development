@@ -326,7 +326,7 @@ if selected_piriven != "All Piriven" and not df_filtered.empty:
 with tab1:
     col_map, col_ctrl = st.columns([2.5, 1.2])
     with col_map:
-        st.subheader("Live Board Tracking (Multi-Device Map)")
+        st.subheader("Live Board Tracking (Multi-Device & OPS Status Map)")
         m = folium.Map(location=map_center, zoom_start=map_zoom, tiles="OpenStreetMap")
         
         for _, r in df_usage.iterrows():
@@ -344,19 +344,29 @@ with tab1:
                                 is_online = is_device_actually_active(d_info.get("last_ping"))
                                 dtype = d_info.get("device_type", "Smart Board")
                                 serial_txt = d_id
-                                pin_color = "lightgreen" if dtype == "Smart Board" else ("blue" if dtype == "Laptop" else "orange")
                                 
-                                # 💡 එකම ස්ථානයේ ඩිවයිස් එකකට වඩා වැඩි ගණනක් තිබේ නම් පිං එකිනෙක මත වැසී යාම වැළැක්වීමට කුඩා offset එකක් එකතු කිරීම
+                                # 💡 ඩිවයිස් එක ඔන්ලයින් නම් වින්ඩෝස් පින්, ඕෆ්ලයින් (OPS/Android) නම් වෙනස් පින් වර්ණයක්
+                                if is_online:
+                                    pin_color = "lightgreen" if dtype == "Smart Board" else "blue"
+                                    status_label = "● Active Online (Windows/OPS Mode)"
+                                    status_bg = "#064e3b"
+                                    status_color = "#a7f3d0"
+                                else:
+                                    pin_color = "orange" # OPS/Android මෝඩ් එකට මාරු වී ඇති බව හැඟවීමට
+                                    status_label = "● Switched to Android/OPS (Windows Paused)"
+                                    status_bg = "#78350f"
+                                    status_color = "#fde68a"
+                                
                                 offset_lat = lat + (device_idx * 0.00015)
                                 offset_lon = lon + (device_idx * 0.00015)
                                 device_idx += 1
 
                                 popup_html = f"""
-                                <div style='font-family: sans-serif; font-size: 12px; line-height: 1.5; min-width: 220px; background-color: #1e293b; color: white; padding: 10px; border-radius: 8px;'>
+                                <div style='font-family: sans-serif; font-size: 12px; line-height: 1.5; min-width: 240px; background-color: #1e293b; color: white; padding: 10px; border-radius: 8px;'>
                                     <h3 style='margin: 0 0 5px 0; color: #38bdf8;'>🏛️ {p_name}</h3>
                                     <p style='margin: 4px 0;'><b>Device Type:</b> {dtype}</p>
                                     <p style='margin: 4px 0;'><b>Serial:</b> {serial_txt}</p>
-                                    <span style='background-color: {"#064e3b" if is_online else "#7f1d1d"}; color: {"#a7f3d0" if is_online else "#fecaca"}; padding: 2px 6px; border-radius: 4px; font-weight: bold;'>{"● Active Online" if is_online else "● Offline"}</span>
+                                    <span style='background-color: {status_bg}; color: {status_color}; padding: 2px 6px; border-radius: 4px; font-weight: bold;'>{status_label}</span>
                                 </div>
                                 """
                                 folium.Marker(
@@ -365,11 +375,10 @@ with tab1:
                                     icon=folium.Icon(color=pin_color, icon="laptop" if dtype=="Laptop" else ("desktop" if dtype=="Smart Board" else "info-sign"), prefix="fa")
                                 ).add_to(m)
                     else:
-                        # Offline පෙන්වීම
                         popup_html = f"""
                         <div style='font-family: sans-serif; font-size: 12px; line-height: 1.5; min-width: 220px; background-color: #1e293b; color: white; padding: 10px; border-radius: 8px;'>
                             <h3 style='margin: 0 0 5px 0; color: #38bdf8;'>🏛️ {p_name}</h3>
-                            <p style='margin: 4px 0;'><b>Status:</b> Offline / No Active Device</p>
+                            <p style='margin: 4px 0;'><b>Status:</b> Fully Offline / Powered Off</p>
                         </div>
                         """
                         folium.Marker(
@@ -402,7 +411,6 @@ with tab1:
 with tab3:
     st.subheader("🛠️ Technical Support & Live Chat Panel (Device-Serial Specific)")
     
-    # 💡 ඩිවයිස් සීරියල් අනුව ටිකට් පෙරළා බැලීමට ෆිල්ටර් එකක් එකතු කිරීම
     filter_serial = st.text_input("🔍 Filter by Device Serial Number (Optional):", placeholder="Enter serial to filter...")
 
     try:
