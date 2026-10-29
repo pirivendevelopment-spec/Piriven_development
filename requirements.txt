@@ -6,4 +6,4 @@ streamlit-folium
 openpyxl
 gspread
 oauth2client
-
+Matplotlib
