@@ -181,7 +181,6 @@ try:
     if res_live.status_code == 200 and res_live.json():
         live_boards_data = res_live.json()
         
-        # 💡 Firebase හි attendance නෝඩ් එක මැකී ගොස් ඇත්නම් ස්වයංක්‍රීයව නැවත සකස් කිරීම (Auto-initialization)
         for c_no, devices in live_boards_data.items():
             if isinstance(devices, dict) and "attendance" not in devices:
                 default_attendance = {
@@ -218,10 +217,11 @@ else:
 def is_device_actually_active(last_ping_str):
     try:
         if not last_ping_str: return False
-        last_ping_time = datetime.datetime.strptime(last_ping_str, "%Y-%m-%d %H:%M:%S")
+        last_ping_time = datetime.datetime.strptime(last_ping_str.strip(), "%Y-%m-%d %H:%M:%S")
         srilanka_now = datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)
         time_difference = (srilanka_now - last_ping_time).total_seconds()
-        if 0 <= time_difference < 600: return True
+        # 💡 කාල සීමාව පැය 24ක් (තත්පර 86400) දක්වා පුළුල් කර ඇත
+        if 0 <= time_difference < 86400: return True
     except: pass
     return False
 
@@ -417,7 +417,6 @@ with tab1:
                 requests.put(f"{FIREBASE_URL}latest_announcement.json", json=ann_data)
                 st.success("✅ Message Pushed Successfully!")
 
-        # 💡 අමාත්‍යාංශ ඩෑෂ්බෝඩ් එකෙන් මැනුවල් ලෙස Attendance / Live Data යළි සකස් කරගැනීමේ පැනලය
         st.write("---")
         with st.expander("🛠️ Manual Attendance Reset Panel"):
             manual_census = st.text_input("Enter Census No for Reset:", value="430001")
@@ -503,7 +502,7 @@ with tab3:
                         if chats:
                             for cid, cmsg in chats.items():
                                 sender_label = "🏛️ Ministry" if cmsg.get("sender") == "ministry" else f"🏫 Device ({dev_serial})"
-                                st.markdown(f"**{sender_label}:** {cmsg.get('msg')}  *<small>({cmsg.get('time')})</small>*", unsafe_allow_html=True)
+                                st.markdown(f"**{sender_label}:** {cmsg.get('msg')} *<small>({cmsg.get('time')})</small>*", unsafe_allow_html=True)
                         else:
                             st.info("No chat messages yet.")
 
