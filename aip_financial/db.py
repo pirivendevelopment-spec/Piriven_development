@@ -3,7 +3,8 @@ from datetime import datetime
 import pandas as pd
 import os
 import sqlite3
-import requests
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
 # ප්‍රධාන ව්‍යාපෘති ෆෝල්ඩරයේ නියමිත ස්ථානය නිවැරදිව ලබා ගැනීම
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -14,8 +15,35 @@ def get_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
-# 💡 ඔබ ලබාදුන් Firebase Realtime Database URL එක
-FIREBASE_URL = "https://aip2026-default-rtdb.asia-southeast1.firebasedatabase.app/"
+# =========================================================================
+# GSPREAD GOOGLE SHEETS CONNECTION SETUP
+# =========================================================================
+def get_gspread_client():
+    scope = [
+        "https://spreadsheets.google.com/feeds",
+        "https://www.googleapis.com/auth/drive"
+    ]
+    creds_path = os.path.join(BASE_DIR, "credentials.json")
+    if os.path.exists(creds_path):
+        creds = ServiceAccountCredentials.from_json_keyfile_name(creds_path, scope)
+        client = gspread.authorize(creds)
+        return client
+    return None
+
+def get_google_sheet(sheet_name="vouchers"):
+    client = get_gspread_client()
+    if client:
+        try:
+            spreadsheet = client.open("AIP 2026")
+            try:
+                return spreadsheet.worksheet(sheet_name)
+            except:
+                # අදාළ නමින් ෂීට් එකක් නොමැති නම් මුල්ම ෂීට් එක (sheet1) ලබා දීම
+                return spreadsheet.sheet1
+        except Exception as e:
+            print(f"Sheet Open Error: {e}")
+            return None
+    return None
 
 # =========================================================================
 # 0. DATABASE SCHEMA AUTO-UPDATE (පරණ DB එක සඳහා)
@@ -45,7 +73,7 @@ def check_and_update_schema():
 check_and_update_schema()
 
 # =========================================================================
-# 1. AUTHENTICATION & SESSION & REFERENCE OPTIONS (පරණ DB එක හරහා)
+# 1. AUTHENTICATION & SESSION & REFERENCE OPTIONS
 # =========================================================================
 def authenticate_user(username, password):
     conn = get_connection()
@@ -87,76 +115,80 @@ def get_reference_options(user):
     return ref_df
 
 # =========================================================================
-# 2. VOUCHER & ACTIVITY OPERATIONS (FIREBASE CLOUD INTEGRATION)
+# 2. VOUCHER & ACTIVITY OPERATIONS (GOOGLE SHEETS API INTEGRATION)
 # =========================================================================
 
-# Firebase එකෙන් වවුචර දත්ත ලබා ගැනීම (ഡෑෂ්බෝඩ් සහ මෑතකාලීන වාර්තා සඳහා)
+# වවුචර් දත්ත ලබා ගැනීම (ഡෑෂ්බෝඩ් සඳහා)
 def fetch_vouchers_from_cloud():
     try:
-        response = requests.get(f"{FIREBASE_URL}vouchers.json", timeout=5)
-        if response.status_code == 200 and response.json():
-            data = response.json()
-            if isinstance(data, dict):
-                df = pd.DataFrame(list(data.values()))
-                return df
+        sheet = get_google_sheet("vouchers")
+        if sheet:
+            data = sheet.get_all_records()
+            if data:
+                return pd.DataFrame(data)
         return pd.DataFrame()
     except Exception as e:
-        print(f"Firebase Fetch Error: {e}")
+        print(f"Gspread Fetch Vouchers Error: {e}")
         return pd.DataFrame()
 
-# Firebase එකෙන් වැඩසටහන් දත්ත ලබා ගැනීම (Activities Fetch)
+# වැඩසටහන් දත්ත ලබා ගැනීම (ഡෑෂ්බෝඩ් සඳහා)
 def fetch_activities_from_cloud():
     try:
-        response = requests.get(f"{FIREBASE_URL}activities.json", timeout=5)
-        if response.status_code == 200 and response.json():
-            data = response.json()
-            if isinstance(data, dict):
-                df = pd.DataFrame(list(data.values()))
-                return df
+        sheet = get_google_sheet("activities")
+        if sheet:
+            data = sheet.get_all_records()
+            if data:
+                return pd.DataFrame(data)
         return pd.DataFrame()
     except Exception as e:
-        print(f"Firebase Activities Fetch Error: {e}")
+        print(f"Gspread Fetch Activities Error: {e}")
         return pd.DataFrame()
 
-# වවුචරයක් Firebase වෙත යැවීම (Save)
+# වවුචරයක් Google Sheet එකට ඇතුළත් කිරීම (Save Voucher)
 def save_voucher(username, vote_no, action_no, desc, v_no, v_date, est_amount, amount):
-    voucher_data = {
-        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "username": username,
-        "vote_number": vote_no,
-        "action_no": action_no,
-        "description": desc,
-        "voucher_no": v_no,
-        "voucher_date": str(v_date),
-        "estimated_amount": float(est_amount),
-        "amount": float(amount)
-    }
     try:
-        response = requests.post(f"{FIREBASE_URL}vouchers.json", json=voucher_data, timeout=5)
-        return response.status_code == 200
+        sheet = get_google_sheet("vouchers")
+        if sheet:
+            row = [
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                str(username),
+                str(vote_no),
+                str(action_no),
+                str(desc),
+                str(v_no),
+                str(v_date),
+                float(est_amount),
+                float(amount)
+            ]
+            sheet.append_row(row)
+            return True
+        return False
     except Exception as e:
-        print(f"Firebase Save Error: {e}")
+        print(f"Gspread Save Voucher Error: {e}")
         return False
 
-# වැඩසටහන් (Activities) Firebase වෙත යැවීම (Save)
+# වැඩසටහන් (Activities) Google Sheet එකට ඇතුළත් කිරීම (Save Activity)
 def save_activity(username, vote_no, action_no, act_name, loc, act_date, ben, est, cost):
-    activity_data = {
-        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "username": username,
-        "vote_number": vote_no,
-        "action_no": action_no,
-        "activity_name": act_name,
-        "location": loc,
-        "activity_date": str(act_date),
-        "beneficiaries": int(ben),
-        "estimate": float(est),
-        "actual_cost": float(cost),
-        "delete_requested": 0,
-        "delete_reason": None
-    }
     try:
-        response = requests.post(f"{FIREBASE_URL}activities.json", json=activity_data, timeout=5)
-        return response.status_code == 200
+        sheet = get_google_sheet("activities")
+        if sheet:
+            row = [
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                str(username),
+                str(vote_no),
+                str(action_no),
+                str(act_name),
+                str(loc),
+                str(act_date),
+                int(ben),
+                float(est),
+                float(cost),
+                0,
+                ""
+            ]
+            sheet.append_row(row)
+            return True
+        return False
     except Exception as e:
-        print(f"Firebase Activity Save Error: {e}")
+        print(f"Gspread Save Activity Error: {e}")
         return False
