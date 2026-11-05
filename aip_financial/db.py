@@ -14,9 +14,7 @@ def get_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
-# Google Apps Script Web App URL එක
-GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx_GlQohuhxaV6XHMhXU9RuAQTx_zJE3Xqs9qFNFl52T5SxXKoTPowdyRuUkYbhU6qj3w/exec""
-
+GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx_GlQohuhxaV6XHMhXU9RuAQTx_zJE3Xqs9qFNFl52T5SxXKoTPowdyRuUkYbhU6qj3w/exec"
 # =========================================================================
 # 0. DATABASE SCHEMA AUTO-UPDATE
 # =========================================================================
