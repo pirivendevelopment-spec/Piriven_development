@@ -26,8 +26,10 @@ def render_activities(user):
         if submitted:
             if not name:
                 st.error("කරුණාකර වැඩසටහනේ නම ඇතුළත් කරන්න.")
-                return
-
-            action_no, vote_no = options[sel_display]
-            db.save_activity(user['username'], vote_no, action_no, name, loc, date, ben, est, cost)
-            st.success(f"වැඩසටහන් දත්ත සාර්ථකව සුරකින ලදී! (Action No: {action_no})")
+            else:
+                action_no, vote_no = options[sel_display]
+                try:
+                    db.save_activity(user['username'], vote_no, action_no, name, loc, str(date), int(ben), float(est), float(cost))
+                    st.success(f"වැඩසටහන් දත්ත සාර්ථකව සුරකින ලදී! (Action No: {action_no})")
+                except Exception as e:
+                    st.error(f"දත්ත සුරැකීමේදී දෝෂයක් ඇති විය: {e}")
