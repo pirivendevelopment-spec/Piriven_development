@@ -73,7 +73,6 @@ def extract_category(vote_str):
             return "Capital"
     return "Recurrent"
 
-# 💡 වවුචර සහ ඇක්ටිවිටි ෆෝම් සඳහා අත්‍යවශ්‍ය get_reference_options ශ්‍රිතය
 def get_reference_options(user):
     conn = get_connection()
     ref_df = pd.read_sql_query("SELECT action_no, vote_number, activity_name, category FROM aip_reference", conn)
@@ -88,7 +87,7 @@ def get_reference_options(user):
     return ref_df
 
 # =========================================================================
-# 2. VOUCHER OPERATIONS (GOOGLE SHEETS INTEGRATION)
+# 2. VOUCHER & ACTIVITY OPERATIONS (GOOGLE SHEETS & SQLITE)
 # =========================================================================
 def fetch_vouchers_from_cloud():
     try:
@@ -118,3 +117,20 @@ def save_voucher(username, vote_no, action_no, desc, v_no, v_date, est_amount, a
     except Exception as e:
         print(f"Cloud Save Error: {e}")
         return False
+
+# 💡 වැඩසටහන් (Activities) සුරක්ෂිතව ඩේටාබේස් එකට ඇතුළත් කිරීමේ ශ්‍රිතය
+def save_activity(username, vote_no, action_no, act_name, loc, act_date, ben, est, cost):
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+        INSERT INTO data_log (timestamp, username, vote_number, action_no, activity_name, location, activity_date, beneficiaries, estimate, actual_cost, delete_requested, delete_reason)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL)
+        """, (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), username, vote_no, action_no, act_name, loc, str(act_date), int(ben), float(est), float(cost)))
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"Activity Save Error: {e}")
+        return False
+    finally:
+        conn.close()
