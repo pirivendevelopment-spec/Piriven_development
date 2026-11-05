@@ -1,8 +1,19 @@
-import requests
-import pandas as pd
+import re
 from datetime import datetime
+import pandas as pd
 import os
 import sqlite3
+import requests
+
+# ප්‍රධාන ව්‍යාපෘති ෆෝල්ඩරයේ නියමිත ස්ථානය නිවැරදිව ලබා ගැනීම
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_NAME = os.path.join(BASE_DIR, "aip_2026.db")
+
+# 💡 1. ඩෑෂ්බෝඩ් එක සහ අනෙකුත් මොඩියුල සඳහා අවශ්‍ය get_connection() ශ්‍රිතය නැවත එකතු කිරීම
+def get_connection():
+    conn = sqlite3.connect(DB_NAME, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    return conn
 
 # ඔබ ලබාදුන් Google Apps Script Web App URL එක
 GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwuPKHcBMswJbn5UWSJNlXEGJb61Fnov1HyIMfag5paG6-SVOrHpq95O7D7BPZ7aonSWA/exec"
