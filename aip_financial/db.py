@@ -3,6 +3,7 @@ from datetime import datetime
 import pandas as pd
 import os
 import sqlite3
+import streamlit as st
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
@@ -16,26 +17,22 @@ def get_connection():
     return conn
 
 # =========================================================================
-# GSPREAD GOOGLE SHEETS CONNECTION SETUP
+# GSPREAD GOOGLE SHEETS CONNECTION SETUP (CLOUD & LOCAL SUPPORT)
 # =========================================================================
-import streamlit as st
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
-
 def get_gspread_client():
     scope = [
         "https://spreadsheets.google.com/feeds",
         "https://www.googleapis.com/auth/drive"
     ]
     try:
-        # Streamlit secrets හරහා credentials ලබා ගැනීම (Cloud එක සඳහා)
+        # Streamlit Cloud Secrets හරහා සම්බන්ධ වීම
         if "gcp_service_account" in st.secrets:
             creds_dict = dict(st.secrets["gcp_service_account"])
             creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
             client = gspread.authorize(creds)
             return client
         
-        # Local පරිගණකයේ වැඩ කරන විට credentials.json ፋයිල් එක පාවිච්චි කිරීමට
+        # Local පරිගණකයේදී credentials.json ፋයිලය හරහා සම්බන්ධ වීම
         creds_path = os.path.join(BASE_DIR, "credentials.json")
         if os.path.exists(creds_path):
             creds = ServiceAccountCredentials.from_json_keyfile_name(creds_path, scope)
@@ -44,6 +41,21 @@ def get_gspread_client():
             
     except Exception as e:
         print(f"Gspread Auth Error: {e}")
+    return None
+
+def get_google_sheet(sheet_name="vouchers"):
+    client = get_gspread_client()
+    if client:
+        try:
+            # ඔබේ Google Sheet එකේ නම හරියටම මෙහි සඳහන් වේ ("AIP 2026")
+            spreadsheet = client.open("AIP 2026")
+            try:
+                return spreadsheet.worksheet(sheet_name)
+            except:
+                return spreadsheet.sheet1
+        except Exception as e:
+            print(f"Sheet Open Error: {e}")
+            return None
     return None
 
 # =========================================================================
@@ -119,7 +131,6 @@ def get_reference_options(user):
 # 2. VOUCHER & ACTIVITY OPERATIONS (GOOGLE SHEETS API INTEGRATION)
 # =========================================================================
 
-# වවුචර් දත්ත ලබා ගැනීම (ഡෑෂ්බෝඩ් සඳහා)
 def fetch_vouchers_from_cloud():
     try:
         sheet = get_google_sheet("vouchers")
@@ -132,7 +143,6 @@ def fetch_vouchers_from_cloud():
         print(f"Gspread Fetch Vouchers Error: {e}")
         return pd.DataFrame()
 
-# වැඩසටහන් දත්ත ලබා ගැනීම (ഡෑෂ්බෝඩ් සඳහා)
 def fetch_activities_from_cloud():
     try:
         sheet = get_google_sheet("activities")
@@ -145,7 +155,6 @@ def fetch_activities_from_cloud():
         print(f"Gspread Fetch Activities Error: {e}")
         return pd.DataFrame()
 
-# වවුචරයක් Google Sheet එකට ඇතුළත් කිරීම (Save Voucher)
 def save_voucher(username, vote_no, action_no, desc, v_no, v_date, est_amount, amount):
     try:
         sheet = get_google_sheet("vouchers")
@@ -168,7 +177,6 @@ def save_voucher(username, vote_no, action_no, desc, v_no, v_date, est_amount, a
         print(f"Gspread Save Voucher Error: {e}")
         return False
 
-# වැඩසටහන් (Activities) Google Sheet එකට ඇතුළත් කිරීම (Save Activity)
 def save_activity(username, vote_no, action_no, act_name, loc, act_date, ben, est, cost):
     try:
         sheet = get_google_sheet("activities")
