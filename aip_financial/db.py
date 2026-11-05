@@ -15,7 +15,7 @@ def get_connection():
     return conn
 
 # Google Apps Script Web App URL එක
-GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwuPKHcBMswJbn5UWSJNlXEGJb61Fnov1HyIMfag5paG6-SVOrHpq95O7D7BPZ7aonSWA/exec"
+GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx_GlQohuhxaV6XHMhXU9RuAQTx_zJE3Xqs9qFNFl52T5SxXKoTPowdyRuUkYbhU6qj3w/exec""
 
 # =========================================================================
 # 0. DATABASE SCHEMA AUTO-UPDATE
