@@ -3,15 +3,17 @@ import re
 from datetime import datetime
 import pandas as pd
 import os
+import sqlite3
 
+# ප්‍රධාන ව්‍යාපෘති ෆෝල්ඩරයේ නියමිත ස්ථානය නිවැරදිව ලබා ගැනීම
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_NAME = os.path.join(BASE_DIR, "aip_2026.db")
 
 def get_connection():
+    # check_same_thread=False මඟින් Streamlit බහු-නූල් (multi-threading) පරිසරය තුළ ගැටළු ඇතිවීම වළකයි
     conn = sqlite3.connect(DB_NAME, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
-
 # =========================================================================
 # 0. DATABASE SCHEMA AUTO-UPDATE (අලුත් තීරු ස්වයංක්‍රීයව එක් කිරීම)
 # =========================================================================
