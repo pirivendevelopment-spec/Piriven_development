@@ -14,11 +14,11 @@ def get_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
-# 💡 ඔබ ලබාදුන් Firebase Realtime Database URL එක (අවසානයට '/' ලකුණ අත්‍යවශ්‍යයි)
+# 💡 ඔබ ලබාදුන් Firebase Realtime Database URL එක
 FIREBASE_URL = "https://aip2026-default-rtdb.asia-southeast1.firebasedatabase.app/"
 
 # =========================================================================
-# 0. DATABASE SCHEMA AUTO-UPDATE
+# 0. DATABASE SCHEMA AUTO-UPDATE (පරණ DB එක සඳහා)
 # =========================================================================
 def check_and_update_schema():
     conn = get_connection()
@@ -45,7 +45,7 @@ def check_and_update_schema():
 check_and_update_schema()
 
 # =========================================================================
-# 1. AUTHENTICATION & SESSION & REFERENCE OPTIONS
+# 1. AUTHENTICATION & SESSION & REFERENCE OPTIONS (පරණ DB එක හරහා)
 # =========================================================================
 def authenticate_user(username, password):
     conn = get_connection()
@@ -90,7 +90,7 @@ def get_reference_options(user):
 # 2. VOUCHER & ACTIVITY OPERATIONS (FIREBASE CLOUD INTEGRATION)
 # =========================================================================
 
-# Firebase එකෙන් වවුචර දත්ත ලබා ගැනීම (Fetch)
+# Firebase එකෙන් වවුචර දත්ත ලබා ගැනීම (ഡෑෂ්බෝඩ් සහ මෑතකාලීන වාර්තා සඳහා)
 def fetch_vouchers_from_cloud():
     try:
         response = requests.get(f"{FIREBASE_URL}vouchers.json", timeout=5)
@@ -102,6 +102,20 @@ def fetch_vouchers_from_cloud():
         return pd.DataFrame()
     except Exception as e:
         print(f"Firebase Fetch Error: {e}")
+        return pd.DataFrame()
+
+# Firebase එකෙන් වැඩසටහන් දත්ත ලබා ගැනීම (Activities Fetch)
+def fetch_activities_from_cloud():
+    try:
+        response = requests.get(f"{FIREBASE_URL}activities.json", timeout=5)
+        if response.status_code == 200 and response.json():
+            data = response.json()
+            if isinstance(data, dict):
+                df = pd.DataFrame(list(data.values()))
+                return df
+        return pd.DataFrame()
+    except Exception as e:
+        print(f"Firebase Activities Fetch Error: {e}")
         return pd.DataFrame()
 
 # වවුචරයක් Firebase වෙත යැවීම (Save)
