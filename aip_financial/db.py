@@ -18,31 +18,32 @@ def get_connection():
 # =========================================================================
 # GSPREAD GOOGLE SHEETS CONNECTION SETUP
 # =========================================================================
+import streamlit as st
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+
 def get_gspread_client():
     scope = [
         "https://spreadsheets.google.com/feeds",
         "https://www.googleapis.com/auth/drive"
     ]
-    creds_path = os.path.join(BASE_DIR, "credentials.json")
-    if os.path.exists(creds_path):
-        creds = ServiceAccountCredentials.from_json_keyfile_name(creds_path, scope)
-        client = gspread.authorize(creds)
-        return client 
-    return None
-
-def get_google_sheet(sheet_name="vouchers"):
-    client = get_gspread_client()
-    if client:
-        try:
-            spreadsheet = client.open("AIP_2026_Data")
-            try:
-                return spreadsheet.worksheet(sheet_name)
-            except:
-                # අදාළ නමින් ෂීට් එකක් නොමැති නම් මුල්ම ෂීට් එක (sheet1) ලබා දීම
-                return spreadsheet.sheet1
-        except Exception as e:
-            print(f"Sheet Open Error: {e}")
-            return None
+    try:
+        # Streamlit secrets හරහා credentials ලබා ගැනීම (Cloud එක සඳහා)
+        if "gcp_service_account" in st.secrets:
+            creds_dict = dict(st.secrets["gcp_service_account"])
+            creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+            client = gspread.authorize(creds)
+            return client
+        
+        # Local පරිගණකයේ වැඩ කරන විට credentials.json ፋයිල් එක පාවිච්චි කිරීමට
+        creds_path = os.path.join(BASE_DIR, "credentials.json")
+        if os.path.exists(creds_path):
+            creds = ServiceAccountCredentials.from_json_keyfile_name(creds_path, scope)
+            client = gspread.authorize(creds)
+            return client
+            
+    except Exception as e:
+        print(f"Gspread Auth Error: {e}")
     return None
 
 # =========================================================================
