@@ -14,7 +14,9 @@ def get_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
-GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx_GlQohuhxaV6XHMhXU9RuAQTx_zJE3Xqs9qFNFl52T5SxXKoTPowdyRuUkYbhU6qj3w/exec"
+# 💡 ඔබ ලබාදුන් Firebase Realtime Database URL එක (අවසානයට '/' ලකුණ අත්‍යවශ්‍යයි)
+FIREBASE_URL = "https://aip2026-default-rtdb.asia-southeast1.firebasedatabase.app/"
+
 # =========================================================================
 # 0. DATABASE SCHEMA AUTO-UPDATE
 # =========================================================================
@@ -85,20 +87,26 @@ def get_reference_options(user):
     return ref_df
 
 # =========================================================================
-# 2. VOUCHER & ACTIVITY OPERATIONS (GOOGLE SHEETS & SQLITE)
+# 2. VOUCHER & ACTIVITY OPERATIONS (FIREBASE CLOUD INTEGRATION)
 # =========================================================================
+
+# Firebase එකෙන් වවුචර දත්ත ලබා ගැනීම (Fetch)
 def fetch_vouchers_from_cloud():
     try:
-        sheet_id = "1TKxr2dL1xZYnflJ9RSa6m9YXdufqMCb1OJLiuY8-YFg"
-        csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid=231977232"
-        df = pd.read_csv(csv_url)
-        return df
+        response = requests.get(f"{FIREBASE_URL}vouchers.json", timeout=5)
+        if response.status_code == 200 and response.json():
+            data = response.json()
+            if isinstance(data, dict):
+                df = pd.DataFrame(list(data.values()))
+                return df
+        return pd.DataFrame()
     except Exception as e:
-        print(f"Error fetching from cloud: {e}")
+        print(f"Firebase Fetch Error: {e}")
         return pd.DataFrame()
 
+# වවුචරයක් Firebase වෙත යැවීම (Save)
 def save_voucher(username, vote_no, action_no, desc, v_no, v_date, est_amount, amount):
-    payload = {
+    voucher_data = {
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "username": username,
         "vote_number": vote_no,
@@ -110,25 +118,31 @@ def save_voucher(username, vote_no, action_no, desc, v_no, v_date, est_amount, a
         "amount": float(amount)
     }
     try:
-        response = requests.post(GOOGLE_SHEET_WEB_APP_URL, json=payload)
+        response = requests.post(f"{FIREBASE_URL}vouchers.json", json=voucher_data, timeout=5)
         return response.status_code == 200
     except Exception as e:
-        print(f"Cloud Save Error: {e}")
+        print(f"Firebase Save Error: {e}")
         return False
 
-# 💡 වැඩසටහන් (Activities) සුරක්ෂිතව ඩේටාබේස් එකට ඇතුළත් කිරීමේ ශ්‍රිතය
+# වැඩසටහන් (Activities) Firebase වෙත යැවීම (Save)
 def save_activity(username, vote_no, action_no, act_name, loc, act_date, ben, est, cost):
-    conn = get_connection()
-    cursor = conn.cursor()
+    activity_data = {
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "username": username,
+        "vote_number": vote_no,
+        "action_no": action_no,
+        "activity_name": act_name,
+        "location": loc,
+        "activity_date": str(act_date),
+        "beneficiaries": int(ben),
+        "estimate": float(est),
+        "actual_cost": float(cost),
+        "delete_requested": 0,
+        "delete_reason": None
+    }
     try:
-        cursor.execute("""
-        INSERT INTO data_log (timestamp, username, vote_number, action_no, activity_name, location, activity_date, beneficiaries, estimate, actual_cost, delete_requested, delete_reason)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL)
-        """, (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), username, vote_no, action_no, act_name, loc, str(act_date), int(ben), float(est), float(cost)))
-        conn.commit()
-        return True
+        response = requests.post(f"{FIREBASE_URL}activities.json", json=activity_data, timeout=5)
+        return response.status_code == 200
     except Exception as e:
-        print(f"Activity Save Error: {e}")
+        print(f"Firebase Activity Save Error: {e}")
         return False
-    finally:
-        conn.close()
