@@ -8,3 +8,5 @@ gspread
 oauth2client
 Matplotlib
 plotly
+gspread
+oauth2client
