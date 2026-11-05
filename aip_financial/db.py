@@ -27,7 +27,7 @@ def get_gspread_client():
     if os.path.exists(creds_path):
         creds = ServiceAccountCredentials.from_json_keyfile_name(creds_path, scope)
         client = gspread.authorize(creds)
-        return client
+        return client 
     return None
 
 def get_google_sheet(sheet_name="vouchers"):
