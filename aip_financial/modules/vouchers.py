@@ -23,8 +23,10 @@ def render_vouchers(user):
         if submitted:
             if not v_no:
                 st.error("කරුණාකර වවුචර අංකය ඇතුළත් කරන්න.")
-                return
-
-            action_no, vote_no = options[sel_display]
-            db.save_voucher(user['username'], vote_no, action_no, desc, v_no, v_date, amount)
-            st.success(f"වවුචරය සාර්ථකව සුරකින ලදී! (Action No: {action_no})")
+            else:
+                action_no, vote_no = options[sel_display]
+                try:
+                    db.save_voucher(user['username'], vote_no, action_no, desc, v_no, str(v_date), float(amount))
+                    st.success(f"වවුචරය සාර්ථකව සුරකින ලදී! (Action No: {action_no})")
+                except Exception as e:
+                    st.error(f"වවුචරය සුරැකීමේදී දෝෂයක් ඇති විය: {e}")
