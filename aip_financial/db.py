@@ -34,7 +34,7 @@ def get_google_sheet(sheet_name="vouchers"):
     client = get_gspread_client()
     if client:
         try:
-            spreadsheet = client.open("AIP 2026")
+            spreadsheet = client.open("AIP_2026_Data")
             try:
                 return spreadsheet.worksheet(sheet_name)
             except:
