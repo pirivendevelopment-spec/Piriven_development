@@ -1,4 +1,4 @@
-import sys
+‍import sys
 import requests
 import streamlit as st
 import streamlit.components.v1 as components
@@ -146,8 +146,7 @@ with st.sidebar:
         """, unsafe_allow_html=True)
         
     st.markdown("---")
-    st.header("📁 Data Source Setup")
-    uploaded_file = st.file_uploader("Upload Piriven Excel Registry (.xlsx)", type=["xlsx"])
+    st.markdown("🟢 **Database Status:** Connected to cPanel MySQL Cloud Registry.")
 
 # Header & Clock
 col_title, col_clock = st.columns([4, 1])
@@ -188,38 +187,7 @@ try:
 except: pass
 
 df_usage = None
-if uploaded_file:
-    try:
-        df_raw = pd.read_excel(uploaded_file)
-        df_raw.columns = df_raw.columns.str.strip()
-        
-        df_raw["Census No"] = df_raw["Census No"].fillna("").astype(str).str.strip().apply(lambda x: x.split('.')[0] if '.' in x else x)
-        df_raw["Piriven Name"] = df_raw["Piriven Name"].fillna("").astype(str).str.strip()
-        df_raw["District"] = df_raw["District"].fillna("").astype(str).str.strip().str.title() 
-        df_raw["Zone"] = df_raw["Zone"].fillna("").astype(str).str.strip().str.title() if "Zone" in df_raw.columns else df_raw["District"]
-        df_raw["Mobile"] = df_raw.get("Mobile", "").fillna("").astype(str).str.strip()
-        df_raw["Whatsapp"] = df_raw.get("Whatsapp", "").fillna("").astype(str).str.strip()
-        df_raw["Latitude"] = pd.to_numeric(df_raw.get("Latitude", 0), errors='coerce').fillna(0.0).astype(float)
-        df_raw["Longitude"] = pd.to_numeric(df_raw.get("Longitude", 0), errors='coerce').fillna(0.0).astype(float)
-        df_raw["Monthly Usage (Hours)"] = pd.to_numeric(df_raw.get("Monthly Usage (Hours)", 0), errors='coerce').fillna(0.0).astype(float)
-
-        df_temp = pd.DataFrame()
-        df_temp["Census No"] = df_raw["Census No"]
-        df_temp["Piriven Name"] = df_raw["Piriven Name"]
-        df_temp["District"] = [([d for d in SRI_LANKA_DISTRICTS if d.lower() == x.lower()] + ["Other/Unclassified"])[0] for x in df_raw["District"]]
-        df_temp["Zone"] = df_raw["Zone"]
-        df_temp["Mobile"] = df_raw["Mobile"]
-        df_temp["Whatsapp"] = df_raw["Whatsapp"]
-        df_temp["Latitude"] = df_temp["Latitude"]
-        df_temp["Longitude"] = df_temp["Longitude"]
-        df_temp["Monthly Usage (Hours)"] = df_temp["Monthly Usage (Hours)"]
-        
-        requests.post(f"{API_URL}?action=save_excel_registry", json=df_temp.to_dict(orient="records"), timeout=15)
-        df_usage = df_temp.copy()
-        st.sidebar.success("✅ Excel Saved to MySQL Cloud!")
-    except Exception as e: st.sidebar.error(f"Error: {e}")
-
-if df_usage is None and cloud_excel_data:
+if cloud_excel_data:
     df_usage = pd.DataFrame(cloud_excel_data)
     if not df_usage.empty:
         df_usage.columns = df_usage.columns.str.strip()
