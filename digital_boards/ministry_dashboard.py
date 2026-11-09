@@ -13,7 +13,7 @@ import io
 from urllib.parse import urlparse, parse_qs
 
 # ⚠️ නිවැරදි Firebase API URL එක
-FIREBASE_URL = "https://pirivensmartboardmonitor-8ee4f-default-rtdb.asia-southeast1.firebasedatabase.app/"
+API_URL = "https://digitalboard.monitoring.amparapiriven.lk/digitalboard.php"
 
 SRI_LANKA_DISTRICTS = [
     "Colombo", "Gampaha", "Kalutara", "Kandy", "Matale", "Nuwara Eliya", 
