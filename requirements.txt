@@ -10,3 +10,4 @@ Matplotlib
 plotly
 gspread
 oauth2client
+xlsxwriter
