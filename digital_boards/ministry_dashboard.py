@@ -319,6 +319,22 @@ with tab2:
     )
     st.dataframe(styled_df, use_container_width=True)
 
+    # 💡 **1. Monthly Usage Excel Download Button**
+    st.write("---")
+    st.markdown("### 📥 Download Usage Report")
+    usage_excel_buffer = io.BytesIO()
+    with pd.ExcelWriter(usage_excel_buffer, engine='xlsxwriter') as writer:
+        df_filtered.to_excel(writer, index=False, sheet_name='Monthly Usage Report')
+    usage_excel_buffer.seek(0)
+    
+    st.download_button(
+        label="📥 Download Monthly Usage Excel Report",
+        data=usage_excel_buffer,
+        file_name=f"piriven_monthly_usage_{datetime.datetime.now().strftime('%Y%m%d')}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        key="download_usage_excel"
+    )
+
 map_center = [7.8731, 80.7718]
 map_zoom = 8
 if selected_piriven != "All Piriven" and not df_filtered.empty:
@@ -421,6 +437,42 @@ with tab1:
 with tab3:
     st.subheader("🛠️ Technical Support & Live Chat Panel")
     
+    # 💡 **2. Support Tickets Excel Export Feature**
+    try:
+        res_t_all = requests.get(f"{API_URL}?action=get_tickets", timeout=10)
+        if res_t_all.status_code == 200 and res_t_all.json():
+            tickets_raw = res_t_all.json()
+            ticket_list_for_excel = []
+            for tid, tinfo in tickets_raw.items():
+                if isinstance(tinfo, dict):
+                    ticket_list_for_excel.endswith if hasattr(ticket_list_for_excel, 'endswith') else None
+                    ticket_list_for_excel.append({
+                        "Ticket ID": tid,
+                        "Census No": tinfo.get("census_no"),
+                        "Piriven Name": census_to_name.get(str(tinfo.get("census_no")).strip(), "Unknown"),
+                        "Device Serial": tinfo.get("device_serial"),
+                        "Issue Category": tinfo.get("issue_type"),
+                        "Description": tinfo.get("description"),
+                        "Status": tinfo.get("status"),
+                        "Reported At": tinfo.get("reported_at")
+                    })
+            if ticket_list_for_excel:
+                df_tickets_export = pd.DataFrame(ticket_list_for_excel)
+                t_excel_buffer = io.BytesIO()
+                with pd.ExcelWriter(t_excel_buffer, engine='xlsxwriter') as writer:
+                    df_tickets_export.to_excel(writer, index=False, sheet_name='Support Tickets')
+                t_excel_buffer.seek(0)
+                
+                st.download_button(
+                    label="📥 Download Support Tickets Excel Report",
+                    data=t_excel_buffer,
+                    file_name=f"support_tickets_report_{datetime.datetime.now().strftime('%Y%m%d')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key="download_tickets_excel"
+                )
+                st.write("---")
+    except: pass
+
     def resolve_ticket(ticket_id):
         try:
             res = requests.post(f"{API_URL}?action=resolve_ticket", json={"ticket_id": ticket_id}, timeout=10)
