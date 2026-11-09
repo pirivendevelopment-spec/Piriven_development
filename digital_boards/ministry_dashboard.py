@@ -12,7 +12,7 @@ import hashlib
 import io
 from urllib.parse import urlparse, parse_qs
 
-# ⚠️ නිවැරදි Firebase API URL එක
+# ⚠️ cPanel PHP API URL එක
 API_URL = "https://digitalboard.monitoring.amparapiriven.lk/digitalboard.php"
 
 SRI_LANKA_DISTRICTS = [
@@ -153,7 +153,7 @@ with st.sidebar:
 col_title, col_clock = st.columns([4, 1])
 with col_title:
     st.markdown("<h2 style='color: #f8fafc; margin-top: -10px;'>🏛️ Ministry of Education - Piriven Division</h2>", unsafe_allow_html=True)
-    st.markdown("<p style='color: #94a3b8; font-size: 14px; font-weight: bold; margin-top: -15px;'>Central Control, Analytics & Monitoring Dashboard</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #94a3b8; font-size: 14px; font-weight: bold; margin-top: -15px;'>Central Control, Analytics & Monitoring Dashboard (cPanel MySQL)</p>", unsafe_allow_html=True)
 with col_clock:
     st.markdown("<p style='text-align:center; margin-bottom:0px; font-weight:bold; color:#cbd5e1; font-size:12px;'>💻 DEVICE TIME</p>", unsafe_allow_html=True)
     clock_html = """
@@ -177,12 +177,13 @@ with col_clock:
 
 st.write("---")
 
-# --- Firebase දත්ත ලබා ගැනීම ---
+# --- cPanel MySQL API හරහා දත්ත ලබා ගැනීම ---
 live_boards_data, cloud_excel_data = {}, None
 try:
-    res1 = requests.get(f"{FIREBASE_URL}live_boards.json", timeout=4)
+    res1 = requests.get(f"{API_URL}?action=get_live_boards", timeout=4)
     if res1.status_code == 200: live_boards_data = res1.json() or {}
-    res2 = requests.get(f"{FIREBASE_URL}ministry_excel_registry.json", timeout=4)
+    
+    res2 = requests.get(f"{API_URL}?action=get_excel_registry", timeout=4)
     if res2.status_code == 200: cloud_excel_data = res2.json()
 except: pass
 
@@ -209,17 +210,18 @@ if uploaded_file:
         df_temp["Longitude"] = df_raw["Longitude"]
         df_temp["Monthly Usage (Hours)"] = df_raw["Monthly Usage (Hours)"]
         
-        requests.put(f"{FIREBASE_URL}ministry_excel_registry.json", json=df_temp.to_dict(orient="records"))
+        requests.post(f"{API_URL}?action=save_excel_registry", json=df_temp.to_dict(orient="records"))
         df_usage = df_temp.copy()
-        st.sidebar.success("✅ Excel Saved to Cloud!")
+        st.sidebar.success("✅ Excel Saved to MySQL Cloud!")
     except Exception as e: st.sidebar.error(f"Error: {e}")
 
 if df_usage is None and cloud_excel_data:
     df_usage = pd.DataFrame(cloud_excel_data)
-    df_usage["Census No"] = df_usage["Census No"].astype(str).str.strip().apply(lambda x: x.split('.')[0] if '.' in x else x)
-    df_usage["District"] = df_usage["District"].astype(str).str.strip().str.title()
-    df_usage["Latitude"] = pd.to_numeric(df_usage.get("Latitude", 0), errors='coerce').fillna(0.0)
-    df_usage["Longitude"] = pd.to_numeric(df_usage.get("Longitude", 0), errors='coerce').fillna(0.0)
+    if not df_usage.empty:
+        df_usage["Census No"] = df_usage["Census No"].astype(str).str.strip().apply(lambda x: x.split('.')[0] if '.' in x else x)
+        df_usage["District"] = df_usage["District"].astype(str).str.strip().str.title()
+        df_usage["Latitude"] = pd.to_numeric(df_usage.get("Latitude", 0), errors='coerce').fillna(0.0)
+        df_usage["Longitude"] = pd.to_numeric(df_usage.get("Longitude", 0), errors='coerce').fillna(0.0)
 
 if df_usage is None or df_usage.empty:
     df_usage = pd.DataFrame({"Census No": ["0542"], "Piriven Name": ["Sample Pirivena"], "District": ["Colombo"], "Zone": ["Central"], "Status": ["Offline"], "Latitude": [6.9271], "Longitude": [79.8612], "Monthly Usage (Hours)": [0]})
@@ -227,7 +229,7 @@ if df_usage is None or df_usage.empty:
 def is_device_actually_active(last_ping_str):
     try:
         if not last_ping_str: return False
-        last_ping_time = datetime.datetime.strptime(last_ping_str.strip(), "%Y-%m-%d %H:%M:%S")
+        last_ping_time = datetime.datetime.strptime(str(last_ping_str).strip(), "%Y-%m-%d %H:%M:%S")
         srilanka_now = datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)
         time_difference = (srilanka_now - last_ping_time).total_seconds()
         if 0 <= time_difference < 86400: return True
@@ -282,7 +284,7 @@ with tab2:
     
     app_hours_dict = {}
     try:
-        res_apps = requests.get(f"{FIREBASE_URL}software_analytics.json", timeout=4)
+        res_apps = requests.get(f"{API_URL}?action=get_software_analytics", timeout=4)
         if res_apps.status_code == 200 and res_apps.json():
             apps_cloud_data = res_apps.json()
             for c_no in filtered_census_nos:
@@ -351,7 +353,6 @@ with tab1:
     col_map, col_ctrl = st.columns([3, 2])
     with col_map:
         st.subheader("Live Board Tracking")
-        # 💡 OpenStreetMap භාවිතා කර ඇති බැවින් API Key අවශ්‍ය නොවේ
         m = folium.Map(location=map_center, zoom_start=map_zoom, tiles="OpenStreetMap")
         
         for i, r in df_usage.iterrows():
@@ -422,7 +423,7 @@ with tab1:
         if st.button("🚀 BROADCAST TO ALL BOARDS", key="broadcast_btn"):
             if yt_input:
                 link_data = process_youtube_link(yt_input)
-                requests.put(f"{FIREBASE_URL}current_lesson.json", json=link_data)
+                requests.post(f"{API_URL}?action=save_current_lesson", json=link_data)
                 st.success("✅ Broadcast Successful!")
                         
         st.write("---")
@@ -431,7 +432,7 @@ with tab1:
         if st.button("📢 PUSH LIVE NOTIFICATION", key="push_notif_btn"):
             if ann_t and ann_b:
                 ann_data = {"title": ann_t, "body": ann_b, "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
-                requests.put(f"{FIREBASE_URL}latest_announcement.json", json=ann_data)
+                requests.post(f"{API_URL}?action=save_announcement", json=ann_data)
                 st.success("✅ Message Pushed Successfully!")
 
 with tab3:
@@ -439,14 +440,14 @@ with tab3:
     
     def resolve_ticket(ticket_id):
         try:
-            res = requests.patch(f"{FIREBASE_URL}support_tickets/{ticket_id}.json", json={"status": "Solved"}, timeout=4)
+            res = requests.post(f"{API_URL}?action=resolve_ticket", json={"ticket_id": ticket_id}, timeout=4)
             if res.status_code == 200: 
                 st.toast("🟢 ටිකට් එක සාර්ථකව යාවත්කාලීන වුණා!", icon="✅")
                 st.rerun()
         except: st.sidebar.error("❌ Connection Error.")
 
     try:
-        res_t = requests.get(f"{FIREBASE_URL}support_tickets.json", timeout=4)
+        res_t = requests.get(f"{API_URL}?action=get_tickets", timeout=4)
         if res_t.status_code == 200 and res_t.json():
             tickets = res_t.json()
             ticket_index = 1
@@ -481,11 +482,12 @@ with tab3:
                                 if st.button("↩️ Send Reply", key=f"send_{tid}"):
                                     if reply_msg:
                                         new_chat = {
+                                            "ticket_id": tid,
                                             "sender": "ministry",
                                             "msg": reply_msg,
                                             "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                                         }
-                                        requests.post(f"{FIREBASE_URL}support_tickets/{tid}/chats.json", json=new_chat)
+                                        requests.post(f"{API_URL}?action=add_chat", json=new_chat)
                                         st.success("පිළිතුර යවන ලදී!")
                                         st.rerun()
                             with col_sol:
