@@ -153,7 +153,7 @@ with st.sidebar:
 col_title, col_clock = st.columns([4, 1])
 with col_title:
     st.markdown("<h2 style='color: #f8fafc; margin-top: -10px;'>🏛️ Ministry of Education - Piriven Division</h2>", unsafe_allow_html=True)
-    st.markdown("<p style='color: #94a3b8; font-size: 14px; font-weight: bold; margin-top: -15px;'>Central Control, Analytics & Monitoring Dashboard (Firebase)</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #94a3b8; font-size: 14px; font-weight: bold; margin-top: -15px;'>Central Control, Analytics & Monitoring Dashboard</p>", unsafe_allow_html=True)
 with col_clock:
     st.markdown("<p style='text-align:center; margin-bottom:0px; font-weight:bold; color:#cbd5e1; font-size:12px;'>💻 DEVICE TIME</p>", unsafe_allow_html=True)
     clock_html = """
@@ -230,7 +230,6 @@ def is_device_actually_active(last_ping_str):
         last_ping_time = datetime.datetime.strptime(last_ping_str.strip(), "%Y-%m-%d %H:%M:%S")
         srilanka_now = datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)
         time_difference = (srilanka_now - last_ping_time).total_seconds()
-        # කාල සීමාව පැය 24ක් දක්වා සකසා ඇත (පැරණි දත්ත මඟ හැරීමට)
         if 0 <= time_difference < 86400: return True
     except: pass
     return False
@@ -275,7 +274,6 @@ with tab2:
                     total_active_devices += 1
             if "attendance" in live_boards_data[c_no] and isinstance(live_boards_data[c_no]["attendance"], dict):
                 att_info = live_boards_data[c_no]["attendance"]
-                # මැනුවල් හෝ ස්වයංක්‍රීය පැමිණීම නිවැරදිව ගණනය කිරීම
                 total_live_students += int(att_info.get("live_student_count", 0))
             
     c_middle.metric("Total Active Devices Now", total_active_devices)
@@ -353,7 +351,8 @@ with tab1:
     col_map, col_ctrl = st.columns([3, 2])
     with col_map:
         st.subheader("Live Board Tracking")
-        m = folium.Map(location=map_center, zoom_start=map_zoom, tiles="CartoDB dark_matter")
+        # 💡 OpenStreetMap භාවිතා කර ඇති බැවින් API Key අවශ්‍ය නොවේ
+        m = folium.Map(location=map_center, zoom_start=map_zoom, tiles="OpenStreetMap")
         
         for i, r in df_usage.iterrows():
             try:
@@ -440,7 +439,7 @@ with tab3:
     
     def resolve_ticket(ticket_id):
         try:
-            res = requests.patch(f"{FIREBASE_URL}support_tickets/{tid}.json", json={"status": "Solved"}, timeout=4)
+            res = requests.patch(f"{FIREBASE_URL}support_tickets/{ticket_id}.json", json={"status": "Solved"}, timeout=4)
             if res.status_code == 200: 
                 st.toast("🟢 ටිකට් එක සාර්ථකව යාවත්කාලීන වුණා!", icon="✅")
                 st.rerun()
@@ -519,7 +518,7 @@ footer_html = f"""
                 {"<img src='" + state_img_base64 + "' style='height: 60px; max-width: 100%; object-fit: contain;'>" if state_img_base64 else ""}
             </td>
             <td style="width: 60%; text-align: center; border-top: none; border-bottom: none; border-left: 2px solid #374151; border-right: 2px solid #374151; background-color: transparent; padding: 10px 20px; vertical-align: middle;">
-                <p style="margin: 0; font-size: 16px; font-weight: bold; color: #38bdf8; letter-spacing: 0.5px;">Piriven Development Branch</p>
+                <p style="margin: 0; font-size: 16px; font-weight: bold; color: #38bdf8; letter-spacing: 0.5px;">Piriven Development Branch එක</p>
                 <p style="margin: 6px 0 0 0; font-size: 13px; color: #94a3b8;">📧 Email: <a href="mailto:info.pirivendevelopment@gmail.com" style="color: #38bdf8; text-decoration: none; font-weight: bold;">info.pirivendevelopment@gmail.com</a></p>
             </td>
             <td style="width: 20%; text-align: left; border: none; background-color: transparent; padding: 10px; vertical-align: middle;">
