@@ -230,6 +230,7 @@ def is_device_actually_active(last_ping_str):
         last_ping_time = datetime.datetime.strptime(last_ping_str.strip(), "%Y-%m-%d %H:%M:%S")
         srilanka_now = datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)
         time_difference = (srilanka_now - last_ping_time).total_seconds()
+        # කාල සීමාව පැය 24ක් දක්වා සකසා ඇත (පැරණි දත්ත මඟ හැරීමට)
         if 0 <= time_difference < 86400: return True
     except: pass
     return False
@@ -274,8 +275,8 @@ with tab2:
                     total_active_devices += 1
             if "attendance" in live_boards_data[c_no] and isinstance(live_boards_data[c_no]["attendance"], dict):
                 att_info = live_boards_data[c_no]["attendance"]
-                if is_device_actually_active(att_info.get("last_captured")):
-                    total_live_students += int(att_info.get("live_student_count", 0))
+                # මැනුවල් හෝ ස්වයංක්‍රීය පැමිණීම නිවැරදිව ගණනය කිරීම
+                total_live_students += int(att_info.get("live_student_count", 0))
             
     c_middle.metric("Total Active Devices Now", total_active_devices)
     c_right.metric("👨‍🎓 Total Live Students Learning Now", total_live_students) 
@@ -367,8 +368,7 @@ with tab1:
                         live_stu_popup = 0
                         if "attendance" in live_boards_data[c_no] and isinstance(live_boards_data[c_no]["attendance"], dict):
                             att_info = live_boards_data[c_no]["attendance"]
-                            if is_device_actually_active(att_info.get("last_captured")):
-                                live_stu_popup = att_info.get("live_student_count", 0)
+                            live_stu_popup = att_info.get("live_student_count", 0)
 
                         for d_id, d_info in live_boards_data[c_no].items():
                             if d_id != "attendance" and isinstance(d_info, dict):
@@ -440,7 +440,7 @@ with tab3:
     
     def resolve_ticket(ticket_id):
         try:
-            res = requests.patch(f"{FIREBASE_URL}support_tickets/{ticket_id}.json", json={"status": "Solved"}, timeout=4)
+            res = requests.patch(f"{FIREBASE_URL}support_tickets/{tid}.json", json={"status": "Solved"}, timeout=4)
             if res.status_code == 200: 
                 st.toast("🟢 ටිකට් එක සාර්ථකව යාවත්කාලීන වුණා!", icon="✅")
                 st.rerun()
