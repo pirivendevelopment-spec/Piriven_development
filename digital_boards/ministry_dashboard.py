@@ -191,7 +191,6 @@ df_usage = None
 if uploaded_file:
     try:
         df_raw = pd.read_excel(uploaded_file)
-        # 💡 Column නාමවල ඇති ඉඩ ප්‍රමාණයන් පිරිසිදු කිරීම (KeyError වැළැක්වීමට)
         df_raw.columns = df_raw.columns.str.strip()
         
         df_raw["Census No"] = df_raw["Census No"].fillna("").astype(str).str.strip().apply(lambda x: x.split('.')[0] if '.' in x else x)
@@ -200,9 +199,9 @@ if uploaded_file:
         df_raw["Zone"] = df_raw["Zone"].fillna("").astype(str).str.strip().str.title() if "Zone" in df_raw.columns else df_raw["District"]
         df_raw["Mobile"] = df_raw.get("Mobile", "").fillna("").astype(str).str.strip()
         df_raw["Whatsapp"] = df_raw.get("Whatsapp", "").fillna("").astype(str).str.strip()
-        df_raw["Latitude"] = pd.to_numeric(df_raw.get("Latitude", 0), errors='coerce').fillna(0.0)
-        df_raw["Longitude"] = pd.to_numeric(df_raw.get("Longitude", 0), errors='coerce').fillna(0.0)
-        df_raw["Monthly Usage (Hours)"] = pd.to_numeric(df_raw.get("Monthly Usage (Hours)", 0), errors='coerce').fillna(0)
+        df_raw["Latitude"] = pd.to_numeric(df_raw.get("Latitude", 0), errors='coerce').fillna(0.0).astype(float)
+        df_raw["Longitude"] = pd.to_numeric(df_raw.get("Longitude", 0), errors='coerce').fillna(0.0).astype(float)
+        df_raw["Monthly Usage (Hours)"] = pd.to_numeric(df_raw.get("Monthly Usage (Hours)", 0), errors='coerce').fillna(0.0).astype(float)
 
         df_temp = pd.DataFrame()
         df_temp["Census No"] = df_raw["Census No"]
@@ -211,9 +210,9 @@ if uploaded_file:
         df_temp["Zone"] = df_raw["Zone"]
         df_temp["Mobile"] = df_raw["Mobile"]
         df_temp["Whatsapp"] = df_raw["Whatsapp"]
-        df_temp["Latitude"] = df_raw["Latitude"]
-        df_temp["Longitude"] = df_raw["Longitude"]
-        df_temp["Monthly Usage (Hours)"] = df_raw["Monthly Usage (Hours)"]
+        df_temp["Latitude"] = df_temp["Latitude"]
+        df_temp["Longitude"] = df_temp["Longitude"]
+        df_temp["Monthly Usage (Hours)"] = df_temp["Monthly Usage (Hours)"]
         
         requests.post(f"{API_URL}?action=save_excel_registry", json=df_temp.to_dict(orient="records"), timeout=15)
         df_usage = df_temp.copy()
@@ -224,15 +223,16 @@ if df_usage is None and cloud_excel_data:
     df_usage = pd.DataFrame(cloud_excel_data)
     if not df_usage.empty:
         df_usage.columns = df_usage.columns.str.strip()
-        # cPanel field names mapping to Streamlit dataframe
-        if "census_no" in df_usage.columns: df_usage.rename(columns={"census_no": "Census No", "piriven_name": "Piriven Name", "district": "District", "zone": "Zone", "mobile": "Mobile", "whatsapp": "Whatsapp", "latitude": "Latitude", "longitude": "Longitude", "monthly_usage": "Monthly Usage (Hours)"}, inplace=True)
+        if "census_no" in df_usage.columns: 
+            df_usage.rename(columns={"census_no": "Census No", "piriven_name": "Piriven Name", "district": "District", "zone": "Zone", "mobile": "Mobile", "whatsapp": "Whatsapp", "latitude": "Latitude", "longitude": "Longitude", "monthly_usage": "Monthly Usage (Hours)"}, inplace=True)
         df_usage["Census No"] = df_usage["Census No"].astype(str).str.strip().apply(lambda x: x.split('.')[0] if '.' in x else x)
         df_usage["District"] = df_usage["District"].astype(str).str.strip().str.title()
-        df_usage["Latitude"] = pd.to_numeric(df_usage.get("Latitude", 0), errors='coerce').fillna(0.0)
-        df_usage["Longitude"] = pd.to_numeric(df_usage.get("Longitude", 0), errors='coerce').fillna(0.0)
+        df_usage["Latitude"] = pd.to_numeric(df_usage.get("Latitude", 0), errors='coerce').fillna(0.0).astype(float)
+        df_usage["Longitude"] = pd.to_numeric(df_usage.get("Longitude", 0), errors='coerce').fillna(0.0).astype(float)
+        df_usage["Monthly Usage (Hours)"] = pd.to_numeric(df_usage.get("Monthly Usage (Hours)", 0), errors='coerce').fillna(0.0).astype(float)
 
 if df_usage is None or df_usage.empty:
-    df_usage = pd.DataFrame({"Census No": ["0542"], "Piriven Name": ["Sample Pirivena"], "District": ["Colombo"], "Zone": ["Central"], "Mobile": [""], "Whatsapp": [""], "Status": ["Offline"], "Latitude": [6.9271], "Longitude": [79.8612], "Monthly Usage (Hours)": [0]})
+    df_usage = pd.DataFrame({"Census No": ["0542"], "Piriven Name": ["Sample Pirivena"], "District": ["Colombo"], "Zone": ["Central"], "Mobile": [""], "Whatsapp": [""], "Status": ["Offline"], "Latitude": [6.9271], "Longitude": [79.8612], "Monthly Usage (Hours)": [0.0]})
 
 def is_device_actually_active(last_ping_str):
     try:
@@ -282,7 +282,6 @@ with tab2:
             for dev_id, dev_info in live_boards_data[c_no].items():
                 if dev_id != "attendance" and isinstance(dev_info, dict) and is_device_actually_active(dev_info.get("last_ping")):
                     total_active_devices += 1
-                # Check live student count from board table
                 if isinstance(dev_info, dict) and "live_student_count" in dev_info:
                     total_live_students += int(dev_info.get("live_student_count", 0))
             if "attendance" in live_boards_data[c_no] and isinstance(live_boards_data[c_no]["attendance"], dict):
