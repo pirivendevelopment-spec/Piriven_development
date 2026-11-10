@@ -11,27 +11,42 @@ if CURRENT_DIR not in sys.path:
 import db
 from modules import dashboard, vouchers, activities, reports
 
-# --- Database Schema Migration (delete_requested තීරුව නොමැති නම් ස්වයංක්‍රීයව එක් කිරීම) ---
+# --- Database Schema Migration (MySQL සඳහා delete_requested තීරුව නොමැති නම් එක් කිරීම) ---
 try:
     _conn = db.get_connection()
     _cur = _conn.cursor()
+    
+    # voucher_log සඳහා delete_requested සහ delete_reason පරීක්ෂා කර එක් කිරීම
     try:
-        _cur.execute("ALTER TABLE voucher_log ADD COLUMN delete_requested INTEGER DEFAULT 0")
+        _cur.execute("""
+            SELECT COUNT(*) FROM information_schema.COLUMNS 
+            WHERE TABLE_SCHEMA = DATABASE() 
+              AND TABLE_NAME = 'voucher_log' 
+              AND COLUMN_NAME = 'delete_requested'
+        """)
+        if _cur.fetchone()[0] == 0:
+            _cur.execute("ALTER TABLE voucher_log ADD COLUMN delete_requested INT DEFAULT 0")
+            _cur.execute("ALTER TABLE voucher_log ADD COLUMN delete_reason TEXT")
+            _conn.commit()
     except Exception:
         pass
+
+    # program_data_log සඳහා delete_requested සහ delete_reason පරීක්ෂා කර එක් කිරීම
     try:
-        _cur.execute("ALTER TABLE voucher_log ADD COLUMN delete_reason TEXT")
+        _cur.execute("""
+            SELECT COUNT(*) FROM information_schema.COLUMNS 
+            WHERE TABLE_SCHEMA = DATABASE() 
+              AND TABLE_NAME = 'program_data_log' 
+              AND COLUMN_NAME = 'delete_requested'
+        """)
+        if _cur.fetchone()[0] == 0:
+            _cur.execute("ALTER TABLE program_data_log ADD COLUMN delete_requested INT DEFAULT 0")
+            _cur.execute("ALTER TABLE program_data_log ADD COLUMN delete_reason TEXT")
+            _conn.commit()
     except Exception:
         pass
-    try:
-        _cur.execute("ALTER TABLE data_log ADD COLUMN delete_requested INTEGER DEFAULT 0")
-    except Exception:
-        pass
-    try:
-        _cur.execute("ALTER TABLE data_log ADD COLUMN delete_reason TEXT")
-    except Exception:
-        pass
-    _conn.commit()
+
+    _cur.close()
     _conn.close()
 except Exception:
     pass
@@ -55,7 +70,7 @@ if not st.session_state.logged_in:
             st.session_state.user = dict(user_data)
 
 # =========================================================================
-# මෑතකාලීන වියදම් ලොගය සඳහා Edit / Delete Actions Render කරන ශ්‍රිතය
+# මෑතකාලීන වියදම් ලොගය සඳහා Edit / Delete Actions Render කරන ශ්‍රිතය (MySQL Compatible)
 # =========================================================================
 def render_inline_expense_actions(user):
     st.markdown("<br><hr style='border-color: #cbd5e1;'>", unsafe_allow_html=True)
@@ -68,36 +83,42 @@ def render_inline_expense_actions(user):
         acc = user.get("access_level", "")
         user_access = [x.strip() for x in acc.split(',')] if acc and acc != "All" else []
 
+        # MySQL හි rowid වෙනුවට voucher_id භාවිත වේ
         if is_super_admin or acc == "All":
-            vouchers_df = pd.read_sql_query("""
-                SELECT rowid as id, timestamp, vote_number, action_no, description, 
-                       voucher_no, voucher_date, amount, delete_requested, delete_reason, username
+            query = """
+                SELECT voucher_id AS id, entry_date AS timestamp, vote_code AS vote_number, 
+                       action_no, description, voucher_no, voucher_date, amount, 
+                       delete_requested, delete_reason, username
                 FROM voucher_log 
-                ORDER BY rowid DESC LIMIT 15
-            """, conn)
+                ORDER BY voucher_id DESC LIMIT 15
+            """
+            vouchers_df = pd.read_sql_query(query, conn)
         else:
             if user_access:
-                placeholders = ",".join(["?"] * len(user_access))
+                placeholders = ",".join(["%s"] * len(user_access))
                 query = f"""
-                    SELECT rowid as id, timestamp, vote_number, action_no, description, 
-                           voucher_no, voucher_date, amount, delete_requested, delete_reason, username
+                    SELECT voucher_id AS id, entry_date AS timestamp, vote_code AS vote_number, 
+                           action_no, description, voucher_no, voucher_date, amount, 
+                           delete_requested, delete_reason, username
                     FROM voucher_log 
-                    WHERE action_no IN ({placeholders}) OR username = ?
-                    ORDER BY rowid DESC LIMIT 15
+                    WHERE action_no IN ({placeholders}) OR username = %s
+                    ORDER BY voucher_id DESC LIMIT 15
                 """
                 vouchers_df = pd.read_sql_query(query, conn, params=user_access + [user.get("username")])
             else:
                 query = """
-                    SELECT rowid as id, timestamp, vote_number, action_no, description, 
-                           voucher_no, voucher_date, amount, delete_requested, delete_reason, username
+                    SELECT voucher_id AS id, entry_date AS timestamp, vote_code AS vote_number, 
+                           action_no, description, voucher_no, voucher_date, amount, 
+                           delete_requested, delete_reason, username
                     FROM voucher_log 
-                    WHERE username = ?
-                    ORDER BY rowid DESC LIMIT 15
+                    WHERE username = %s
+                    ORDER BY voucher_id DESC LIMIT 15
                 """
                 vouchers_df = pd.read_sql_query(query, conn, params=[user.get("username")])
-    except Exception:
-        vouchers_df = pd.read_sql_query("SELECT rowid as id, * FROM voucher_log ORDER BY rowid DESC LIMIT 10", conn)
-    conn.close()
+    except Exception as e:
+        vouchers_df = pd.DataFrame()
+    finally:
+        conn.close()
 
     if vouchers_df.empty:
         st.info("ඔබගේ විෂයට අදාළ මෑතකාලීන වියදම් කිසිවක් හමු නොවීය.")
@@ -117,7 +138,7 @@ def render_inline_expense_actions(user):
             f'<strong style="color: #0f172a !important; font-size: 15px;">වවුචර අංකය: {row.get("voucher_no", "N/A")}</strong>'
             f'<span style="color: #64748b !important; font-size: 12px; margin-left: 8px;">({str(row.get("voucher_date", "N/A"))[:10]})</span>'
             f'<div style="color: #334155 !important; font-size: 13.5px; margin-top: 4px;">'
-            f'වැය ශීර්ෂය: <b>{row.get("vote_number", "N/A")}</b> | විෂය/ක්‍‍රියාකාරකම: <b>#{row.get("action_no", "N/A")}</b> | විස්තරය: {row.get("description", "")}'
+            f'වැය ශීර්ෂය: <b>{row.get("vote_number", "N/A")}</b> | විෂය/ක්‍රියාකාරකම: <b>#{row.get("action_no", "N/A")}</b> | විස්තරය: {row.get("description", "")}'
             f'</div>'
             + (f'<div style="color: #dc2626 !important; font-size: 12px; margin-top: 4px;"><b>⚠️ ඉවත් කිරීමට ඉල්ලුම් කර ඇත:</b> {row.get("delete_reason", "")}</div>' if is_del_pending else '') +
             f'</td>'
@@ -178,7 +199,7 @@ def render_inline_expense_actions(user):
 
 def main():
     # =========================================================================
-    # 1. PREMIUM LOGIN SCREEN
+    # 1. LOGIN SCREEN
     # =========================================================================
     if not st.session_state.logged_in:
         st.markdown("""
@@ -292,12 +313,10 @@ def main():
             color: #1e293b !important;
         }
 
-        /* මැද ඇති ප්‍රධාන සිරස්තල සහ පෙළ පැහැදිලි තද පැහැයෙන් තැබීම */
         h1, h2, h3, h4, h5, h6, p, span, label {
             color: #1e293b !important;
         }
 
-        /* Dark Navy Sidebar */
         section[data-testid="stSidebar"] {
             background-color: #1e1b4b !important;
             padding-top: 1rem !important;
@@ -306,14 +325,12 @@ def main():
             font-family: 'Inter', 'Noto Sans Sinhala', sans-serif !important;
         }
         
-        /* Sidebar තුළ ඇති සියලුම පෙළ සහ ලේබල් සුදු පැහැයෙන් තැබීම */
         section[data-testid="stSidebar"] h1, section[data-testid="stSidebar"] h2, 
         section[data-testid="stSidebar"] h3, section[data-testid="stSidebar"] p, 
         section[data-testid="stSidebar"] span, section[data-testid="stSidebar"] label {
             color: #ffffff !important;
         }
 
-        /* Sidebar Navigation Buttons - Fixed Text Visibility & Styling */
         section[data-testid="stSidebar"] div.stButton > button {
             background-color: #272757 !important;
             color: #ffffff !important;
@@ -330,7 +347,6 @@ def main():
             box-shadow: 0 2px 5px rgba(0,0,0,0.2) !important;
         }
         
-        /* බටන් එක තුළ ඇති text සහ p ටැග් වලට සුදු පාට බලහත්කාරයෙන් යෙදීම */
         section[data-testid="stSidebar"] div.stButton > button p,
         section[data-testid="stSidebar"] div.stButton > button span {
             color: #ffffff !important;
@@ -344,7 +360,6 @@ def main():
             box-shadow: 0 4px 12px rgba(30, 64, 175, 0.4) !important;
         }
 
-        /* Logout Button */
         section[data-testid="stSidebar"] div.logout-btn-container div.stButton > button {
             background-color: #b91c1c !important;
             color: #ffffff !important;
@@ -377,8 +392,9 @@ def main():
     """, unsafe_allow_html=True)
 
     user = st.session_state.user
-    u_name = user.get('name') or user.get('username') or "පරිශීලක"
+    u_name = user.get('name') or user.get('full_name') or user.get('username') or "පරිශීලක"
     u_title = user.get('title') or "විෂය භාර නිලධාරී"
+    u_role = user.get('role') or user.get('role_designation') or "Officer"
     u_initial = u_name.strip()[0].upper() if u_name.strip() else "U"
 
     # Sidebar Header & User Profile
@@ -389,53 +405,4 @@ def main():
     </div>
 
     <div style='display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.06); padding: 12px; border-radius: 12px; margin: 15px 0; border: 1px solid rgba(255,255,255,0.08);'>
-        <div style='background: #1e40af; color: white; width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; flex-shrink: 0;'>
-            {u_initial}
-        </div>
-        <div style='overflow: hidden;'>
-            <div style='color: white !important; font-size: 13.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;' title='{u_name}'>{u_name}</div>
-            <div style='color: #94a3b8 !important; font-size: 11px; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;'>{u_title}</div>
-            <span style='background: #10b98125; color: #34d399 !important; font-size: 9.5px; font-weight: 800; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-top: 4px;'>{user.get('role')}</span>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Sidebar Navigation Buttons
-    nav_items = [
-        ("📊 පාලක පුවරුව", "පාලක පුවරුව"),
-        ("📑 වවුචර විස්තර", "වවුචර විස්තර"),
-        ("📝 වැඩසටහන් එක් කරන්න", "වැඩසටහන් එක් කරන්න"),
-        ("🖨️ පද්ධති වාර්තා", "පද්ධති වාර්තා")
-    ]
-
-    for label, key in nav_items:
-        if st.sidebar.button(label, key=f"nav_{key}", use_container_width=True):
-            st.session_state.selected_menu = key
-            st.rerun()
-
-    st.sidebar.markdown("<div class='logout-btn-container'>", unsafe_allow_html=True)
-    if st.sidebar.button("🚪 පද්ධතියෙන් ඉවත් වන්න", key="logout_btn", use_container_width=True):
-        st.session_state.logged_in = False
-        st.session_state.user = None
-        st.session_state.selected_menu = "පාලක පුවරුව"
-        if "aip_auth" in st.query_params:
-            del st.query_params["aip_auth"]
-        st.rerun()
-    st.sidebar.markdown("</div>", unsafe_allow_html=True)
-
-    modules_map = {
-        "පාලක පුවරුව": dashboard.render_dashboard,
-        "වවුචර විස්තර": vouchers.render_vouchers,
-        "වැඩසටහන් එක් කරන්න": activities.render_activities,
-        "පද්ධති වාර්තා": reports.render_reports
-    }
-
-    # තෝරාගත් මොඩියුලය (Charts සහිත Dashboard එක) ධාවනය කිරීම
-    modules_map[st.session_state.selected_menu](user)
-
-    # ප්‍රධාන පාලක පුවරුවේදී පමණක් මෑතකාලීන වියදම් වලට Edit / Delete Controls පහළින් එක් කිරීම
-    if st.session_state.selected_menu == "පාලක පුවරුව":
-        render_inline_expense_actions(user)
-
-if __name__ == "__main__":
-    main()
+        <div style='background: #1e40af; color: white; width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight:
