@@ -1,20 +1,22 @@
 import streamlit as st
 import sys
 import os
+import pandas as pd
 import importlib
 
-# 1. මෙම ගොනුව පිහිටි නිවැරදි Path එක තහවුරු කිරීම
+# 1. Path එක නිවැරදිව එක් කිරීම
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__)) if "__file__" in locals() else os.getcwd()
 if CURRENT_DIR not in sys.path:
     sys.path.insert(0, CURRENT_DIR)
 
-# 2. පැරණි cache වූ aip_db ඉවත් කර අලුතින් load කිරීම
+# 2. aip_db එක 'db' ලෙස import කර reload කිරීම
 if "aip_db" in sys.modules:
     del sys.modules["aip_db"]
 
-import aip_db
-importlib.reload(aip_db)
+import aip_db as db
+importlib.reload(db)
 
+from modules import dashboard, vouchers, activities, reports
 # --- Database Schema Migration (MySQL සඳහා delete_requested තීරුව නොමැති නම් එක් කිරීම) ---
 try:
     _conn = db.get_connection()
