@@ -4,7 +4,7 @@ import os
 import pandas as pd
 import importlib
 
-# 1. Path එක නිවැරදිව එක් කිරීම
+# 1. Sub-folder path නිවැරදිව තහවුරු කිරීම
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__)) if "__file__" in locals() else os.getcwd()
 if CURRENT_DIR not in sys.path:
     sys.path.insert(0, CURRENT_DIR)
@@ -17,45 +17,6 @@ import aip_db as db
 importlib.reload(db)
 
 from modules import dashboard, vouchers, activities, reports
-# --- Database Schema Migration (MySQL සඳහා delete_requested තීරුව නොමැති නම් එක් කිරීම) ---
-try:
-    _conn = db.get_connection()
-    _cur = _conn.cursor()
-    
-    # voucher_log සඳහා delete_requested සහ delete_reason පරීක්ෂා කර එක් කිරීම
-    try:
-        _cur.execute("""
-            SELECT COUNT(*) FROM information_schema.COLUMNS 
-            WHERE TABLE_SCHEMA = DATABASE() 
-              AND TABLE_NAME = 'voucher_log' 
-              AND COLUMN_NAME = 'delete_requested'
-        """)
-        if _cur.fetchone()[0] == 0:
-            _cur.execute("ALTER TABLE voucher_log ADD COLUMN delete_requested INT DEFAULT 0")
-            _cur.execute("ALTER TABLE voucher_log ADD COLUMN delete_reason TEXT")
-            _conn.commit()
-    except Exception:
-        pass
-
-    # program_data_log සඳහා delete_requested සහ delete_reason පරීක්ෂා කර එක් කිරීම
-    try:
-        _cur.execute("""
-            SELECT COUNT(*) FROM information_schema.COLUMNS 
-            WHERE TABLE_SCHEMA = DATABASE() 
-              AND TABLE_NAME = 'program_data_log' 
-              AND COLUMN_NAME = 'delete_requested'
-        """)
-        if _cur.fetchone()[0] == 0:
-            _cur.execute("ALTER TABLE program_data_log ADD COLUMN delete_requested INT DEFAULT 0")
-            _cur.execute("ALTER TABLE program_data_log ADD COLUMN delete_reason TEXT")
-            _conn.commit()
-    except Exception:
-        pass
-
-    _cur.close()
-    _conn.close()
-except Exception:
-    pass
 
 st.set_page_config(page_title="AIP 2026 - පිරිවෙන් ඒකකය", layout="wide", initial_sidebar_state="expanded")
 
@@ -76,7 +37,7 @@ if not st.session_state.logged_in:
             st.session_state.user = dict(user_data)
 
 # =========================================================================
-# මෑතකාලීන වියදම් ලොගය සඳහා Edit / Delete Actions Render කරන ශ්‍රිතය (MySQL Compatible)
+# මෑතකාලීන වියදම් ලොගය සඳහා Edit / Delete Actions Render කරන ශ්‍රිතය (API Compatible)
 # =========================================================================
 def render_inline_expense_actions(user):
     st.markdown("<br><hr style='border-color: #cbd5e1;'>", unsafe_allow_html=True)
@@ -84,47 +45,26 @@ def render_inline_expense_actions(user):
 
     is_super_admin = str(user.get("role", "")).lower() in ["super admin", "admin", "ප්‍රධාන පරිපාලක"]
 
-    conn = db.get_connection()
     try:
-        acc = user.get("access_level", "")
-        user_access = [x.strip() for x in acc.split(',')] if acc and acc != "All" else []
+        vouchers_df = db.fetch_vouchers_from_cloud()
+        if not vouchers_df.empty:
+            acc = user.get("access_level", "")
+            user_access = [x.strip() for x in acc.split(',')] if acc and acc != "All" else []
 
-        # MySQL හි rowid වෙනුවට voucher_id භාවිත වේ
-        if is_super_admin or acc == "All":
-            query = """
-                SELECT voucher_id AS id, entry_date AS timestamp, vote_code AS vote_number, 
-                       action_no, description, voucher_no, voucher_date, amount, 
-                       delete_requested, delete_reason, username
-                FROM voucher_log 
-                ORDER BY voucher_id DESC LIMIT 15
-            """
-            vouchers_df = pd.read_sql_query(query, conn)
+            if not is_super_admin and acc != "All":
+                if user_access:
+                    vouchers_df = vouchers_df[
+                        vouchers_df['action_no'].astype(str).isin(user_access) | 
+                        (vouchers_df['username'] == user.get('username'))
+                    ]
+                else:
+                    vouchers_df = vouchers_df[vouchers_df['username'] == user.get('username')]
+            
+            vouchers_df = vouchers_df.head(15)
         else:
-            if user_access:
-                placeholders = ",".join(["%s"] * len(user_access))
-                query = f"""
-                    SELECT voucher_id AS id, entry_date AS timestamp, vote_code AS vote_number, 
-                           action_no, description, voucher_no, voucher_date, amount, 
-                           delete_requested, delete_reason, username
-                    FROM voucher_log 
-                    WHERE action_no IN ({placeholders}) OR username = %s
-                    ORDER BY voucher_id DESC LIMIT 15
-                """
-                vouchers_df = pd.read_sql_query(query, conn, params=user_access + [user.get("username")])
-            else:
-                query = """
-                    SELECT voucher_id AS id, entry_date AS timestamp, vote_code AS vote_number, 
-                           action_no, description, voucher_no, voucher_date, amount, 
-                           delete_requested, delete_reason, username
-                    FROM voucher_log 
-                    WHERE username = %s
-                    ORDER BY voucher_id DESC LIMIT 15
-                """
-                vouchers_df = pd.read_sql_query(query, conn, params=[user.get("username")])
+            vouchers_df = pd.DataFrame()
     except Exception:
         vouchers_df = pd.DataFrame()
-    finally:
-        conn.close()
 
     if vouchers_df.empty:
         st.info("ඔබගේ විෂයට අදාළ මෑතකාලීන වියදම් කිසිවක් හමු නොවීය.")
@@ -136,15 +76,20 @@ def render_inline_expense_actions(user):
         border_color = "#ef4444" if is_del_pending else "#cbd5e1"
         bg_color = "#fef2f2" if is_del_pending else "#ffffff"
 
+        v_no_val = row.get("voucher_no") or row.get("v_no") or "N/A"
+        v_date_val = str(row.get("voucher_date") or row.get("v_date") or "N/A")[:10]
+        desc_val = row.get("description") or row.get("desc") or ""
+        vote_val = row.get("vote_number") or row.get("vote_no") or "N/A"
+
         card_html = (
             f'<div style="background-color: {bg_color}; border: 1.5px solid {border_color}; border-radius: 12px; padding: 14px 18px; margin-bottom: 8px;">'
             f'<table style="width: 100%; border-collapse: collapse; border: none;">'
             f'<tr style="border: none;">'
             f'<td style="text-align: left; vertical-align: top; border: none;">'
-            f'<strong style="color: #0f172a !important; font-size: 15px;">වවුචර අංකය: {row.get("voucher_no", "N/A")}</strong>'
-            f'<span style="color: #64748b !important; font-size: 12px; margin-left: 8px;">({str(row.get("voucher_date", "N/A"))[:10]})</span>'
+            f'<strong style="color: #0f172a !important; font-size: 15px;">වවුචර අංකය: {v_no_val}</strong>'
+            f'<span style="color: #64748b !important; font-size: 12px; margin-left: 8px;">({v_date_val})</span>'
             f'<div style="color: #334155 !important; font-size: 13.5px; margin-top: 4px;">'
-            f'වැය ශීර්ෂය: <b>{row.get("vote_number", "N/A")}</b> | විෂය/ක්‍රියාකාරකම: <b>#{row.get("action_no", "N/A")}</b> | විස්තරය: {row.get("description", "")}'
+            f'වැය ශීර්ෂය: <b>{vote_val}</b> | විෂය/ක්‍රියාකාරකම: <b>#{row.get("action_no", "N/A")}</b> | විස්තරය: {desc_val}'
             f'</div>'
             + (f'<div style="color: #dc2626 !important; font-size: 12px; margin-top: 4px;"><b>⚠️ ඉවත් කිරීමට ඉල්ලුම් කර ඇත:</b> {row.get("delete_reason", "")}</div>' if is_del_pending else '') +
             f'</td>'
@@ -163,14 +108,14 @@ def render_inline_expense_actions(user):
         with col_btn1:
             with st.popover("✏️ Edit"):
                 with st.form(key=f"edit_v_{v_id}"):
-                    st.write(f"**වවුචරය සංස්කරණය (#{row.get('voucher_no')})**")
-                    e_vno = st.text_input("වවුචර අංකය", value=str(row.get('voucher_no', '')))
-                    e_desc = st.text_input("විස්තරය", value=str(row.get('description', '')))
+                    st.write(f"**වවුචරය සංස්කරණය (#{v_no_val})**")
+                    e_vno = st.text_input("වවුචර අංකය", value=str(v_no_val))
+                    e_desc = st.text_input("විස්තරය", value=str(desc_val))
                     e_amount = st.number_input("මුදල (රු.)", value=float(row.get('amount', 0)), step=500.0)
-                    e_date = st.text_input("දිනය (YYYY-MM-DD)", value=str(row.get('voucher_date', ''))[:10])
+                    e_date = st.text_input("දිනය (YYYY-MM-DD)", value=str(v_date_val))
                     
                     if st.form_submit_button("💾 සුරකින්න"):
-                        db.update_voucher(v_id, row.get('vote_number'), row.get('action_no'), e_desc, e_vno, e_date, e_amount)
+                        db.update_voucher(v_id, vote_val, row.get('action_no'), e_desc, e_vno, e_date, e_amount)
                         st.toast("වවුචරය සාර්ථකව සංස්කරණය කරන ලදී!")
                         st.rerun()
 
@@ -182,7 +127,7 @@ def render_inline_expense_actions(user):
                             reason = st.text_input("හේතුව", placeholder="දත්ත වැරදීමක්")
                             if st.form_submit_button("ඉල්ලීම යවන්න"):
                                 if reason.strip():
-                                    db.request_voucher_delete(v_id, reason)
+                                    db.request_voucher_delete(v_id, reason.strip())
                                     st.toast("ඉල්ලීම Admin වෙත යොමු විය!")
                                     st.rerun()
                                 else:
@@ -294,7 +239,7 @@ def main():
                 
                 submitted = st.form_submit_button("පද්ධතියට පිවිසෙන්න")
                 if submitted:
-                    user = db.authenticate_user(u, p)
+                    user = db.authenticate_user(u.strip(), p.strip())
                     if user:
                         st.session_state.logged_in = True
                         st.session_state.user = dict(user)
@@ -403,7 +348,7 @@ def main():
     u_role = user.get('role') or user.get('role_designation') or "Officer"
     u_initial = u_name.strip()[0].upper() if u_name.strip() else "U"
 
-    # Sidebar Header & User Profile (Syntax Error එක සම්පූර්ණයෙන්ම වළක්වන පරිදි සකසන ලද කොටස)
+    # Sidebar Header & User Profile
     st.sidebar.markdown(
         "<div style='text-align: center; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.1);'>"
         "<h2 style='color: #fbbf24 !important; margin: 0; font-size: 22px; font-weight: 800;'>AIP 2026</h2>"
