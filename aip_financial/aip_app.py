@@ -8,7 +8,8 @@ CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 if CURRENT_DIR not in sys.path:
     sys.path.insert(0, CURRENT_DIR)
 
-import db
+# පැරණි import db වෙනුවට:
+import aip_db as db
 from modules import dashboard, vouchers, activities, reports
 
 # --- Database Schema Migration (MySQL සඳහා delete_requested තීරුව නොමැති නම් එක් කිරීම) ---
