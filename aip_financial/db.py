@@ -25,7 +25,17 @@ DB_CONFIG = {
     "user": "amparapi_aip_2026",
     "password": "Aippiriven@1234",
     "port": 3306,
-    "charset": "utf8mb4"
+    "charset": "utf8mb4"    
+}
+# db.py හි Database සැකසුම්
+DB_CONFIG = {
+    "host": "aip.2026.amparapiriven.lk",
+    "database": "amparapi_aip_2026",
+    "user": "amparapi_aip_2026",
+    "password": "Aippiriven@1234",
+    "port": 3306,
+    "charset": "utf8mb4",
+    "connect_timeout": 5  # තත්පර 5කට වඩා Freeze වීම වළක්වයි
 }
 
 def get_connection():
