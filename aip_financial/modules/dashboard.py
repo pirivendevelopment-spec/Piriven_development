@@ -69,16 +69,42 @@ def render_dashboard(user):
     </style>
     """, unsafe_allow_html=True)
 
-    # Database Fetch
+    # =========================================================
+    # MySQL Database Fetch (නව වගු සහ තීරු නම් සමඟ)
+    # =========================================================
     conn = db.get_connection()
-    ref_df = pd.read_sql_query("SELECT * FROM aip_reference", conn)
-    v_df = pd.read_sql_query("SELECT * FROM voucher_log", conn)
-    d_df = pd.read_sql_query("SELECT * FROM data_log", conn)
-    conn.close()
+    try:
+        # aip_activities වගුවෙන් (allocation_actual භාවිත වේ)
+        ref_df = pd.read_sql_query("""
+            SELECT action_no, vote_code AS vote_number, activity_name, category, 
+                   allocation_actual AS allocation 
+            FROM aip_activities 
+            WHERE status = 'Active'
+        """, conn)
 
+        # voucher_log වගුවෙන්
+        v_df = pd.read_sql_query("""
+            SELECT voucher_id, vote_code AS vote_number, action_no, description, 
+                   voucher_no, voucher_date, amount, delete_requested 
+            FROM voucher_log
+        """, conn)
+
+        # program_data_log වගුවෙන් (actual_expenditure භාවිත වේ)
+        d_df = pd.read_sql_query("""
+            SELECT log_id, vote_code AS vote_number, action_no, program_name AS activity_name, 
+                   location, held_date AS activity_date, actual_expenditure AS actual_cost, 
+                   delete_requested 
+            FROM program_data_log
+        """, conn)
+    finally:
+        conn.close()
+
+    # පරිශීලක ප්‍රවේශ අවසර (Access Level) අනුව පෙරීම
+    is_super_admin = str(user.get('role', '')).lower() in ["super admin", "admin", "ප්‍රධාන පරිපාලක"]
     acc = user.get('access_level', '')
     user_access = [x.strip() for x in acc.split(',')] if acc and acc != "All" else []
-    if user.get('role') != "Super Admin" and acc != "All":
+    
+    if not is_super_admin and acc != "All":
         ref_df = ref_df[ref_df['action_no'].isin(user_access)]
 
     # =========================================================
@@ -107,7 +133,7 @@ def render_dashboard(user):
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
 
-        # 3. Filter Dropdown (Alinged to buttons)
+        # 3. Filter Dropdown (Aligned to buttons)
         with flt_col:
             filter_choice = st.selectbox("", ["සමස්තය", "ප්‍රාග්ධන", "පුනරාවර්තන"], label_visibility="collapsed")
 
@@ -117,9 +143,15 @@ def render_dashboard(user):
         ref_df = ref_df[ref_df['category'] == sel_cat]
 
     # මූල්‍ය ගණනය කිරීම්
-    total_alloc = ref_df['allocation'].sum() if not ref_df.empty else 0.0
-    v_spent = v_df[v_df['action_no'].isin(ref_df['action_no'])]['amount'].sum() if not v_df.empty else 0.0
-    d_spent = d_df[d_df['action_no'].isin(ref_df['action_no'])]['actual_cost'].sum() if not d_df.empty else 0.0
+    total_alloc = float(ref_df['allocation'].sum()) if not ref_df.empty else 0.0
+    
+    # වලංගු (Delete Approve නොවූ) වියදම් පමණක් ගණනය කිරීම
+    v_valid = v_df[v_df.get('delete_requested', 0) != 1] if not v_df.empty else pd.DataFrame()
+    d_valid = d_df[d_df.get('delete_requested', 0) != 1] if not d_df.empty else pd.DataFrame()
+
+    v_spent = float(v_valid[v_valid['action_no'].isin(ref_df['action_no'])]['amount'].sum()) if not v_valid.empty else 0.0
+    d_spent = float(d_valid[d_valid['action_no'].isin(ref_df['action_no'])]['actual_cost'].sum()) if not d_valid.empty else 0.0
+    
     total_spent = v_spent + d_spent
     balance = total_alloc - total_spent
     fin_prog = (total_spent / total_alloc * 100) if total_alloc > 0 else 0.0
@@ -156,15 +188,16 @@ def render_dashboard(user):
         breakdown_rows = []
         for _, row in ref_df.iterrows():
             act = row['action_no']
-            v_s = v_df[v_df['action_no'] == act]['amount'].sum() if not v_df.empty else 0.0
-            d_s = d_df[d_df['action_no'] == act]['actual_cost'].sum() if not d_df.empty else 0.0
+            v_s = float(v_valid[v_valid['action_no'] == act]['amount'].sum()) if not v_valid.empty else 0.0
+            d_s = float(d_valid[d_valid['action_no'] == act]['actual_cost'].sum()) if not d_valid.empty else 0.0
             act_spent = v_s + d_s
-            act_bal = row['allocation'] - act_spent
+            act_alloc = float(row['allocation'])
+            act_bal = act_alloc - act_spent
 
             breakdown_rows.append({
                 "Action No": act,
                 "වැඩසටහන": row['activity_name'],
-                "ප්‍රතිපාදන (Rs.)": f"{row['allocation']:,.2f}",
+                "ප්‍රතිපාදන (Rs.)": f"{act_alloc:,.2f}",
                 "වියදම (Rs.)": f"{act_spent:,.2f}",
                 "ඉතිරිය (Rs.)": f"{act_bal:,.2f}"
             })
@@ -179,7 +212,7 @@ def render_dashboard(user):
             st.markdown('<div class="content-card" style="text-align: center;"><div class="content-header">මූල්‍ය ප්‍රගතිය (Financial)</div>', unsafe_allow_html=True)
             fig_fin = go.Figure(data=[go.Pie(
                 labels=['වියදම', 'ඉතිරිය'],
-                values=[total_spent, max(0, balance)],
+                values=[total_spent, max(0.0, balance)],
                 hole=.75,
                 marker_colors=['#1e40af', '#e2e8f0'],
                 textinfo='none'
@@ -217,28 +250,28 @@ def render_dashboard(user):
         st.markdown("""
         <div class="content-card" style="padding: 16px;">
             <div class="content-header" style="margin-bottom: 2px;">මෑතකාලීන වියදම් ලොගය</div>
-            <p style="font-size: 10px; color: #64748b; margin-bottom: 10px;">AIP_Reference තාර්කිකත්වය මත පදනම් වූ දත්ත</p>
+            <p style="font-size: 10px; color: #64748b; margin-bottom: 10px;">AIP සජීවී දත්ත පදනම් කරගත් ලේඛනය</p>
             <div style="max-height: 600px; overflow-y: auto;">
         """, unsafe_allow_html=True)
 
         combined_logs = []
         if not v_df.empty:
-            for _, r in v_df.tail(8).iterrows():
+            for _, r in v_df.tail(15).iterrows():
                 combined_logs.append({
                     "name": r.get('description') or "වවුචර වියදම",
                     "type": "Voucher",
                     "date": str(r.get('voucher_date', ''))[:10],
-                    "act": r.get('action_no', ''),
+                    "act": str(r.get('action_no', '')),
                     "cost": float(r.get('amount') or 0)
                 })
 
         if not d_df.empty:
-            for _, r in d_df.tail(8).iterrows():
+            for _, r in d_df.tail(15).iterrows():
                 combined_logs.append({
                     "name": r.get('activity_name') or "වැඩසටහන් වියදම",
                     "type": "Activity",
                     "date": str(r.get('activity_date', ''))[:10],
-                    "act": r.get('action_no', ''),
+                    "act": str(r.get('action_no', '')),
                     "cost": float(r.get('actual_cost') or 0)
                 })
 
