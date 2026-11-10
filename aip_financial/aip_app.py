@@ -115,7 +115,7 @@ def render_inline_expense_actions(user):
                     ORDER BY voucher_id DESC LIMIT 15
                 """
                 vouchers_df = pd.read_sql_query(query, conn, params=[user.get("username")])
-    except Exception as e:
+    except Exception:
         vouchers_df = pd.DataFrame()
     finally:
         conn.close()
@@ -397,12 +397,59 @@ def main():
     u_role = user.get('role') or user.get('role_designation') or "Officer"
     u_initial = u_name.strip()[0].upper() if u_name.strip() else "U"
 
-    # Sidebar Header & User Profile
-    st.sidebar.markdown(f"""
-    <div style='text-align: center; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.1);'>
-        <h2 style='color: #fbbf24 !important; margin: 0; font-size: 22px; font-weight: 800;'>AIP 2026</h2>
-        <p style='font-size: 10px; color: #94a3b8 !important; margin: 2px 0 0; text-transform: uppercase; letter-spacing: 1px;'>ප්‍රගති පාලන පද්ධතිය</p>
-    </div>
+    # Sidebar Header & User Profile (Syntax Error එක සම්පූර්ණයෙන්ම වළක්වන පරිදි සකසන ලද කොටස)
+    st.sidebar.markdown(
+        "<div style='text-align: center; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.1);'>"
+        "<h2 style='color: #fbbf24 !important; margin: 0; font-size: 22px; font-weight: 800;'>AIP 2026</h2>"
+        "<p style='font-size: 10px; color: #94a3b8 !important; margin: 2px 0 0; text-transform: uppercase; letter-spacing: 1px;'>ප්‍රගති පාලන පද්ධතිය</p>"
+        "</div>"
+        "<div style='display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.06); padding: 12px; border-radius: 12px; margin: 15px 0; border: 1px solid rgba(255,255,255,0.08);'>"
+        f"<div style='background: #1e40af; color: white; width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; flex-shrink: 0;'>{u_initial}</div>"
+        "<div style='overflow: hidden;'>"
+        f"<div style='color: white !important; font-size: 13.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;' title='{u_name}'>{u_name}</div>"
+        f"<div style='color: #94a3b8 !important; font-size: 11px; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;'>{u_title}</div>"
+        f"<span style='background: #10b98125; color: #34d399 !important; font-size: 9.5px; font-weight: 800; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-top: 4px;'>{u_role}</span>"
+        "</div>"
+        "</div>",
+        unsafe_allow_html=True
+    )
 
-    <div style='display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.06); padding: 12px; border-radius: 12px; margin: 15px 0; border: 1px solid rgba(255,255,255,0.08);'>
-        <div style='background: #1e40af; color: white; width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight:
+    # Sidebar Navigation Buttons
+    nav_items = [
+        ("📊 පාලක පුවරුව", "පාලක පුවරුව"),
+        ("📑 වවුචර විස්තර", "වවුචර විස්තර"),
+        ("📝 වැඩසටහන් එක් කරන්න", "වැඩසටහන් එක් කරන්න"),
+        ("🖨️ පද්ධති වාර්තා", "පද්ධති වාර්තා")
+    ]
+
+    for label, key in nav_items:
+        if st.sidebar.button(label, key=f"nav_{key}", use_container_width=True):
+            st.session_state.selected_menu = key
+            st.rerun()
+
+    st.sidebar.markdown("<div class='logout-btn-container'>", unsafe_allow_html=True)
+    if st.sidebar.button("🚪 පද්ධතියෙන් ඉවත් වන්න", key="logout_btn", use_container_width=True):
+        st.session_state.logged_in = False
+        st.session_state.user = None
+        st.session_state.selected_menu = "පාලක පුවරුව"
+        if "aip_auth" in st.query_params:
+            del st.query_params["aip_auth"]
+        st.rerun()
+    st.sidebar.markdown("</div>", unsafe_allow_html=True)
+
+    modules_map = {
+        "පාලක පුවරුව": dashboard.render_dashboard,
+        "වවුචර විස්තර": vouchers.render_vouchers,
+        "වැඩසටහන් එක් කරන්න": activities.render_activities,
+        "පද්ධති වාර්තා": reports.render_reports
+    }
+
+    # තෝරාගත් මොඩියුලය ධාවනය කිරීම
+    modules_map[st.session_state.selected_menu](user)
+
+    # ප්‍රධාන පාලක පුවරුවේදී පමණක් මෑතකාලීන වියදම් වලට Edit / Delete Controls පහළින් එක් කිරීම
+    if st.session_state.selected_menu == "පාලක පුවරුව":
+        render_inline_expense_actions(user)
+
+if __name__ == "__main__":
+    main()
