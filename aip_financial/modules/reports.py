@@ -5,8 +5,9 @@ from datetime import datetime
 import db
 
 def render_reports(user):
-    # Super Admin පරීක්ෂාව
-    if user.get("role") != "Super Admin":
+    # Super Admin / Admin පරීක්ෂාව
+    u_role = str(user.get("role") or user.get("role_designation") or "").strip().lower()
+    if u_role not in ["super admin", "admin", "ප්‍රධාන පරිපාලක"]:
         st.error("මෙම පද්ධති වාර්තා බැලීමට 'Super Admin' බලතල අවශ්‍ය වේ.")
         return
 
@@ -33,20 +34,44 @@ def render_reports(user):
     }
     sel_filter = cat_map[filter_option]
 
-    # 2. Database වෙතින් දත්ත කියවීම
+    # 2. MySQL Database වෙතින් දත්ත කියවීම (යාවත්කාලීන කළ Queries)
     conn = db.get_connection()
-    ref_df = pd.read_sql_query("SELECT * FROM aip_reference", conn)
-    v_df = pd.read_sql_query("SELECT * FROM voucher_log", conn)
-    d_df = pd.read_sql_query("SELECT * FROM data_log", conn)
-    conn.close()
+    try:
+        # aip_activities වගුවෙන් (allocation_actual භාවිතයෙන්)
+        ref_df = pd.read_sql_query("""
+            SELECT action_no, vote_code AS vote_number, activity_name, category, 
+                   allocation_actual AS allocation 
+            FROM aip_activities 
+            WHERE status = 'Active'
+            ORDER BY activity_id ASC
+        """, conn)
+
+        # voucher_log වගුවෙන්
+        v_df = pd.read_sql_query("""
+            SELECT voucher_id, vote_code AS vote_number, action_no, amount, delete_requested 
+            FROM voucher_log
+        """, conn)
+
+        # program_data_log වගුවෙන් (actual_expenditure භාවිතයෙන්)
+        d_df = pd.read_sql_query("""
+            SELECT log_id, vote_code AS vote_number, action_no, 
+                   actual_expenditure AS actual_cost, delete_requested 
+            FROM program_data_log
+        """, conn)
+    finally:
+        conn.close()
 
     if ref_df.empty:
-        st.warning("AIP Reference දත්ත හමු නොවීය.")
+        st.warning("AIP Activities දත්ත හමු නොවීය.")
         return
 
     # Filter යෙදීම
     if sel_filter != "All":
         ref_df = ref_df[ref_df['category'] == sel_filter]
+
+    # Delete request කර නොමැති (වලංගු) වියදම් පමණක් ගණනය කිරීම
+    v_valid = v_df[v_df.get('delete_requested', 0) != 1] if not v_df.empty else pd.DataFrame()
+    d_valid = d_df[d_df.get('delete_requested', 0) != 1] if not d_df.empty else pd.DataFrame()
 
     # ගණනය කිරීම්
     t_alloc = 0.0
@@ -56,14 +81,14 @@ def render_reports(user):
     export_rows = []
 
     for _, row in ref_df.iterrows():
-        act = row['action_no']
-        vote = row['vote_number']
-        name = row['activity_name']
+        act = str(row['action_no'])
+        vote = str(row['vote_number'])
+        name = str(row['activity_name'])
         alloc = float(row['allocation'] or 0.0)
 
         # වියදම් එකතුව
-        v_s = v_df[v_df['action_no'] == act]['amount'].sum() if not v_df.empty else 0.0
-        d_s = d_df[d_df['action_no'] == act]['actual_cost'].sum() if not d_df.empty else 0.0
+        v_s = float(v_valid[v_valid['action_no'] == act]['amount'].sum()) if not v_valid.empty else 0.0
+        d_s = float(d_valid[d_valid['action_no'] == act]['actual_cost'].sum()) if not d_valid.empty else 0.0
         spent = v_s + d_s
 
         t_alloc += alloc
@@ -120,7 +145,7 @@ def render_reports(user):
             use_container_width=True
         )
 
-    # 3. කලින් සාදන ලද සම්පූර්ණ A4 Landscape HTML ආකෘතිය සහ Print Engine එක
+    # 3. සම්පූර්ණ A4 Landscape HTML ආකෘතිය සහ Print Engine එක
     report_complete_html = f"""
     <!DOCTYPE html>
     <html>
@@ -143,7 +168,7 @@ def render_reports(user):
         }}
         .btn-print:hover {{ background: #1e3a8a; transform: translateY(-1px); }}
 
-        /* මුද්‍රණය වන කඩදාසි පත්‍රිකාව (Exact CSS) */
+        /* මුද්‍රණය වන කඩදාසි පත්‍රිකාව */
         .printable-sheet {{
             background: white; width: 100%; padding: 25px;
             border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.06);
@@ -317,5 +342,5 @@ def render_reports(user):
     </html>
     """
 
-    # Streamlit Component එකක් ලෙස සෘජුවම Embed කිරීම (Full Width & Scrollable Preview)
+    # Streamlit Component එකක් ලෙස Preview කිරීම
     components.html(report_complete_html, height=850, scrolling=True)
