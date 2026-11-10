@@ -1,7 +1,8 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-import db
+# පැරණි import db වෙනුවට:
+import aip_db as db
 
 def render_dashboard(user):
     st.markdown("""
