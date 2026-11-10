@@ -1,16 +1,19 @@
 import streamlit as st
 import sys
 import os
-import pandas as pd
+import importlib
 
-# Sub-folder path නිවැරදිව තහවුරු කිරීම
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+# 1. මෙම ගොනුව පිහිටි නිවැරදි Path එක තහවුරු කිරීම
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__)) if "__file__" in locals() else os.getcwd()
 if CURRENT_DIR not in sys.path:
     sys.path.insert(0, CURRENT_DIR)
 
-# පැරණි import db වෙනුවට:
-import aip_db as db
-from modules import dashboard, vouchers, activities, reports
+# 2. පැරණි cache වූ aip_db ඉවත් කර අලුතින් load කිරීම
+if "aip_db" in sys.modules:
+    del sys.modules["aip_db"]
+
+import aip_db
+importlib.reload(aip_db)
 
 # --- Database Schema Migration (MySQL සඳහා delete_requested තීරුව නොමැති නම් එක් කිරීම) ---
 try:
