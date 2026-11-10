@@ -1,7 +1,8 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-import db
+# පැරණි import db වෙනුවට:
+import aip_db as db
 
 def render_activities(user):
     st.markdown("### 📋 වැඩසටහන් දත්ත ඇතුළත් කිරීම (Activity Entry)")
