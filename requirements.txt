@@ -11,3 +11,5 @@ plotly
 gspread
 oauth2client
 xlsxwriter
+mysql-connector-python
+PyMySQL
