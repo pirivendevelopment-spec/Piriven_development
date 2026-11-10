@@ -1,68 +1,36 @@
-import re
-from datetime import datetime
+import requests
 import pandas as pd
 import streamlit as st
 
-# 1. Database Driver ආරක්ෂිතව load කිරීම
-USE_CONNECTOR = False
-try:
-    import pymysql
-    pymysql.install_as_MySQLdb()
-except ImportError:
+# =========================================================================
+# API BRIDGE CONFIGURATION
+# =========================================================================
+# ඔබගේ හොස්ට් එකෙහි ඇති PHP Setup / API ගොනුවේ වෙබ් ලිපිනය
+API_URL = "https://aip.2026.amparapiriven.lk/aip_db_setup.php"
+API_KEY = "AIP_SECRET_2026_SECURE_TOKEN"
+
+def call_api(action, payload=None):
+    """PHP API එක අමතා JSON ප්‍රතිචාරය ලබා ගැනීම."""
+    headers = {
+        "X-Api-Key": API_KEY,
+        "Content-Type": "application/json"
+    }
+    data = payload or {}
+    data["action"] = action
     try:
-        import mysql.connector
-        USE_CONNECTOR = True
-    except ImportError:
-        pass
+        response = requests.post(f"{API_URL}?action={action}", json=data, headers=headers, timeout=12)
+        if response.status_code == 200:
+            return response.json()
+        return {"status": "error", "message": f"HTTP {response.status_code}"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 # =========================================================================
-# 2. MYSQL DATABASE CONFIGURATION
-# =========================================================================
-DB_CONFIG = {
-    "host": "aip.2026.amparapiriven.lk",
-    "database": "amparapi_aip_2026",
-    "user": "amparapi_aip_2026",
-    "password": "Aippiriven@1234",
-    "port": 3306,
-    "charset": "utf8mb4"
-}
-
-def get_connection():
-    """MySQL සම්බන්ධතාවය ලබා ගැනීම."""
-    try:
-        if USE_CONNECTOR:
-            import mysql.connector
-            return mysql.connector.connect(**DB_CONFIG, autocommit=True, use_unicode=True)
-        else:
-            import pymysql
-            return pymysql.connect(
-                **DB_CONFIG,
-                autocommit=True,
-                cursorclass=pymysql.cursors.DictCursor,
-                connect_timeout=7
-            )
-    except Exception:
-        # Remote සම්බන්ධ වීමට නොහැකි වුවහොත් localhost උත්සාහ කිරීම
-        fallback = DB_CONFIG.copy()
-        fallback["host"] = "localhost"
-        if USE_CONNECTOR:
-            import mysql.connector
-            return mysql.connector.connect(**fallback, autocommit=True, use_unicode=True)
-        else:
-            import pymysql
-            return pymysql.connect(
-                **fallback,
-                autocommit=True,
-                cursorclass=pymysql.cursors.DictCursor,
-                connect_timeout=7
-            )
-
-# =========================================================================
-# 3. AUTHENTICATION & LOGIN FUNCTIONS (අත්‍යවශ්‍ය කොටස)
+# 1. AUTHENTICATION & USER MANAGEMENT
 # =========================================================================
 def authenticate_user(username, password):
-    """පරිශීලක නාමය සහ මුරපදය පරීක්ෂා කිරීම."""
-    # 1. හදිසි අවස්ථාවකදී කෙලින්ම super_admin සඳහා fallback login සහාය
+    """පරිශීලකයා සත්‍යාපනය කිරීම."""
+    # Emergency fallback login
     if username == "super_admin" and password == "Admin@2026":
         return {
             "username": "super_admin",
@@ -74,33 +42,13 @@ def authenticate_user(username, password):
             "access_level": "All Management"
         }
 
-    # 2. Database එකෙන් පරීක්ෂා කිරීම
-    try:
-        conn = get_connection()
-        if USE_CONNECTOR:
-            cursor = conn.cursor(dictionary=True)
-        else:
-            cursor = conn.cursor()
-
-        cursor.execute("SELECT * FROM users WHERE username = %s AND status = 'Active' LIMIT 1", (username,))
-        user = cursor.fetchone()
-        
-        cursor.close()
-        conn.close()
-
-        if user:
-            stored_pass = str(user.get("password_hash", ""))
-            if stored_pass == password or password == "Admin@2026":
-                user["role"] = user.get("role_designation", "Officer")
-                user["name"] = user.get("full_name", username)
-                return user
-        return None
-    except Exception as e:
-        print(f"Auth DB Exception: {e}")
-        return None
+    res = call_api("authenticate", {"username": username, "password": password})
+    if res.get("status") == "success":
+        return res.get("data")
+    return None
 
 def get_user_by_username(username):
-    """Username අනුව පරිශීලක තොරතුරු ලබා ගැනීම."""
+    """පරිශීලක තොරතුරු ලබා ගැනීම."""
     if username == "super_admin":
         return {
             "username": "super_admin",
@@ -111,83 +59,101 @@ def get_user_by_username(username):
             "role_designation": "Super Admin",
             "access_level": "All Management"
         }
-    try:
-        conn = get_connection()
-        cursor = conn.cursor(dictionary=True) if USE_CONNECTOR else conn.cursor()
-        cursor.execute("SELECT * FROM users WHERE username = %s LIMIT 1", (username,))
-        user = cursor.fetchone()
-        cursor.close()
-        conn.close()
-        if user:
-            user["role"] = user.get("role_designation", "Officer")
-            user["name"] = user.get("full_name", username)
-        return user
-    except Exception:
-        return None
+
+    res = call_api("get_user", {"username": username})
+    if res.get("status") == "success":
+        return res.get("data")
+    return None
 
 # =========================================================================
-# 4. REFERENCE & LOG FUNCTIONS
+# 2. REFERENCES & DATA RETRIEVAL
 # =========================================================================
 def get_reference_options(user):
-    conn = get_connection()
-    try:
-        query = "SELECT action_no, vote_code AS vote_number, activity_name, category FROM aip_activities WHERE status = 'Active'"
-        ref_df = pd.read_sql_query(query, conn)
-    finally:
-        conn.close()
+    """AIP විෂයයන් සහ ක්‍රියාකාරකම් ලබා ගැනීම."""
+    res = call_api("get_reference")
+    if res.get("status") == "success":
+        df = pd.DataFrame(res.get("data", []))
+    else:
+        df = pd.DataFrame()
 
-    acc = user.get("access_level", "")
-    user_access = [x.strip() for x in acc.split(",")] if acc and acc != "All" else []
-    if user.get("role") not in ["Super Admin", "Admin"] and acc != "All":
-        ref_df = ref_df[ref_df["action_no"].isin(user_access)]
-    return ref_df
+    if not df.empty:
+        acc = user.get("access_level", "")
+        user_access = [x.strip() for x in acc.split(",")] if acc and acc != "All" else []
+        if user.get("role") not in ["Super Admin", "Admin", "ප්‍රධාන පරිපාලක"] and acc != "All":
+            df = df[df["action_no"].isin(user_access)]
+    return df
 
 def fetch_vouchers_from_cloud():
-    conn = get_connection()
-    try:
-        query = "SELECT voucher_id AS id, entry_date AS timestamp, username, vote_code AS vote_no, action_no, description AS `desc`, voucher_no AS v_no, voucher_date AS v_date, amount, delete_requested, delete_reason FROM voucher_log ORDER BY voucher_id DESC"
-        return pd.read_sql_query(query, conn)
-    except Exception:
-        return pd.DataFrame()
-    finally:
-        conn.close()
+    """වවුචර් දත්ත API එකෙන් කියවීම."""
+    res = call_api("fetch_vouchers")
+    if res.get("status") == "success":
+        return pd.DataFrame(res.get("data", []))
+    return pd.DataFrame()
 
 def fetch_activities_from_cloud():
-    conn = get_connection()
-    try:
-        query = "SELECT log_id AS id, entry_date AS timestamp, username, vote_code AS vote_no, action_no, program_name AS act_name, location AS loc, held_date AS act_date, beneficiaries_count AS ben, estimated_amount AS est, actual_expenditure AS cost, delete_requested, delete_reason FROM program_data_log ORDER BY log_id DESC"
-        return pd.read_sql_query(query, conn)
-    except Exception:
-        return pd.DataFrame()
-    finally:
-        conn.close()
+    """වැඩසටහන් දත්ත API එකෙන් කියවීම."""
+    res = call_api("fetch_activities")
+    if res.get("status") == "success":
+        return pd.DataFrame(res.get("data", []))
+    return pd.DataFrame()
 
+# =========================================================================
+# 3. SAVE ACTIONS
+# =========================================================================
 def save_voucher(username, vote_no, action_no, desc, v_no, v_date, est_amount, amount):
-    conn = get_connection()
-    try:
-        cursor = conn.cursor()
-        query = "INSERT INTO voucher_log (entry_date, username, vote_code, action_no, description, voucher_no, voucher_date, amount) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        cursor.execute(query, (now, str(username), str(vote_no), str(action_no), str(desc), str(v_no), str(v_date), float(amount)))
-        cursor.close()
-        return True
-    except Exception as e:
-        print(f"Save Voucher Error: {e}")
-        return False
-    finally:
-        conn.close()
+    """වවුචරය සුරැකීම."""
+    payload = {
+        "username": username,
+        "vote_no": vote_no,
+        "action_no": action_no,
+        "desc": desc,
+        "v_no": v_no,
+        "v_date": v_date,
+        "amount": amount
+    }
+    res = call_api("save_voucher", payload)
+    return res.get("status") == "success"
 
 def save_activity(username, vote_no, action_no, act_name, loc, act_date, ben, est, cost):
-    conn = get_connection()
-    try:
-        cursor = conn.cursor()
-        query = "INSERT INTO program_data_log (entry_date, username, vote_code, action_no, program_name, location, held_date, beneficiaries_count, estimated_amount, actual_expenditure) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        cursor.execute(query, (now, str(username), str(vote_no), str(action_no), str(act_name), str(loc), str(act_date), int(ben), float(est), float(cost)))
-        cursor.close()
-        return True
-    except Exception as e:
-        print(f"Save Activity Error: {e}")
-        return False
-    finally:
-        conn.close()
+    """වැඩසටහන් දත්ත සුරැකීම."""
+    payload = {
+        "username": username,
+        "vote_no": vote_no,
+        "action_no": action_no,
+        "act_name": act_name,
+        "loc": loc,
+        "act_date": act_date,
+        "ben": ben,
+        "est": est,
+        "cost": cost
+    }
+    res = call_api("save_activity", payload)
+    return res.get("status") == "success"
+
+# =========================================================================
+# 4. EDIT & DELETE ACTIONS
+# =========================================================================
+def update_voucher(voucher_id, vote_number, action_no, description, voucher_no, voucher_date, amount):
+    """වවුචරය සංස්කරණය කිරීම."""
+    payload = {
+        "voucher_id": voucher_id,
+        "vote_number": vote_number,
+        "action_no": action_no,
+        "description": description,
+        "voucher_no": voucher_no,
+        "voucher_date": voucher_date,
+        "amount": amount
+    }
+    call_api("update_voucher", payload)
+
+def request_voucher_delete(voucher_id, reason):
+    """වවුචරය ඉවත් කිරීමේ ඉල්ලීමක් යැවීම."""
+    call_api("request_voucher_delete", {"voucher_id": voucher_id, "reason": reason})
+
+def delete_voucher_permanent(voucher_id):
+    """වවුචරය ස්ථිරවම මකා දැමීම."""
+    call_api("delete_voucher_permanent", {"voucher_id": voucher_id})
+
+def cancel_voucher_delete_request(voucher_id):
+    """මැකීමේ ඉල්ලීම අවලංගු කිරීම."""
+    call_api("cancel_voucher_delete_request", {"voucher_id": voucher_id})
