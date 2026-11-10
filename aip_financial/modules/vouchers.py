@@ -1,7 +1,8 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-import db
+# පැරණි import db වෙනුවට:
+import aip_db as db
 
 def render_vouchers(user):
     st.markdown("### 📝 වවුචර විස්තර ඇතුළත් කිරීම (Voucher Entry)")
