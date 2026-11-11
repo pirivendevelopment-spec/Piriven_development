@@ -198,3 +198,26 @@ def delete_voucher_permanent(voucher_id):
 
 def cancel_voucher_delete_request(voucher_id):
     call_api("cancel_voucher_delete_request", {"voucher_id": voucher_id})
+def update_activity(log_id, act_name, loc, act_date, ben, est, cost):
+    """වැඩසටහන් දත්ත යාවත්කාලීන කිරීම."""
+    call_api("update_activity", {
+        "log_id": log_id,
+        "act_name": act_name,
+        "loc": loc,
+        "act_date": act_date,
+        "ben": ben,
+        "est": est,
+        "cost": cost
+    })
+
+def request_activity_delete(log_id, reason):
+    """වැඩසටහන් වාර්තාවක් මැකීමේ ඉල්ලීමක් යැවීම."""
+    call_api("request_activity_delete", {"log_id": log_id, "reason": reason})
+
+def delete_activity_permanent(log_id):
+    """වැඩසටහන ස්ථිරවම මකා දැමීම."""
+    call_api("delete_activity_permanent", {"log_id": log_id})
+
+def cancel_activity_delete_request(log_id):
+    """මැකීමේ ඉල්ලීම ප්‍රතික්ෂේප කිරීම."""
+    call_api("cancel_activity_delete_request", {"log_id": log_id})
