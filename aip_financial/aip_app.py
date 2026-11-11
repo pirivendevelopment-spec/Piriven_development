@@ -4,12 +4,12 @@ import os
 import pandas as pd
 import importlib
 
-# 1. Sub-folder path නිවැරදිව තහවුරු කිරීම
+# 1. aip_financial folder එක sys.path හි මුල්ම ස්ථානයට එක් කිරීම
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__)) if "__file__" in locals() else os.getcwd()
 if CURRENT_DIR not in sys.path:
     sys.path.insert(0, CURRENT_DIR)
 
-# 2. aip_db එක 'db' ලෙස import කර reload කිරීම
+# 2. පවතින cache එක ඉවත් කර aip_financial/aip_db.py නැවුම්ව import කිරීම
 if "aip_db" in sys.modules:
     del sys.modules["aip_db"]
 
