@@ -1,347 +1,191 @@
 import streamlit as st
-import streamlit.components.v1 as components
 import pandas as pd
 from datetime import datetime
-# පැරණි import db වෙනුවට:
 import aip_db as db
 
 def render_reports(user):
-    # Super Admin / Admin පරීක්ෂාව
-    u_role = str(user.get("role") or user.get("role_designation") or "").strip().lower()
-    if u_role not in ["super admin", "admin", "ප්‍රධාන පරිපාලක"]:
-        st.error("මෙම පද්ධති වාර්තා බැලීමට 'Super Admin' බලතල අවශ්‍ය වේ.")
-        return
-
     st.markdown("""
-    <div style="margin-bottom: 15px;">
-        <h3 style="margin: 0; color: #1e1b4b; font-weight: 800; font-size: 20px;">පද්ධති ප්‍රගති වාර්තා (A4 Landscape)</h3>
-        <p style="margin: 4px 0 0; color: #64748b; font-size: 12px;">ප්‍රධාන වැය ශීර්ෂයන්හි ඒකාබද්ධ ප්‍රගතිය, සාරාංශය සහ මුද්‍රණ පෙරදසුන</p>
-    </div>
+    <style>
+        .report-header {
+            background-color: #ffffff;
+            border-radius: 10px;
+            padding: 16px 20px;
+            border: 1px solid #e2e8f0;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .report-summary-box {
+            background: #ffffff;
+            border-radius: 10px;
+            padding: 14px 18px;
+            border: 1px solid #cbd5e1;
+            text-align: center;
+        }
+        .sum-title { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin: 0; }
+        .sum-value { font-size: 20px; font-weight: 800; margin-top: 4px; }
+        
+        @media print {
+            body { -webkit-print-color-adjust: exact; }
+            section[data-testid="stSidebar"], .stButton, div[data-testid="stSelectbox"] {
+                display: none !important;
+            }
+            .block-container {
+                padding: 0 !important;
+            }
+        }
+    </style>
     """, unsafe_allow_html=True)
 
-    # 1. පාලක පැනලය (Filter & Actions)
-    f_col1, f_col2 = st.columns([1.5, 2])
-    with f_col1:
-        filter_option = st.selectbox(
-            "වාර්තා පෙරහන තෝරන්න:",
-            ["සමස්ත ප්‍රගතිය (Grand Total)", "පුනරාවර්තන (Recurrent)", "ප්‍රාග්ධන (Capital)"],
-            index=0
-        )
-    
-    cat_map = {
-        "සමස්ත ප්‍රගතිය (Grand Total)": "All",
-        "පුනරාවර්තන (Recurrent)": "Recurrent",
-        "ප්‍රාග්ධන (Capital)": "Capital"
-    }
-    sel_filter = cat_map[filter_option]
+    st.markdown("<h3 style='margin:0; font-size:22px; font-weight:800; color:#1e1b4b;'>වාර්තා ප්‍රකාශන පුවරුව (A4 Landscape)</h3>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #64748b; font-size: 13.5px; margin-top: 2px;'>ප්‍රධාන වැය ශීර්ෂයන්හි ඒකාබද්ධ ප්‍රගතිය, සාරාංශය සහ මුද්‍රණ පෙරදසුන</p>", unsafe_allow_html=True)
 
-    # 2. MySQL Database වෙතින් දත්ත කියවීම (යාවත්කාලීන කළ Queries)
-    conn = db.get_connection()
-    try:
-        # aip_activities වගුවෙන් (allocation_actual භාවිතයෙන්)
-        ref_df = pd.read_sql_query("""
-            SELECT action_no, vote_code AS vote_number, activity_name, category, 
-                   allocation_actual AS allocation 
-            FROM aip_activities 
-            WHERE status = 'Active'
-            ORDER BY activity_id ASC
-        """, conn)
+    # 1. API හරහා දත්ත ලබා ගැනීම (No SQL Connections)
+    ref_df = db.get_reference_options(user)
+    v_df = db.fetch_vouchers_from_cloud()
+    d_df = db.fetch_activities_from_cloud()
 
-        # voucher_log වගුවෙන්
-        v_df = pd.read_sql_query("""
-            SELECT voucher_id, vote_code AS vote_number, action_no, amount, delete_requested 
-            FROM voucher_log
-        """, conn)
-
-        # program_data_log වගුවෙන් (actual_expenditure භාවිතයෙන්)
-        d_df = pd.read_sql_query("""
-            SELECT log_id, vote_code AS vote_number, action_no, 
-                   actual_expenditure AS actual_cost, delete_requested 
-            FROM program_data_log
-        """, conn)
-    finally:
-        conn.close()
+    # 2. වාර්තා පෙරහන (Filter)
+    filter_choice = st.selectbox(
+        "වාර්තා පෙරහන තෝරන්න:",
+        ["සමස්ත ප්‍රගතිය (Grand Total)", "ප්‍රාග්ධන (Capital)", "පුනරාවර්තන (Recurrent)"]
+    )
 
     if ref_df.empty:
-        st.warning("AIP Activities දත්ත හමු නොවීය.")
+        st.info("ප්‍රදර්ශනය කිරීමට අදාළ විෂය දත්ත කිසිවක් හමු නොවීය.")
         return
 
-    # Filter යෙදීම
-    if sel_filter != "All":
-        ref_df = ref_df[ref_df['category'] == sel_filter]
+    # Allocation තීරුව සංඛ්‍යාත්මක අගයක් බවට පත් කිරීම
+    if 'allocation' not in ref_df.columns:
+        if 'allocation_actual' in ref_df.columns:
+            ref_df['allocation'] = ref_df['allocation_actual']
+        else:
+            ref_df['allocation'] = 0.0
+    ref_df['allocation'] = pd.to_numeric(ref_df['allocation'], errors='coerce').fillna(0.0)
 
-    # Delete request කර නොමැති (වලංගු) වියදම් පමණක් ගණනය කිරීම
-    v_valid = v_df[v_df.get('delete_requested', 0) != 1] if not v_df.empty else pd.DataFrame()
-    d_valid = d_df[d_df.get('delete_requested', 0) != 1] if not d_df.empty else pd.DataFrame()
+    # Filter කිරීම
+    if filter_choice == "ප්‍රාග්ධන (Capital)" and 'category' in ref_df.columns:
+        ref_df = ref_df[ref_df['category'] == "Capital"]
+    elif filter_choice == "පුනරාවර්තන (Recurrent)" and 'category' in ref_df.columns:
+        ref_df = ref_df[ref_df['category'] == "Recurrent"]
 
-    # ගණනය කිරීම්
-    t_alloc = 0.0
-    t_spent = 0.0
-    total_weighted_physical = 0.0
-    table_rows_html = ""
-    export_rows = []
+    # Delete requested නොවන වලංගු ලොග පමණක් ලබා ගැනීම
+    v_valid = v_df[v_df.get('delete_requested', 0) != 1] if not v_df.empty and 'delete_requested' in v_df.columns else v_df
+    d_valid = d_df[d_df.get('delete_requested', 0) != 1] if not d_df.empty and 'delete_requested' in d_df.columns else d_df
 
-    for _, row in ref_df.iterrows():
-        act = str(row['action_no'])
-        vote = str(row['vote_number'])
-        name = str(row['activity_name'])
-        alloc = float(row['allocation'] or 0.0)
+    if not v_valid.empty and 'action_no' in v_valid.columns:
+        v_valid['clean_act'] = v_valid['action_no'].astype(str).str.strip().str.removesuffix('.0')
+    if not d_valid.empty and 'action_no' in d_valid.columns:
+        d_valid['clean_act'] = d_valid['action_no'].astype(str).str.strip().str.removesuffix('.0')
 
-        # වියදම් එකතුව
-        v_s = float(v_valid[v_valid['action_no'] == act]['amount'].sum()) if not v_valid.empty else 0.0
-        d_s = float(d_valid[d_valid['action_no'] == act]['actual_cost'].sum()) if not d_valid.empty else 0.0
-        spent = v_s + d_s
+    # 3. විෂය සහ ක්‍රියාකාරකම් මට්ටමින් සාරාංශ වාර්තාව සකස් කිරීම
+    report_rows = []
+    tot_alloc_sum = 0.0
+    tot_v_spent = 0.0
+    tot_d_spent = 0.0
 
-        t_alloc += alloc
-        t_spent += spent
+    for idx, row in ref_df.iterrows():
+        act_raw = str(row.get('action_no', ''))
+        clean_act = act_raw.strip().removesuffix('.0')
+        vote_code = row.get('vote_number') or row.get('vote_code') or 'N/A'
+        act_name = row.get('activity_name', 'N/A')
+        alloc = float(pd.to_numeric(row.get('allocation', 0), errors='coerce') or 0.0)
 
-        fin_prog = (spent / alloc * 100) if alloc > 0 else 0.0
-        phy_prog = min(100, int(fin_prog * 1.1)) if alloc > 0 else (100 if spent > 0 else 0)
+        # Voucher වියදම
+        v_spent = 0.0
+        if not v_valid.empty and 'clean_act' in v_valid.columns:
+            v_match = v_valid[v_valid['clean_act'] == clean_act]
+            if not v_match.empty and 'amount' in v_match.columns:
+                v_spent = float(pd.to_numeric(v_match['amount'], errors='coerce').fillna(0.0).sum())
 
-        total_weighted_physical += (alloc * phy_prog)
+        # Program වියදම
+        d_spent = 0.0
+        if not d_valid.empty and 'clean_act' in d_valid.columns:
+            d_match = d_valid[d_valid['clean_act'] == clean_act]
+            if not d_match.empty:
+                cost_col = 'actual_expenditure' if 'actual_expenditure' in d_match.columns else ('cost' if 'cost' in d_match.columns else 'actual_cost')
+                if cost_col in d_match.columns:
+                    d_spent = float(pd.to_numeric(d_match[cost_col], errors='coerce').fillna(0.0).sum())
 
-        alloc_mn = f"{(alloc / 1000000):.2f}"
-        spent_mn = f"{(spent / 1000000):.2f}"
-        fin_str = f"{fin_prog:.1f}%"
-        phy_str = f"{phy_prog}%"
+        total_spent = v_spent + d_spent
+        balance = alloc - total_spent
+        progress = (total_spent / alloc * 100) if alloc > 0 else 0.0
 
-        table_rows_html += f"""
-        <tr>
-            <td style="padding: 8px; border: 1px solid #000; text-align: center;">{act}</td>
-            <td style="padding: 8px; border: 1px solid #000; text-align: center;">{vote}</td>
-            <td style="padding: 8px; border: 1px solid #000;">{name}</td>
-            <td style="padding: 8px; border: 1px solid #000; text-align: right; padding-right: 8px;">{alloc_mn}</td>
-            <td style="padding: 8px; border: 1px solid #000; text-align: right; padding-right: 8px;">{spent_mn}</td>
-            <td style="padding: 8px; border: 1px solid #000; text-align: center; font-weight: bold;">{fin_str}</td>
-            <td style="padding: 8px; border: 1px solid #000; text-align: center;">{phy_str}</td>
-        </tr>
-        """
+        tot_alloc_sum += alloc
+        tot_v_spent += v_spent
+        tot_d_spent += d_spent
 
-        export_rows.append({
-            "Action No": act,
-            "Vote Number": vote,
-            "Main Activity Description": name,
-            "Allocation (Mn)": alloc_mn,
-            "Expenditure (Mn)": spent_mn,
-            "Fin.%": fin_str,
-            "Phy.%": phy_str
+        report_rows.append({
+            "අනු අංකය": len(report_rows) + 1,
+            "Action No": act_raw,
+            "වැය ශීර්ෂය": vote_code,
+            "විෂය / වැඩසටහන": act_name,
+            "වෙන් කළ මුදල (රු.)": alloc,
+            "වවුචර වියදම (රු.)": v_spent,
+            "වැඩසටහන් වියදම (රු.)": d_spent,
+            "සමස්ත වියදම (රු.)": total_spent,
+            "ඉතිරි ප්‍රතිපාදන (රු.)": balance,
+            "ප්‍රගතිය (%)": round(progress, 1)
         })
 
-    # සමස්ත ප්‍රතිශතයන්
-    fin_prog_total = f"{(t_spent / t_alloc * 100):.1f}%" if t_alloc > 0 else "0.0%"
-    phy_prog_total = f"{(total_weighted_physical / t_alloc):.0f}%" if t_alloc > 0 else "0%"
-    t_alloc_mn = f"{(t_alloc / 1000000):.2f} Mn"
-    t_spent_mn = f"{(t_spent / 1000000):.2f} Mn"
-    current_date = datetime.now().strftime("%Y-%m-%d %I:%M %p")
+    rep_df = pd.DataFrame(report_rows)
 
-    # Excel Export බොත්තම ඉහළට දැමීම
-    with f_col2:
-        st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
-        exp_df = pd.DataFrame(export_rows)
+    tot_overall_spent = tot_v_spent + tot_d_spent
+    overall_balance = tot_alloc_sum - tot_overall_spent
+    overall_progress = (tot_overall_spent / tot_alloc_sum * 100) if tot_alloc_sum > 0 else 0.0
+
+    # 4. සාරාංශ කොටු (Summary Cards)
+    st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        st.markdown(f"""
+        <div class="report-summary-box" style="border-left: 4px solid #1e40af;">
+            <p class="sum-title">වෙන් කළ සමස්තය</p>
+            <div class="sum-value" style="color: #1e40af;">රු. {tot_alloc_sum:,.2f}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with c2:
+        st.markdown(f"""
+        <div class="report-summary-box" style="border-left: 4px solid #ef4444;">
+            <p class="sum-title">සමස්ත වියදම</p>
+            <div class="sum-value" style="color: #ef4444;">රු. {tot_overall_spent:,.2f}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with c3:
+        st.markdown(f"""
+        <div class="report-summary-box" style="border-left: 4px solid #10b981;">
+            <p class="sum-title">ඉතිරි ශේෂය</p>
+            <div class="sum-value" style="color: #10b981;">රු. {overall_balance:,.2f}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with c4:
+        st.markdown(f"""
+        <div class="report-summary-box" style="border-left: 4px solid #f59e0b;">
+            <p class="sum-title">සමස්ත ප්‍රගතිය</p>
+            <div class="sum-value" style="color: #f59e0b;">{overall_progress:.2f}%</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
+
+    # 5. වාර්තා වගුව ප්‍රදර්ශනය කිරීම (Formatted Table)
+    display_df = rep_df.copy()
+    display_df["වෙන් කළ මුදල (රු.)"] = display_df["වෙන් කළ මුදල (රු.)"].apply(lambda x: f"{x:,.2f}")
+    display_df["වවුචර වියදම (රු.)"] = display_df["වවුචර වියදම (රු.)"].apply(lambda x: f"{x:,.2f}")
+    display_df["වැඩසටහන් වියදම (රු.)"] = display_df["වැඩසටහන් වියදම (රු.)"].apply(lambda x: f"{x:,.2f}")
+    display_df["සමස්ත වියදම (රු.)"] = display_df["සමස්ත වියදම (රු.)"].apply(lambda x: f"{x:,.2f}")
+    display_df["ඉතිරි ප්‍රතිපාදන (රු.)"] = display_df["ඉතිරි ප්‍රතිපාදන (රු.)"].apply(lambda x: f"{x:,.2f}")
+    display_df["ප්‍රගතිය (%)"] = display_df["ප්‍රගතිය (%)"].apply(lambda x: f"{x}%")
+
+    st.dataframe(display_df, use_container_width=True, hide_index=True, height=420)
+
+    # 6. Export Options (CSV බාගත කිරීම)
+    col_dl1, col_dl2 = st.columns([1.5, 4.5])
+    with col_dl1:
+        csv_data = rep_df.to_csv(index=False).encode('utf-8-sig')
         st.download_button(
-            label="📥 Excel (.csv) ලෙස බාගත කරන්න",
-            data=exp_df.to_csv(index=False).encode('utf-8-sig'),
-            file_name=f"AIP_2026_Report_{sel_filter}.csv",
+            label="📥 මෙම වාර්තාව Excel/CSV ලෙස බාගත කරන්න",
+            data=csv_data,
+            file_name=f"AIP_2026_Report_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
             mime="text/csv",
             use_container_width=True
         )
-
-    # 3. සම්පූර්ණ A4 Landscape HTML ආකෘතිය සහ Print Engine එක
-    report_complete_html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="UTF-8">
-      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Noto+Sans+Sinhala:wght@400;600;700;800&display=swap" rel="stylesheet">
-      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-      <style>
-        * {{ font-family: 'Inter', 'Noto Sans Sinhala', sans-serif; box-sizing: border-box; }}
-        body {{ margin: 0; padding: 10px; background: transparent; color: black; }}
-        
-        .print-btn-bar {{
-            display: flex; justify-content: flex-end; margin-bottom: 15px;
-        }}
-        .btn-print {{
-            background: #1e40af; color: white; border: none; padding: 12px 24px;
-            border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 14px;
-            display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(30,64,175,0.25);
-            transition: 0.2s;
-        }}
-        .btn-print:hover {{ background: #1e3a8a; transform: translateY(-1px); }}
-
-        /* මුද්‍රණය වන කඩදාසි පත්‍රිකාව */
-        .printable-sheet {{
-            background: white; width: 100%; padding: 25px;
-            border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.06);
-            border: 1px solid #e2e8f0;
-        }}
-        .report-header {{ text-align: center; margin-bottom: 25px; border-bottom: 2px solid #0f172a; padding-bottom: 12px; }}
-        .report-header h1 {{ margin: 0; font-size: 22px; font-weight: 800; letter-spacing: 0.5px; }}
-        .report-header h2 {{ margin: 6px 0; font-size: 16px; font-weight: 700; color: #334155; }}
-        .report-header h3 {{ margin: 12px 0 6px; font-size: 14px; font-weight: 800; text-decoration: underline; text-underline-offset: 4px; }}
-        .report-header p {{ font-size: 11px; color: #475569; margin: 4px 0 0; }}
-
-        .summary-grid {{ display: flex; justify-content: space-between; background: #f8fafc; border: 1.5px solid #0f172a; border-radius: 8px; margin-bottom: 20px; }}
-        .sum-box {{ flex: 1; border-right: 1.5px solid #0f172a; padding: 10px; display: flex; flex-direction: column; align-items: center; gap: 4px; }}
-        .sum-box.last {{ border-right: none; }}
-        .sum-label {{ font-size: 11.5px; font-weight: 700; color: #475569; }}
-        .sum-val {{ font-size: 18px; font-weight: 800; }}
-        .sum-val.blue {{ color: #1e40af; }}
-        .sum-val.red {{ color: #b91c1c; }}
-        .sum-val.green {{ color: #15803d; }}
-
-        .report-table {{ width: 100%; border-collapse: collapse; margin-bottom: 25px; background: white; }}
-        .report-table th {{ background: #f1f5f9; color: #0f172a; padding: 9px 6px; border: 1px solid #0f172a; font-size: 12px; font-weight: 800; text-align: center; }}
-        .report-table td {{ padding: 8px 6px; border: 1px solid #000; font-size: 11.5px; vertical-align: middle; color: #0f172a; }}
-        .report-table tbody tr:nth-child(even) {{ background: #f8fafc; }}
-        .total-row td {{ font-weight: 800; background: #f1f5f9; border: 1.5px solid #0f172a !important; padding: 10px 6px; }}
-
-        .signature-section {{ display: flex; justify-content: space-between; margin-top: 50px; page-break-inside: avoid; }}
-        .sig-col {{ text-align: center; width: 28%; }}
-        .dots {{ margin-bottom: 30px; color: #64748b; }}
-        .label-si {{ font-size: 12.5px; font-weight: 700; margin: 0; color: #0f172a; }}
-        .label-en {{ font-size: 11px; margin: 2px 0 0; color: #475569; }}
-      </style>
-    </head>
-    <body>
-      <div class="print-btn-bar">
-        <button onclick="printReportOnly()" class="btn-print">
-            <i class="fas fa-print"></i> මුද්‍රණය කරන්න (A4 Landscape Print)
-        </button>
-      </div>
-
-      <div id="landscape-report-sheet" class="printable-sheet">
-        <div class="report-header">
-            <h1>MINISTRY OF EDUCATION</h1>
-            <h2>Pirivena Education Division - AIP 2026</h2>
-            <h3>Consolidated Physical & Financial Progress Summary Report</h3>
-            <p>Generated on: <span>{current_date}</span> | Category: <span>{filter_option}</span></p>
-        </div>
-
-        <div class="summary-grid">
-            <div class="sum-box">
-                <span class="sum-label">සමස්ත ප්‍රතිපාදන</span>
-                <span class="sum-val blue">{t_alloc_mn}</span>
-            </div>
-            <div class="sum-box">
-                <span class="sum-label">සමස්ත වියදම</span>
-                <span class="sum-val red">{t_spent_mn}</span>
-            </div>
-            <div class="sum-box">
-                <span class="sum-label">මූල්‍ය ප්‍රගතිය</span>
-                <span class="sum-val green">{fin_prog_total}</span>
-            </div>
-            <div class="sum-box last">
-                <span class="sum-label">භෞතික ප්‍රගතිය</span>
-                <span class="sum-val green">{phy_prog_total}</span>
-            </div>
-        </div>
-
-        <table class="report-table">
-            <thead>
-                <tr>
-                    <th style="width: 8%;">Action No</th>
-                    <th style="width: 15%;">Vote Number</th>
-                    <th style="width: 41%; text-align: left; padding-left: 12px;">Main Activity Description</th>
-                    <th style="width: 13%; text-align: right; padding-right: 12px;">Allocation (Mn)</th>
-                    <th style="width: 13%; text-align: right; padding-right: 12px;">Expenditure (Mn)</th>
-                    <th style="width: 5%;">Fin.%</th>
-                    <th style="width: 5%;">Phy.%</th>
-                </tr>
-            </thead>
-            <tbody>
-                {table_rows_html}
-            </tbody>
-            <tfoot>
-                <tr class="total-row">
-                    <td colspan="3" style="text-align: right; padding-right: 15px;">Grand Total (සමස්ත එකතුව):</td>
-                    <td style="text-align: right; padding-right: 12px;">{t_alloc_mn}</td>
-                    <td style="text-align: right; padding-right: 12px;">{t_spent_mn}</td>
-                    <td colspan="2" style="background: #f8fafc;"></td>
-                </tr>
-            </tfoot>
-        </table>
-
-        <div class="signature-section">
-            <div class="sig-col">
-                <p class="dots">.........................................</p>
-                <p class="label-si">සකස් කළේ</p>
-                <p class="label-en">Subject Officer</p>
-            </div>
-            <div class="sig-col">
-                <p class="dots">.........................................</p>
-                <p class="label-si">නිර්දේශය</p>
-                <p class="label-en">Director (Development)</p>
-            </div>
-            <div class="sig-col">
-                <p class="dots">.........................................</p>
-                <p class="label-si">අනුමත කිරීම</p>
-                <p class="label-en">Addl. Secretary (Pirivena)</p>
-            </div>
-        </div>
-      </div>
-
-      <script>
-        function printReportOnly() {{
-            const content = document.getElementById("landscape-report-sheet").outerHTML;
-            const win = window.open('', '', 'width=1200,height=850');
-            win.document.write(`
-                <html>
-                <head>
-                    <title>AIP 2026 - Progress Report Print</title>
-                    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Noto+Sans+Sinhala:wght@400;600;700;800&display=swap" rel="stylesheet">
-                    <style>
-                        @page {{
-                            size: A4 landscape;
-                            margin: 10mm;
-                        }}
-                        body {{
-                            font-family: 'Inter', 'Noto Sans Sinhala', sans-serif;
-                            margin: 0; padding: 0; background: white; color: black;
-                        }}
-                        .printable-sheet {{ width: 100%; background: white; }}
-                        .report-header {{ text-align: center; margin-bottom: 20px; border-bottom: 2px solid #0f172a; padding-bottom: 10px; }}
-                        .report-header h1 {{ margin: 0; font-size: 20px; font-weight: 800; }}
-                        .report-header h2 {{ margin: 4px 0; font-size: 15px; font-weight: 700; color: #334155; }}
-                        .report-header h3 {{ margin: 8px 0 4px; font-size: 13px; font-weight: 800; text-decoration: underline; }}
-                        .report-header p {{ font-size: 10px; color: #475569; margin: 2px 0 0; }}
-
-                        .summary-grid {{ display: flex; justify-content: space-between; border: 1.5px solid #0f172a; border-radius: 6px; margin-bottom: 16px; background: #f8fafc; }}
-                        .sum-box {{ flex: 1; border-right: 1.5px solid #0f172a; padding: 8px; display: flex; flex-direction: column; align-items: center; }}
-                        .sum-box.last {{ border-right: none; }}
-                        .sum-label {{ font-size: 11px; font-weight: 700; color: #475569; }}
-                        .sum-val {{ font-size: 16px; font-weight: 800; }}
-                        
-                        .report-table {{ width: 100%; border-collapse: collapse; margin-bottom: 20px; }}
-                        .report-table th, .report-table td {{ border: 1px solid black !important; padding: 6px 4px; font-size: 11px; }}
-                        .report-table th {{ background: #f1f5f9; font-weight: 800; }}
-                        .report-table thead {{ display: table-header-group; }}
-                        .report-table tr {{ page-break-inside: avoid !important; }}
-                        .total-row td {{ font-weight: 800; background: #f1f5f9; border: 1.5px solid black !important; }}
-
-                        .signature-section {{ display: flex; justify-content: space-between; margin-top: 35px; page-break-inside: avoid; }}
-                        .sig-col {{ text-align: center; width: 28%; }}
-                        .dots {{ margin-bottom: 25px; }}
-                        .label-si {{ font-size: 12px; font-weight: 700; margin: 0; }}
-                        .label-en {{ font-size: 10px; margin: 2px 0 0; color: #475569; }}
-                    </style>
-                </head>
-                <body>
-                    ${{content}}
-                </body>
-                </html>
-            `);
-            win.document.close();
-            win.focus();
-            setTimeout(() => {{
-                win.print();
-                win.close();
-            }}, 600);
-        }}
-      </script>
-    </body>
-    </html>
-    """
-
-    # Streamlit Component එකක් ලෙස Preview කිරීම
-    components.html(report_complete_html, height=850, scrolling=True)
