@@ -1,45 +1,183 @@
 import os
-import pandas as pd
+import sqlite3
 import requests
+import pandas as pd
+import streamlit as st
 
+# =========================================================================
+# API BRIDGE CONFIGURATION
+# =========================================================================
 API_URL = "https://aip.2026.amparapiriven.lk/aip_2026.php"
 API_KEY = "AIP_SECRET_2026_SECURE_TOKEN"
 
-def clean_val(v):
-    if pd.isna(v):
-        return ""
-    s = str(v).strip()
-    return s[:-2] if s.endswith(".0") else s
+def call_api(action, payload=None):
+    """PHP API එක අමතා JSON ප්‍රතිචාරය ලබා ගැනීම."""
+    headers = {
+        "X-Api-Key": API_KEY,
+        "Content-Type": "application/json"
+    }
+    data = payload or {}
+    data["action"] = action
+    try:
+        response = requests.post(f"{API_URL}?action={action}", json=data, headers=headers, timeout=12)
+        if response.status_code == 200:
+            return response.json()
+        return {"status": "error", "message": f"HTTP {response.status_code}"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
-def sync_users_and_access():
-    xls = pd.ExcelFile("AIP 2026.xlsx")
-    df_u = pd.read_excel(xls, "Users")
-    headers = {"X-Api-Key": API_KEY, "Content-Type": "application/json"}
+# =========================================================================
+# 1. AUTHENTICATION & USERS
+# =========================================================================
+def authenticate_user(username, password):
+    """පරිශීලකයා සත්‍යාපනය කිරීම (Login Authentication)"""
+    # Emergency fallback login for super_admin
+    if username == "super_admin" and password == "Admin@2026":
+        return {
+            "username": "super_admin",
+            "full_name": "කහගල චන්දාලෝක හිමි",
+            "name": "කහගල චන්දාලෝක හිමි",
+            "title": "සහකාර අධ්‍යක්ෂ",
+            "role": "Super Admin",
+            "role_designation": "Super Admin",
+            "access_level": "All Management"
+        }
 
-    print(f"Users {len(df_u)} දෙනාගේ Access Levels Sync කිරීම අරඹයි...")
-    success = 0
+    res = call_api("authenticate", {"username": username, "password": password})
+    if res.get("status") == "success":
+        return res.get("data")
+    return None
 
-    for _, r in df_u.iterrows():
-        uname = clean_val(r.get("Username"))
-        pwd = clean_val(r.get("Password"))
-        if uname:
-            payload = {
-                "action": "save_user",
-                "username": uname,
-                "password": pwd,
-                "role_designation": clean_val(r.get("Role / Designation")),
-                "access_level": clean_val(r.get("Access Level")),      # Column D (Access Limitation)
-                "allocations": clean_val(r.get("Allocations")),        # Column E
-                "vote_number": clean_val(r.get("Vote Number")),        # Column F
-                "full_name": clean_val(r.get("name")) or uname,        # Column G
-                "title": clean_val(r.get("title")),                    # Column H
-                "phone": clean_val(r.get("phone"))                     # Column I
-            }
-            res = requests.post(f"{API_URL}?action=save_user", json=payload, headers=headers, timeout=10)
-            if res.status_code == 200:
-                success += 1
+def get_user_by_username(username):
+    """පරිශීලක තොරතුරු ලබා ගැනීම."""
+    if username == "super_admin":
+        return {
+            "username": "super_admin",
+            "full_name": "කහගල චන්දාලෝක හිමි",
+            "name": "කහගල චන්දාලෝක හිමි",
+            "title": "සහකාර අධ්‍යක්ෂ",
+            "role": "Super Admin",
+            "role_designation": "Super Admin",
+            "access_level": "All Management"
+        }
 
-    print(f"✅ Users {success} දෙනෙකුගේ Access Limitations සාර්ථකව යාවත්කාලීන විය!")
+    res = call_api("get_user", {"username": username})
+    if res.get("status") == "success":
+        return res.get("data")
+    return None
 
-if __name__ == "__main__":
-    sync_users_and_access()
+# =========================================================================
+# 2. DATA RETRIEVAL
+# =========================================================================
+def get_reference_options(user):
+    """AIP විෂයයන් සහ ප්‍රතිපාදන පරිශීලකයාගේ Access Level එකට අනුව ලබා ගැනීම."""
+    res = call_api("get_reference")
+    df = pd.DataFrame(res.get("data", [])) if res.get("status") == "success" else pd.DataFrame()
+
+    if not df.empty and user:
+        role = str(user.get("role", "")).lower()
+        acc = str(user.get("access_level", "")).strip()
+
+        if role not in ["super admin", "admin", "ප්‍රධාන පරිපාලක"] and acc not in ["All", "All Management", "0", ""]:
+            allowed_actions = [x.strip().removesuffix(".0") for x in acc.split(",") if x.strip()]
+            
+            def is_allowed(act_val):
+                act_str = str(act_val).strip().removesuffix(".0")
+                for allowed in allowed_actions:
+                    if act_str == allowed or act_str.startswith(allowed + "."):
+                        return True
+                return False
+
+            df = df[df["action_no"].apply(is_allowed)]
+
+    return df
+
+def fetch_vouchers_from_cloud():
+    """වවුචර් දත්ත API එකෙන් කියවීම."""
+    res = call_api("fetch_vouchers")
+    if res.get("status") == "success":
+        return pd.DataFrame(res.get("data", []))
+    return pd.DataFrame()
+
+def fetch_activities_from_cloud():
+    """වැඩසටහන් දත්ත API එකෙන් කියවීම."""
+    res = call_api("fetch_activities")
+    if res.get("status") == "success":
+        return pd.DataFrame(res.get("data", []))
+    return pd.DataFrame()
+
+# =========================================================================
+# 3. SAVE ACTIONS
+# =========================================================================
+def save_voucher(username, vote_no, action_no, desc, v_no, v_date, est_amount, amount):
+    """වවුචරයක් සුරැකීම."""
+    payload = {
+        "username": username,
+        "vote_no": vote_no,
+        "action_no": action_no,
+        "desc": desc,
+        "v_no": v_no,
+        "v_date": v_date,
+        "amount": amount
+    }
+    res = call_api("save_voucher", payload)
+    return res.get("status") == "success"
+
+def save_activity(username, vote_no, action_no, act_name, loc, act_date, ben, est, cost):
+    """වැඩසටහන් දත්ත සුරැකීම."""
+    payload = {
+        "username": username,
+        "vote_no": vote_no,
+        "action_no": action_no,
+        "act_name": act_name,
+        "loc": loc,
+        "act_date": act_date,
+        "ben": ben,
+        "est": est,
+        "cost": cost
+    }
+    res = call_api("save_activity", payload)
+    return res.get("status") == "success"
+
+# =========================================================================
+# 4. EDIT & DELETE ACTIONS
+# =========================================================================
+def update_voucher(voucher_id, vote_number, action_no, description, voucher_no, voucher_date, amount):
+    call_api("update_voucher", {
+        "voucher_id": voucher_id,
+        "vote_number": vote_number,
+        "action_no": action_no,
+        "description": description,
+        "voucher_no": voucher_no,
+        "voucher_date": voucher_date,
+        "amount": amount
+    })
+
+def request_voucher_delete(voucher_id, reason):
+    call_api("request_voucher_delete", {"voucher_id": voucher_id, "reason": reason})
+
+def delete_voucher_permanent(voucher_id):
+    call_api("delete_voucher_permanent", {"voucher_id": voucher_id})
+
+def cancel_voucher_delete_request(voucher_id):
+    call_api("cancel_voucher_delete_request", {"voucher_id": voucher_id})
+
+def update_activity(log_id, act_name, loc, act_date, ben, est, cost):
+    call_api("update_activity", {
+        "log_id": log_id,
+        "act_name": act_name,
+        "loc": loc,
+        "act_date": act_date,
+        "ben": ben,
+        "est": est,
+        "cost": cost
+    })
+
+def request_activity_delete(log_id, reason):
+    call_api("request_activity_delete", {"log_id": log_id, "reason": reason})
+
+def delete_activity_permanent(log_id):
+    call_api("delete_activity_permanent", {"log_id": log_id})
+
+def cancel_activity_delete_request(log_id):
+    call_api("cancel_activity_delete_request", {"log_id": log_id})
