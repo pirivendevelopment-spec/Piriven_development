@@ -243,19 +243,30 @@ def render_dashboard(user):
             st.markdown('<p style="font-size: 10px; color: #94a3b8; margin: 0;">වැඩසටහන් අවසන් කිරීමේ මට්ටම</p></div>', unsafe_allow_html=True)
 
     # =========================================================
-    # Right Panel (Recent Activity Feed)
+    # Right Panel (Recent Activity Feed - පරිශීලකයාගේ විෂයට පමණක් සීමා කිරීම)
     # =========================================================
     with col_right:
         st.markdown("""
         <div class="content-card" style="padding: 16px;">
             <div class="content-header" style="margin-bottom: 2px;">මෑතකාලීන වියදම් ලොගය</div>
-            <p style="font-size: 10px; color: #64748b; margin-bottom: 10px;">AIP සජීවී දත්ත පදනම් කරගත් ලේඛනය</p>
+            <p style="font-size: 10px; color: #64748b; margin-bottom: 10px;">අදාළ විෂය පථයට අයත් සජීවී වියදම්</p>
             <div style="max-height: 600px; overflow-y: auto;">
         """, unsafe_allow_html=True)
 
         combined_logs = []
-        if not v_df.empty:
-            for _, r in v_df.tail(15).iterrows():
+
+        # 1. පරිශීලකයාට අවසර ඇති විෂයයන්ට (act_list) අයත් වවුචර් පමණක් ලබා ගැනීම
+        if not v_valid.empty and 'clean_act' in v_valid.columns:
+            # Super Admin හෝ Executive නොවන විට act_list අනුව filter කිරීම
+            role_name = str(user.get("role", "")).lower()
+            acc_lvl = str(user.get("access_level", "")).strip()
+            
+            if role_name in ["super admin", "admin", "executive"] or acc_lvl in ["All", "All Management", "0", ""]:
+                v_feed_df = v_valid
+            else:
+                v_feed_df = v_valid[v_valid['clean_act'].isin(act_list)]
+
+            for _, r in v_feed_df.iterrows():
                 name_val = r.get('description') or r.get('desc') or "වවුචර වියදම"
                 date_val = str(r.get('voucher_date') or r.get('v_date') or '')[:10]
                 cost_val = float(pd.to_numeric(r.get('amount'), errors='coerce') or 0.0)
@@ -267,8 +278,17 @@ def render_dashboard(user):
                     "cost": cost_val
                 })
 
-        if not d_df.empty:
-            for _, r in d_df.tail(15).iterrows():
+        # 2. පරිශීලකයාට අවසර ඇති විෂයයන්ට (act_list) අයත් වැඩසටහන් පමණක් ලබා ගැනීම
+        if not d_valid.empty and 'clean_act' in d_valid.columns:
+            role_name = str(user.get("role", "")).lower()
+            acc_lvl = str(user.get("access_level", "")).strip()
+            
+            if role_name in ["super admin", "admin", "executive"] or acc_lvl in ["All", "All Management", "0", ""]:
+                d_feed_df = d_valid
+            else:
+                d_feed_df = d_valid[d_valid['clean_act'].isin(act_list)]
+
+            for _, r in d_feed_df.iterrows():
                 name_val = r.get('program_name') or r.get('act_name') or r.get('activity_name') or "වැඩසටහන් වියදම"
                 date_val = str(r.get('held_date') or r.get('act_date') or '')[:10]
                 cost_col = 'actual_expenditure' if 'actual_expenditure' in r else ('cost' if 'cost' in r else 'actual_cost')
@@ -281,10 +301,11 @@ def render_dashboard(user):
                     "cost": cost_val
                 })
 
+        # දිනය අනුව මෑතකාලීන ඒවා ඉහළට සිටින සේ පෙළගැස්වීම
         combined_logs.sort(key=lambda x: str(x["date"]), reverse=True)
 
         if combined_logs:
-            for item in combined_logs[:12]:
+            for item in combined_logs[:15]:
                 tag_bg = "#eff6ff" if item["type"] == "Voucher" else "#f0fdf4"
                 tag_col = "#1e40af" if item["type"] == "Voucher" else "#15803d"
                 st.markdown(f"""
@@ -301,6 +322,6 @@ def render_dashboard(user):
                 </div>
                 """, unsafe_allow_html=True)
         else:
-            st.markdown("<p style='text-align:center; color:#94a3b8; padding:30px 0; font-size:12px;'>ගනුදෙනු කිසිවක් හමු නොවීය.</p>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align:center; color:#94a3b8; padding:30px 0; font-size:12px;'>මෙම විෂයට අදාළ මෑතකාලීන වියදම් කිසිවක් හමු නොවීය.</p>", unsafe_allow_html=True)
 
         st.markdown("</div></div>", unsafe_allow_html=True)
