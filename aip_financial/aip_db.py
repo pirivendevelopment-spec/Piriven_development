@@ -7,7 +7,7 @@ import streamlit as st
 # =========================================================================
 # API BRIDGE CONFIGURATION
 # =========================================================================
-API_URL = "https://aip.2026.amparapiriven.lk/aip_db_setup.php"
+API_URL = "https://aip.2026.amparapiriven.lk/aip_2026.php"  # <--- ඔබගේ සැබෑ PHP පාත් එක
 API_KEY = "AIP_SECRET_2026_SECURE_TOKEN"
 
 # Streamlit Cloud හි පවතින SQLite ගොනු මාර්ගය (පැරණි දත්ත සඳහා)
