@@ -254,93 +254,124 @@ def main():
     # =========================================================================
     # 2. MAIN DASHBOARD SHELL & SIDEBAR THEME
     # =========================================================================
-    st.markdown("""
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Sinhala:wght@400;600;700;800&display=swap');
-        
-        .stApp {
-            background-color: #f1f5f9 !important;
-            font-family: 'Inter', 'Noto Sans Sinhala', sans-serif !important;
-            color: #1e293b !important;
-        }
+   st.markdown("""
+<style>
+    /* 1. Sidebar පසුබිම සහ අකුරු වර්ණ ස්ථාවර කිරීම */
+    section[data-testid="stSidebar"] {
+        background-color: #1e1b4b !important;
+    }
+    
+    section[data-testid="stSidebar"] * {
+        color: #ffffff !important;
+    }
 
-        h1, h2, h3, h4, h5, h6, p, span, label {
-            color: #1e293b !important;
-        }
+    /* 2. ඉහළ ලාංඡනය සහ මාතෘකාව */
+    .sidebar-title {
+        font-size: 24px !important;
+        font-weight: 800 !important;
+        color: #ffffff !important;
+        text-align: center;
+        letter-spacing: 1px;
+        margin-top: 10px;
+    }
+    
+    .sidebar-subtitle {
+        font-size: 13px !important;
+        color: #cbd5e1 !important;
+        text-align: center;
+        margin-bottom: 20px;
+    }
 
-        section[data-testid="stSidebar"] {
-            background-color: #1e1b4b !important;
-            padding-top: 1rem !important;
-        }
-        section[data-testid="stSidebar"] * {
-            font-family: 'Inter', 'Noto Sans Sinhala', sans-serif !important;
-        }
-        
-        section[data-testid="stSidebar"] h1, section[data-testid="stSidebar"] h2, 
-        section[data-testid="stSidebar"] h3, section[data-testid="stSidebar"] p, 
-        section[data-testid="stSidebar"] span, section[data-testid="stSidebar"] label {
-            color: #ffffff !important;
-        }
+    /* 3. පරිශීලක තොරතුරු කොටුව (User Profile Card) - අකුරු පැහැදිලි කිරීම */
+    .user-profile-box {
+        background: rgba(255, 255, 255, 0.08) !important;
+        border: 1px solid rgba(255, 255, 255, 0.15) !important;
+        border-radius: 12px;
+        padding: 14px;
+        margin-bottom: 25px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
 
-        section[data-testid="stSidebar"] div.stButton > button {
-            background-color: #272757 !important;
-            color: #ffffff !important;
-            border: 1px solid rgba(255, 255, 255, 0.15) !important;
-            text-align: left !important;
-            justify-content: flex-start !important;
-            padding: 12px 18px !important;
-            border-radius: 10px !important;
-            font-weight: 700 !important;
-            font-size: 14.5px !important;
-            transition: all 0.25s ease !important;
-            margin-bottom: 8px !important;
-            width: 100% !important;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2) !important;
-        }
-        
-        section[data-testid="stSidebar"] div.stButton > button p,
-        section[data-testid="stSidebar"] div.stButton > button span {
-            color: #ffffff !important;
-        }
-        
-        section[data-testid="stSidebar"] div.stButton > button:hover {
-            background-color: #1e40af !important;
-            color: #ffffff !important;
-            border-color: #3b82f6 !important;
-            transform: translateX(5px);
-            box-shadow: 0 4px 12px rgba(30, 64, 175, 0.4) !important;
-        }
+    .user-avatar {
+        background: #2563eb !important;
+        color: #ffffff !important;
+        font-size: 18px !important;
+        font-weight: 800 !important;
+        width: 44px;
+        height: 44px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
 
-        section[data-testid="stSidebar"] div.logout-btn-container div.stButton > button {
-            background-color: #b91c1c !important;
-            color: #ffffff !important;
-            border: 1px solid #ef4444 !important;
-            font-weight: 800 !important;
-            font-size: 14px !important;
-            justify-content: center !important;
-            text-align: center !important;
-            margin-top: 25px !important;
-        }
-        section[data-testid="stSidebar"] div.logout-btn-container div.stButton > button p,
-        section[data-testid="stSidebar"] div.logout-btn-container div.stButton > button span {
-            color: #ffffff !important;
-        }
-        
-        section[data-testid="stSidebar"] div.logout-btn-container div.stButton > button:hover {
-            background-color: #dc2626 !important;
-            color: #ffffff !important;
-            transform: none !important;
-            box-shadow: 0 4px 15px rgba(220, 38, 38, 0.5) !important;
-        }
+    .user-name {
+        font-size: 14px !important;
+        font-weight: 700 !important;
+        color: #ffffff !important;
+        margin: 0 !important;
+        line-height: 1.3 !important;
+    }
 
-        .block-container {
-            padding-top: 1.2rem !important;
-            padding-left: 2rem !important;
-            padding-right: 2rem !important;
-            max-width: 100% !important;
-        }
-    </style>
-    """, unsafe_allow_html=True)
+    .user-title {
+        font-size: 11.5px !important;
+        color: #94a3b8 !important;
+        margin: 2px 0 4px 0 !important;
+    }
+
+    .user-badge {
+        background: #0f766e !important;
+        color: #ffffff !important;
+        font-size: 10px !important;
+        font-weight: 800 !important;
+        padding: 2px 8px;
+        border-radius: 6px;
+        display: inline-block;
+    }
+
+    /* 4. මෙනු බොත්තම් (Menu Navigation Buttons) */
+    section[data-testid="stSidebar"] div.stButton > button {
+        background-color: rgba(255, 255, 255, 0.06) !important;
+        color: #f8fafc !important;
+        border: 1px solid rgba(255, 255, 255, 0.15) !important;
+        border-radius: 10px !important;
+        padding: 10px 14px !important;
+        font-size: 14px !important;
+        font-weight: 600 !important;
+        text-align: left !important;
+        justify-content: flex-start !important;
+        width: 100% !important;
+        margin-bottom: 6px !important;
+        transition: all 0.2s ease-in-out !important;
+    }
+
+    section[data-testid="stSidebar"] div.stButton > button:hover {
+        background-color: #312e81 !important;
+        border-color: #6366f1 !important;
+        color: #ffffff !important;
+        transform: translateX(4px);
+    }
+
+    /* Active Menu Button */
+    section[data-testid="stSidebar"] div.stButton > button[kind="primary"] {
+        background-color: #2563eb !important;
+        border-color: #3b82f6 !important;
+        color: #ffffff !important;
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3) !important;
+    }
+
+    /* Back to Portal Button */
+    .btn-portal div.stButton > button {
+        background-color: #0f766e !important;
+        color: #ffffff !important;
+        border: none !important;
+        font-weight: 700 !important;
+    }
+</style>
+""", unsafe_allow_html=True)
 
     user = st.session_state.user
     u_name = user.get('name') or user.get('full_name') or user.get('username') or "පරිශීලක"
