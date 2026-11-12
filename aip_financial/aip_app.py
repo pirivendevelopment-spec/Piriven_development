@@ -62,6 +62,17 @@ def filter_by_user_access(df, user):
     return df[df.apply(is_allowed, axis=1)]
 
 # =========================================================================
+# ආරක්ෂිත සංඛ්‍යා පරිවර්තන ශ්‍රිත (NaN Safe Helpers)
+# =========================================================================
+def safe_int(val, default=0):
+    num = pd.to_numeric(val, errors="coerce")
+    return int(num) if pd.notna(num) else default
+
+def safe_float(val, default=0.0):
+    num = pd.to_numeric(val, errors="coerce")
+    return float(num) if pd.notna(num) else default
+
+# =========================================================================
 # මෑතකාලීන වියදම් ලොගය සඳහා Edit / Delete Actions Render කරන ශ්‍රිතය
 # =========================================================================
 def render_inline_expense_actions(user):
@@ -87,16 +98,17 @@ def render_inline_expense_actions(user):
         else:
             for _, row in act_df.iterrows():
                 l_id = row['id']
-                is_del_pending = bool(row.get('delete_requested', 0) == 1)
+                is_del_pending = bool(safe_int(row.get('delete_requested', 0)) == 1)
                 border_color = "#ef4444" if is_del_pending else "#cbd5e1"
                 bg_color = "#fef2f2" if is_del_pending else "#ffffff"
 
                 pname = row.get("program_name") or row.get("act_name") or "වැඩසටහන"
                 loc = row.get("location") or row.get("loc") or ""
                 hdate = str(row.get("held_date") or row.get("act_date") or "N/A")[:10]
-                ben = int(pd.to_numeric(row.get("ben") or row.get("beneficiaries_count"), errors="coerce") or 0)
-                est = float(pd.to_numeric(row.get("est") or row.get("estimated_amount"), errors="coerce") or 0.0)
-                cost = float(pd.to_numeric(row.get("cost") or row.get("actual_expenditure"), errors="coerce") or 0.0)
+                
+                ben = safe_int(row.get("ben") if pd.notna(row.get("ben")) else row.get("beneficiaries_count"))
+                est = safe_float(row.get("est") if pd.notna(row.get("est")) else row.get("estimated_amount"))
+                cost = safe_float(row.get("cost") if pd.notna(row.get("cost")) else row.get("actual_expenditure"))
 
                 card_html = (
                     f'<div style="background-color: {bg_color}; border: 1.5px solid {border_color}; border-radius: 12px; padding: 14px 18px; margin-bottom: 8px;">'
@@ -177,7 +189,7 @@ def render_inline_expense_actions(user):
         else:
             for _, row in vouchers_df.iterrows():
                 v_id = row['id']
-                is_del_pending = bool(row.get('delete_requested', 0) == 1)
+                is_del_pending = bool(safe_int(row.get('delete_requested', 0)) == 1)
                 border_color = "#ef4444" if is_del_pending else "#cbd5e1"
                 bg_color = "#fef2f2" if is_del_pending else "#ffffff"
 
@@ -185,7 +197,7 @@ def render_inline_expense_actions(user):
                 v_date_val = str(row.get("voucher_date") or row.get("v_date") or "N/A")[:10]
                 desc_val = row.get("description") or row.get("desc") or ""
                 vote_val = row.get("vote_number") or row.get("vote_no") or "N/A"
-                amt_val = float(pd.to_numeric(row.get("amount"), errors="coerce") or 0.0)
+                amt_val = safe_float(row.get("amount"))
 
                 card_html = (
                     f'<div style="background-color: {bg_color}; border: 1.5px solid {border_color}; border-radius: 12px; padding: 14px 18px; margin-bottom: 8px;">'
@@ -335,7 +347,7 @@ def main():
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Sinhala:wght@400;600;700;800&display=swap');
 
-        /* ප්‍රධාන පසුබිම Light Mode ලෙස ස්ථාවර කිරීම (Dark Theme මඟින් අකුරු නොපෙනී යාම වැළැක්වීමට) */
+        /* ප්‍රධාන පසුබිම Light Mode ලෙස ස්ථාවර කිරීම */
         .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
             background-color: #f1f5f9 !important;
             color: #0f172a !important;
