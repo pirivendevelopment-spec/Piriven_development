@@ -37,115 +37,217 @@ if not st.session_state.logged_in:
             st.session_state.user = dict(user_data)
 
 # =========================================================================
-# මෑතකාලීන වියදම් ලොගය සඳහා Edit / Delete Actions Render කරන ශ්‍රිතය (API Compatible)
+# පරිශීලකයාගේ Access Level අනුව දත්ත Filter කරන උපකාරක ශ්‍රිතය
+# =========================================================================
+def filter_by_user_access(df, user):
+    if df.empty:
+        return df
+    role = str(user.get("role", "")).lower()
+    acc = str(user.get("access_level", "")).strip()
+    if role in ["super admin", "admin", "executive", "ප්‍රධාන පරිපාලක"] or acc in ["All", "All Management", "0", ""]:
+        return df
+
+    allowed_actions = [x.strip().removesuffix(".0") for x in acc.split(",") if x.strip()]
+    uname = user.get("username", "")
+
+    def is_allowed(row):
+        if str(row.get("username", "")) == uname:
+            return True
+        act_str = str(row.get("action_no", "")).strip().removesuffix(".0")
+        for allowed in allowed_actions:
+            if act_str == allowed or act_str.startswith(allowed + "."):
+                return True
+        return False
+
+    return df[df.apply(is_allowed, axis=1)]
+
+# =========================================================================
+# මෑතකාලීන වියදම් ලොගය සඳහා Edit / Delete Actions Render කරන ශ්‍රිතය
 # =========================================================================
 def render_inline_expense_actions(user):
     st.markdown("<br><hr style='border-color: #cbd5e1;'>", unsafe_allow_html=True)
-    st.markdown("<h4 style='color: #0f172a !important; font-weight: 800;'>📋 මෑතකාලීන වියදම් කළමනාකරණය (Recent Expense Actions)</h4>", unsafe_allow_html=True)
+    st.markdown("<h4 style='color: #0f172a !important; font-weight: 800; margin-bottom: 10px;'>📋 මෑතකාලීන වියදම් කළමනාකරණය (Edit & Delete Requests)</h4>", unsafe_allow_html=True)
 
     is_super_admin = str(user.get("role", "")).lower() in ["super admin", "admin", "ප්‍රධාන පරිපාලක"]
 
-    try:
-        vouchers_df = db.fetch_vouchers_from_cloud()
-        if not vouchers_df.empty:
-            acc = user.get("access_level", "")
-            user_access = [x.strip() for x in acc.split(',')] if acc and acc != "All" else []
+    tab_act, tab_vouch = st.tabs(["📝 වැඩසටහන් වියදම් (Program Activities)", "📑 වවුචර වියදම් (Vouchers)"])
 
-            if not is_super_admin and acc != "All":
-                if user_access:
-                    vouchers_df = vouchers_df[
-                        vouchers_df['action_no'].astype(str).isin(user_access) | 
-                        (vouchers_df['username'] == user.get('username'))
-                    ]
-                else:
-                    vouchers_df = vouchers_df[vouchers_df['username'] == user.get('username')]
-            
-            vouchers_df = vouchers_df.head(15)
+    # ---------------------------------------------------------------------
+    # 1. වැඩසටහන් වියදම් (Program Activities Edit & Delete Request)
+    # ---------------------------------------------------------------------
+    with tab_act:
+        try:
+            act_df = db.fetch_activities_from_cloud()
+            act_df = filter_by_user_access(act_df, user).head(15)
+        except Exception:
+            act_df = pd.DataFrame()
+
+        if act_df.empty:
+            st.info("ඔබගේ විෂයට අදාළ වැඩසටහන් වියදම් කිසිවක් හමු නොවීය.")
         else:
+            for _, row in act_df.iterrows():
+                l_id = row['id']
+                is_del_pending = bool(row.get('delete_requested', 0) == 1)
+                border_color = "#ef4444" if is_del_pending else "#cbd5e1"
+                bg_color = "#fef2f2" if is_del_pending else "#ffffff"
+
+                pname = row.get("program_name") or row.get("act_name") or "වැඩසටහන"
+                loc = row.get("location") or row.get("loc") or ""
+                hdate = str(row.get("held_date") or row.get("act_date") or "N/A")[:10]
+                ben = int(pd.to_numeric(row.get("ben") or row.get("beneficiaries_count"), errors="coerce") or 0)
+                est = float(pd.to_numeric(row.get("est") or row.get("estimated_amount"), errors="coerce") or 0.0)
+                cost = float(pd.to_numeric(row.get("cost") or row.get("actual_expenditure"), errors="coerce") or 0.0)
+
+                card_html = (
+                    f'<div style="background-color: {bg_color}; border: 1.5px solid {border_color}; border-radius: 12px; padding: 14px 18px; margin-bottom: 8px;">'
+                    f'<table style="width: 100%; border-collapse: collapse; border: none;">'
+                    f'<tr style="border: none;">'
+                    f'<td style="text-align: left; vertical-align: top; border: none;">'
+                    f'<strong style="color: #0f172a !important; font-size: 14.5px;">{pname}</strong>'
+                    f'<span style="color: #64748b !important; font-size: 12px; margin-left: 8px;">({hdate} | {loc})</span>'
+                    f'<div style="color: #334155 !important; font-size: 13px; margin-top: 4px;">'
+                    f'Action No: <b>#{row.get("action_no", "N/A")}</b> | ප්‍රතිලාභීන්: <b>{ben}</b> | ඇස්තමේන්තුව: <b>රු. {est:,.2f}</b>'
+                    f'</div>'
+                    + (f'<div style="color: #dc2626 !important; font-size: 12px; margin-top: 4px;"><b>⚠️ ඉවත් කිරීමට ඉල්ලුම් කර ඇත:</b> {row.get("delete_reason", "")}</div>' if is_del_pending else '') +
+                    f'</td>'
+                    f'<td style="text-align: right; vertical-align: top; border: none;">'
+                    f'<span style="font-size: 16.5px; font-weight: 800; color: #15803d !important;">රු. {cost:,.2f}</span>'
+                    f'<div style="font-size: 11px; color: #64748b !important; margin-top: 2px;">ඇතුළත් කළේ: {row.get("username", "N/A")}</div>'
+                    f'</td>'
+                    f'</tr>'
+                    f'</table>'
+                    f'</div>'
+                )
+                st.markdown(card_html, unsafe_allow_html=True)
+
+                c1, c2, c3, _ = st.columns([1.2, 1.8, 1.8, 6])
+                with c1:
+                    with st.popover("✏️ Edit"):
+                        with st.form(key=f"edit_act_{l_id}"):
+                            st.write("**වැඩසටහන සංස්කරණය**")
+                            e_pname = st.text_input("වැඩසටහනේ නම", value=str(pname))
+                            e_loc = st.text_input("ස්ථානය", value=str(loc))
+                            e_hdate = st.text_input("පැවැත්වූ දිනය (YYYY-MM-DD)", value=str(hdate))
+                            e_ben = st.number_input("ප්‍රතිලාභීන්", value=ben, step=1)
+                            e_est = st.number_input("ඇස්තමේන්තුව (රු.)", value=est, step=500.0)
+                            e_cost = st.number_input("සත්‍ය වියදම (රු.)", value=cost, step=500.0)
+                            if st.form_submit_button("💾 සුරකින්න"):
+                                db.update_activity(l_id, e_pname, e_loc, e_hdate, e_ben, e_est, e_cost)
+                                st.toast("වැඩසටහන සාර්ථකව සංස්කරණය කරන ලදී!")
+                                st.rerun()
+
+                if not is_super_admin:
+                    with c2:
+                        if not is_del_pending:
+                            with st.popover("⚠️ Delete Request"):
+                                with st.form(key=f"del_act_form_{l_id}"):
+                                    reason = st.text_input("හේතුව", placeholder="දත්ත වැරදීමක් / අවලංගු වීම")
+                                    if st.form_submit_button("ඉල්ලීම යවන්න"):
+                                        if reason.strip():
+                                            db.request_activity_delete(l_id, reason.strip())
+                                            st.toast("ඉල්ලීම Admin වෙත යොමු විය!")
+                                            st.rerun()
+                                        else:
+                                            st.error("හේතුව දක්වන්න.")
+
+                if is_super_admin and is_del_pending:
+                    with c2:
+                        if st.button("🗑️ Approve Delete", key=f"app_act_{l_id}", type="primary"):
+                            db.delete_activity_permanent(l_id)
+                            st.toast("වැඩසටහන ස්ථිරවම මකා දමන ලදී!")
+                            st.rerun()
+                    with c3:
+                        if st.button("❌ Reject", key=f"rej_act_{l_id}"):
+                            db.cancel_activity_delete_request(l_id)
+                            st.toast("ඉල්ලීම ප්‍රතික්ෂේප විය.")
+                            st.rerun()
+
+    # ---------------------------------------------------------------------
+    # 2. වවුචර වියදම් (Vouchers Edit & Delete Request)
+    # ---------------------------------------------------------------------
+    with tab_vouch:
+        try:
+            vouchers_df = db.fetch_vouchers_from_cloud()
+            vouchers_df = filter_by_user_access(vouchers_df, user).head(15)
+        except Exception:
             vouchers_df = pd.DataFrame()
-    except Exception:
-        vouchers_df = pd.DataFrame()
 
-    if vouchers_df.empty:
-        st.info("ඔබගේ විෂයට අදාළ මෑතකාලීන වියදම් කිසිවක් හමු නොවීය.")
-        return
+        if vouchers_df.empty:
+            st.info("ඔබගේ විෂයට අදාළ වවුචර වියදම් කිසිවක් හමු නොවීය.")
+        else:
+            for _, row in vouchers_df.iterrows():
+                v_id = row['id']
+                is_del_pending = bool(row.get('delete_requested', 0) == 1)
+                border_color = "#ef4444" if is_del_pending else "#cbd5e1"
+                bg_color = "#fef2f2" if is_del_pending else "#ffffff"
 
-    for _, row in vouchers_df.iterrows():
-        v_id = row['id']
-        is_del_pending = bool(row.get('delete_requested', 0) == 1)
-        border_color = "#ef4444" if is_del_pending else "#cbd5e1"
-        bg_color = "#fef2f2" if is_del_pending else "#ffffff"
+                v_no_val = row.get("voucher_no") or row.get("v_no") or "N/A"
+                v_date_val = str(row.get("voucher_date") or row.get("v_date") or "N/A")[:10]
+                desc_val = row.get("description") or row.get("desc") or ""
+                vote_val = row.get("vote_number") or row.get("vote_no") or "N/A"
+                amt_val = float(pd.to_numeric(row.get("amount"), errors="coerce") or 0.0)
 
-        v_no_val = row.get("voucher_no") or row.get("v_no") or "N/A"
-        v_date_val = str(row.get("voucher_date") or row.get("v_date") or "N/A")[:10]
-        desc_val = row.get("description") or row.get("desc") or ""
-        vote_val = row.get("vote_number") or row.get("vote_no") or "N/A"
+                card_html = (
+                    f'<div style="background-color: {bg_color}; border: 1.5px solid {border_color}; border-radius: 12px; padding: 14px 18px; margin-bottom: 8px;">'
+                    f'<table style="width: 100%; border-collapse: collapse; border: none;">'
+                    f'<tr style="border: none;">'
+                    f'<td style="text-align: left; vertical-align: top; border: none;">'
+                    f'<strong style="color: #0f172a !important; font-size: 14.5px;">වවුචර අංකය: {v_no_val}</strong>'
+                    f'<span style="color: #64748b !important; font-size: 12px; margin-left: 8px;">({v_date_val})</span>'
+                    f'<div style="color: #334155 !important; font-size: 13px; margin-top: 4px;">'
+                    f'වැය ශීර්ෂය: <b>{vote_val}</b> | Action No: <b>#{row.get("action_no", "N/A")}</b> | විස්තරය: {desc_val}'
+                    f'</div>'
+                    + (f'<div style="color: #dc2626 !important; font-size: 12px; margin-top: 4px;"><b>⚠️ ඉවත් කිරීමට ඉල්ලුම් කර ඇත:</b> {row.get("delete_reason", "")}</div>' if is_del_pending else '') +
+                    f'</td>'
+                    f'<td style="text-align: right; vertical-align: top; border: none;">'
+                    f'<span style="font-size: 16.5px; font-weight: 800; color: #0f766e !important;">රු. {amt_val:,.2f}</span>'
+                    f'<div style="font-size: 11px; color: #64748b !important; margin-top: 2px;">ඇතුළත් කළේ: {row.get("username", "N/A")}</div>'
+                    f'</td>'
+                    f'</tr>'
+                    f'</table>'
+                    f'</div>'
+                )
+                st.markdown(card_html, unsafe_allow_html=True)
 
-        card_html = (
-            f'<div style="background-color: {bg_color}; border: 1.5px solid {border_color}; border-radius: 12px; padding: 14px 18px; margin-bottom: 8px;">'
-            f'<table style="width: 100%; border-collapse: collapse; border: none;">'
-            f'<tr style="border: none;">'
-            f'<td style="text-align: left; vertical-align: top; border: none;">'
-            f'<strong style="color: #0f172a !important; font-size: 15px;">වවුචර අංකය: {v_no_val}</strong>'
-            f'<span style="color: #64748b !important; font-size: 12px; margin-left: 8px;">({v_date_val})</span>'
-            f'<div style="color: #334155 !important; font-size: 13.5px; margin-top: 4px;">'
-            f'වැය ශීර්ෂය: <b>{vote_val}</b> | විෂය/ක්‍රියාකාරකම: <b>#{row.get("action_no", "N/A")}</b> | විස්තරය: {desc_val}'
-            f'</div>'
-            + (f'<div style="color: #dc2626 !important; font-size: 12px; margin-top: 4px;"><b>⚠️ ඉවත් කිරීමට ඉල්ලුම් කර ඇත:</b> {row.get("delete_reason", "")}</div>' if is_del_pending else '') +
-            f'</td>'
-            f'<td style="text-align: right; vertical-align: top; border: none;">'
-            f'<span style="font-size: 17px; font-weight: 800; color: #0f766e !important;">රු. {float(row.get("amount", 0)):,.2f}</span>'
-            f'<div style="font-size: 11px; color: #94a3b8 !important; margin-top: 2px;">ඇතුළත් කළේ: {row.get("username", "N/A")}</div>'
-            f'</td>'
-            f'</tr>'
-            f'</table>'
-            f'</div>'
-        )
-        st.markdown(card_html, unsafe_allow_html=True)
+                col_btn1, col_btn2, col_btn3, _ = st.columns([1.2, 1.8, 1.8, 6])
+                with col_btn1:
+                    with st.popover("✏️ Edit"):
+                        with st.form(key=f"edit_v_{v_id}"):
+                            st.write(f"**වවුචරය සංස්කරණය (#{v_no_val})**")
+                            e_vno = st.text_input("වවුචර අංකය", value=str(v_no_val))
+                            e_desc = st.text_input("විස්තරය", value=str(desc_val))
+                            e_amount = st.number_input("මුදල (රු.)", value=amt_val, step=500.0)
+                            e_date = st.text_input("දිනය (YYYY-MM-DD)", value=str(v_date_val))
+                            if st.form_submit_button("💾 සුරකින්න"):
+                                db.update_voucher(v_id, vote_val, row.get('action_no'), e_desc, e_vno, e_date, e_amount)
+                                st.toast("වවුචරය සාර්ථකව සංස්කරණය කරන ලදී!")
+                                st.rerun()
 
-        col_btn1, col_btn2, col_btn3, _ = st.columns([1.2, 1.8, 1.8, 6])
-        
-        with col_btn1:
-            with st.popover("✏️ Edit"):
-                with st.form(key=f"edit_v_{v_id}"):
-                    st.write(f"**වවුචරය සංස්කරණය (#{v_no_val})**")
-                    e_vno = st.text_input("වවුචර අංකය", value=str(v_no_val))
-                    e_desc = st.text_input("විස්තරය", value=str(desc_val))
-                    e_amount = st.number_input("මුදල (රු.)", value=float(row.get('amount', 0)), step=500.0)
-                    e_date = st.text_input("දිනය (YYYY-MM-DD)", value=str(v_date_val))
-                    
-                    if st.form_submit_button("💾 සුරකින්න"):
-                        db.update_voucher(v_id, vote_val, row.get('action_no'), e_desc, e_vno, e_date, e_amount)
-                        st.toast("වවුචරය සාර්ථකව සංස්කරණය කරන ලදී!")
-                        st.rerun()
+                if not is_super_admin:
+                    with col_btn2:
+                        if not is_del_pending:
+                            with st.popover("⚠️ Delete Request"):
+                                with st.form(key=f"del_v_form_{v_id}"):
+                                    reason = st.text_input("හේතුව", placeholder="දත්ත වැරදීමක්")
+                                    if st.form_submit_button("ඉල්ලීම යවන්න"):
+                                        if reason.strip():
+                                            db.request_voucher_delete(v_id, reason.strip())
+                                            st.toast("ඉල්ලීම Admin වෙත යොමු විය!")
+                                            st.rerun()
+                                        else:
+                                            st.error("හේතුව දක්වන්න.")
 
-        if not is_super_admin:
-            with col_btn2:
-                if not is_del_pending:
-                    with st.popover("⚠️ Delete Request"):
-                        with st.form(key=f"del_v_form_{v_id}"):
-                            reason = st.text_input("හේතුව", placeholder="දත්ත වැරදීමක්")
-                            if st.form_submit_button("ඉල්ලීම යවන්න"):
-                                if reason.strip():
-                                    db.request_voucher_delete(v_id, reason.strip())
-                                    st.toast("ඉල්ලීම Admin වෙත යොමු විය!")
-                                    st.rerun()
-                                else:
-                                    st.error("හේතුව දක්වන්න.")
-
-        if is_super_admin and is_del_pending:
-            with col_btn2:
-                if st.button("🗑️ Approve Delete", key=f"app_d_{v_id}", type="primary"):
-                    db.delete_voucher_permanent(v_id)
-                    st.toast("වවුචරය ස්ථිරවම මකා දමන ලදී!")
-                    st.rerun()
-            with col_btn3:
-                if st.button("❌ Reject", key=f"rej_d_{v_id}"):
-                    db.cancel_voucher_delete_request(v_id)
-                    st.toast("ඉල්ලීම ප්‍රතික්ෂේප විය.")
-                    st.rerun()
-
-        st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
+                if is_super_admin and is_del_pending:
+                    with col_btn2:
+                        if st.button("🗑️ Approve Delete", key=f"app_d_{v_id}", type="primary"):
+                            db.delete_voucher_permanent(v_id)
+                            st.toast("වවුචරය ස්ථිරවම මකා දමන ලදී!")
+                            st.rerun()
+                    with col_btn3:
+                        if st.button("❌ Reject", key=f"rej_d_{v_id}"):
+                            db.cancel_voucher_delete_request(v_id)
+                            st.toast("ඉල්ලීම ප්‍රතික්ෂේප විය.")
+                            st.rerun()
 
 
 def main():
@@ -160,42 +262,26 @@ def main():
             .stApp {
                 background: radial-gradient(circle at top right, #1e1b4b 0%, #0f172a 100%) !important;
                 font-family: 'Inter', 'Noto Sans Sinhala', sans-serif !important;
-                color: #1e293b !important;
             }
             
-            h1, h2, h3, h4, h5, h6, p, span, label {
-                color: #1e293b !important;
-            }
-
-            section[data-testid="stSidebar"] {
-                display: none !important;
-            }
+            section[data-testid="stSidebar"] { display: none !important; }
 
             div[data-testid="stForm"] {
                 background: #ffffff !important;
                 border-radius: 20px !important;
                 padding: 35px 30px !important;
                 box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45) !important;
-                border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            }
+
+            div[data-testid="stForm"] label, div[data-testid="stForm"] p, div[data-testid="stForm"] span {
+                color: #1e293b !important;
             }
 
             div[data-testid="stTextInput"] input {
                 background-color: #f8fafc !important;
-                border: 1.5px solid #e2e8f0 !important;
+                border: 1.5px solid #cbd5e1 !important;
                 border-radius: 10px !important;
                 color: #0f172a !important;
-                font-size: 14px !important;
-                padding: 12px 14px !important;
-            }
-            div[data-testid="stTextInput"] input:focus {
-                border-color: #1e40af !important;
-                box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.15) !important;
-            }
-
-            div[data-testid="stTextInput"] label p {
-                color: #475569 !important;
-                font-weight: 700 !important;
-                font-size: 12.5px !important;
             }
 
             div[data-testid="stFormSubmitButton"] > button {
@@ -205,16 +291,7 @@ def main():
                 padding: 13px !important;
                 border-radius: 10px !important;
                 font-weight: 800 !important;
-                font-size: 15px !important;
-                transition: all 0.2s ease !important;
-                box-shadow: 0 4px 15px rgba(30, 64, 175, 0.35) !important;
-                margin-top: 10px !important;
                 width: 100% !important;
-            }
-            div[data-testid="stFormSubmitButton"] > button:hover {
-                background: #1e3a8a !important;
-                transform: translateY(-2px) !important;
-                box-shadow: 0 6px 20px rgba(30, 64, 175, 0.45) !important;
             }
         </style>
         """, unsafe_allow_html=True)
@@ -227,8 +304,8 @@ def main():
                 <div style='background: #1e40af; width: 60px; height: 60px; border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px; box-shadow: 0 10px 20px rgba(30,64,175,0.4);'>
                     <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
                 </div>
-                <h1 style='color: #ffffff !important; margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.5px;'>AIP 2026</h1>
-                <p style='color: #94a3b8 !important; font-size: 13.5px; margin-top: 4px; font-weight: 600;'>පිරිවෙන් ඒකක ප්‍රගති පාලන පද්ධතිය</p>
+                <h1 style='color: #ffffff !important; margin: 0; font-size: 28px; font-weight: 800;'>AIP 2026</h1>
+                <p style='color: #cbd5e1 !important; font-size: 13.5px; margin-top: 4px; font-weight: 600;'>පිරිවෙන් ඒකක ප්‍රගති පාලන පද්ධතිය</p>
             </div>
             """, unsafe_allow_html=True)
 
@@ -252,126 +329,82 @@ def main():
         return
 
     # =========================================================================
-    # 2. MAIN DASHBOARD SHELL & SIDEBAR THEME
+    # 2. MAIN DASHBOARD SHELL (LIGHT THEME ENFORCED + HIGH CONTRAST SIDEBAR)
     # =========================================================================
-   st.markdown("""
-<style>
-    /* 1. Sidebar පසුබිම සහ අකුරු වර්ණ ස්ථාවර කිරීම */
-    section[data-testid="stSidebar"] {
-        background-color: #1e1b4b !important;
-    }
-    
-    section[data-testid="stSidebar"] * {
-        color: #ffffff !important;
-    }
+    st.markdown("""
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Sinhala:wght@400;600;700;800&display=swap');
 
-    /* 2. ඉහළ ලාංඡනය සහ මාතෘකාව */
-    .sidebar-title {
-        font-size: 24px !important;
-        font-weight: 800 !important;
-        color: #ffffff !important;
-        text-align: center;
-        letter-spacing: 1px;
-        margin-top: 10px;
-    }
-    
-    .sidebar-subtitle {
-        font-size: 13px !important;
-        color: #cbd5e1 !important;
-        text-align: center;
-        margin-bottom: 20px;
-    }
+        /* ප්‍රධාන පසුබිම Light Mode ලෙස ස්ථාවර කිරීම (Dark Theme මඟින් අකුරු නොපෙනී යාම වැළැක්වීමට) */
+        .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
+            background-color: #f1f5f9 !important;
+            color: #0f172a !important;
+            font-family: 'Inter', 'Noto Sans Sinhala', sans-serif !important;
+        }
 
-    /* 3. පරිශීලක තොරතුරු කොටුව (User Profile Card) - අකුරු පැහැදිලි කිරීම */
-    .user-profile-box {
-        background: rgba(255, 255, 255, 0.08) !important;
-        border: 1px solid rgba(255, 255, 255, 0.15) !important;
-        border-radius: 12px;
-        padding: 14px;
-        margin-bottom: 25px;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
+        /* ප්‍රධාන තිරයේ සියලුම පෙළ, Labels සහ Inputs තද පැහැයෙන් පෙන්වීම */
+        .main h1, .main h2, .main h3, .main h4, .main h5, .main h6,
+        .main p, .main label, .main span, .main div {
+            color: #0f172a;
+        }
 
-    .user-avatar {
-        background: #2563eb !important;
-        color: #ffffff !important;
-        font-size: 18px !important;
-        font-weight: 800 !important;
-        width: 44px;
-        height: 44px;
-        border-radius: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-    }
+        .main input, .main textarea, .main select,
+        .main div[data-baseweb="select"] > div,
+        .main div[data-baseweb="input"] > div {
+            background-color: #ffffff !important;
+            color: #0f172a !important;
+            border-color: #cbd5e1 !important;
+        }
 
-    .user-name {
-        font-size: 14px !important;
-        font-weight: 700 !important;
-        color: #ffffff !important;
-        margin: 0 !important;
-        line-height: 1.3 !important;
-    }
+        /* Popover සහ Form ඇතුළත පැහැදිලි බව */
+        div[data-testid="stPopoverBody"] {
+            background-color: #ffffff !important;
+            color: #0f172a !important;
+        }
+        div[data-testid="stPopoverBody"] * {
+            color: #0f172a !important;
+        }
 
-    .user-title {
-        font-size: 11.5px !important;
-        color: #94a3b8 !important;
-        margin: 2px 0 4px 0 !important;
-    }
+        /* Sidebar පසුබිම සහ අකුරු වර්ණ */
+        section[data-testid="stSidebar"] {
+            background-color: #1e1b4b !important;
+        }
+        
+        section[data-testid="stSidebar"] * {
+            color: #ffffff !important;
+        }
 
-    .user-badge {
-        background: #0f766e !important;
-        color: #ffffff !important;
-        font-size: 10px !important;
-        font-weight: 800 !important;
-        padding: 2px 8px;
-        border-radius: 6px;
-        display: inline-block;
-    }
+        section[data-testid="stSidebar"] div.stButton > button {
+            background-color: rgba(255, 255, 255, 0.08) !important;
+            color: #ffffff !important;
+            border: 1px solid rgba(255, 255, 255, 0.18) !important;
+            border-radius: 10px !important;
+            padding: 10px 14px !important;
+            font-size: 14px !important;
+            font-weight: 600 !important;
+            text-align: left !important;
+            justify-content: flex-start !important;
+            width: 100% !important;
+            margin-bottom: 6px !important;
+            transition: all 0.2s ease !important;
+        }
 
-    /* 4. මෙනු බොත්තම් (Menu Navigation Buttons) */
-    section[data-testid="stSidebar"] div.stButton > button {
-        background-color: rgba(255, 255, 255, 0.06) !important;
-        color: #f8fafc !important;
-        border: 1px solid rgba(255, 255, 255, 0.15) !important;
-        border-radius: 10px !important;
-        padding: 10px 14px !important;
-        font-size: 14px !important;
-        font-weight: 600 !important;
-        text-align: left !important;
-        justify-content: flex-start !important;
-        width: 100% !important;
-        margin-bottom: 6px !important;
-        transition: all 0.2s ease-in-out !important;
-    }
+        section[data-testid="stSidebar"] div.stButton > button:hover {
+            background-color: #312e81 !important;
+            border-color: #818cf8 !important;
+            transform: translateX(3px);
+        }
 
-    section[data-testid="stSidebar"] div.stButton > button:hover {
-        background-color: #312e81 !important;
-        border-color: #6366f1 !important;
-        color: #ffffff !important;
-        transform: translateX(4px);
-    }
-
-    /* Active Menu Button */
-    section[data-testid="stSidebar"] div.stButton > button[kind="primary"] {
-        background-color: #2563eb !important;
-        border-color: #3b82f6 !important;
-        color: #ffffff !important;
-        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3) !important;
-    }
-
-    /* Back to Portal Button */
-    .btn-portal div.stButton > button {
-        background-color: #0f766e !important;
-        color: #ffffff !important;
-        border: none !important;
-        font-weight: 700 !important;
-    }
-</style>
-""", unsafe_allow_html=True)
+        .logout-btn-container div.stButton > button {
+            background-color: rgba(239, 68, 68, 0.2) !important;
+            border-color: rgba(239, 68, 68, 0.45) !important;
+            margin-top: 15px !important;
+        }
+        .logout-btn-container div.stButton > button:hover {
+            background-color: #dc2626 !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
 
     user = st.session_state.user
     u_name = user.get('name') or user.get('full_name') or user.get('username') or "පරිශීලක"
@@ -379,18 +412,18 @@ def main():
     u_role = user.get('role') or user.get('role_designation') or "Officer"
     u_initial = u_name.strip()[0].upper() if u_name.strip() else "U"
 
-    # Sidebar Header & User Profile
+    # Sidebar Header & User Profile Card
     st.sidebar.markdown(
-        "<div style='text-align: center; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.1);'>"
-        "<h2 style='color: #fbbf24 !important; margin: 0; font-size: 22px; font-weight: 800;'>AIP 2026</h2>"
-        "<p style='font-size: 10px; color: #94a3b8 !important; margin: 2px 0 0; text-transform: uppercase; letter-spacing: 1px;'>ප්‍රගති පාලන පද්ධතිය</p>"
+        "<div style='text-align: center; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.15);'>"
+        "<h2 style='color: #fbbf24 !important; margin: 0; font-size: 24px; font-weight: 800; letter-spacing: 1px;'>AIP 2026</h2>"
+        "<p style='font-size: 11px; color: #e2e8f0 !important; margin: 4px 0 0; letter-spacing: 0.5px;'>ප්‍රගති පාලන පද්ධතිය</p>"
         "</div>"
-        "<div style='display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.06); padding: 12px; border-radius: 12px; margin: 15px 0; border: 1px solid rgba(255,255,255,0.08);'>"
-        f"<div style='background: #1e40af; color: white; width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; flex-shrink: 0;'>{u_initial}</div>"
+        "<div style='display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.1); padding: 14px; border-radius: 12px; margin: 16px 0; border: 1px solid rgba(255,255,255,0.2);'>"
+        f"<div style='background: #2563eb; color: #ffffff !important; width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px; flex-shrink: 0;'>{u_initial}</div>"
         "<div style='overflow: hidden;'>"
-        f"<div style='color: white !important; font-size: 13.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;' title='{u_name}'>{u_name}</div>"
-        f"<div style='color: #94a3b8 !important; font-size: 11px; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;'>{u_title}</div>"
-        f"<span style='background: #10b98125; color: #34d399 !important; font-size: 9.5px; font-weight: 800; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-top: 4px;'>{u_role}</span>"
+        f"<div style='color: #ffffff !important; font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;' title='{u_name}'>{u_name}</div>"
+        f"<div style='color: #cbd5e1 !important; font-size: 11.5px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;'>{u_title}</div>"
+        f"<span style='background: #0f766e; color: #ffffff !important; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 5px; display: inline-block; margin-top: 5px;'>{u_role}</span>"
         "</div>"
         "</div>",
         unsafe_allow_html=True
