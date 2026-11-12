@@ -1,14 +1,16 @@
 import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
+import re
 from datetime import datetime
 import aip_db as db
 
 def render_reports(user):
-    # 1. Super Admin හෝ Admin බලතල පරීක්ෂාව
+    # 1. Super Admin, Admin හෝ Executive බලතල පරීක්ෂාව
     user_role = str(user.get("role", "")).lower()
-    if user_role not in ["super admin", "admin", "ප්‍රධාන පරිපාලක"]:
-        st.error("මෙම පද්ධති වාර්තා බැලීමට 'Super Admin' බලතල අවශ්‍ය වේ.")
+    acc_level = str(user.get("access_level", "")).strip()
+    if user_role not in ["super admin", "admin", "executive", "ප්‍රධාන පරිපාලක"] and acc_level not in ["All", "All Management"]:
+        st.error("මෙම පද්ධති වාර්තා බැලීමට පරිපාලන (Admin / Executive) බලතල අවශ්‍ය වේ.")
         return
 
     st.markdown("""
@@ -34,7 +36,7 @@ def render_reports(user):
     }
     sel_filter = cat_map[filter_option]
 
-    # 3. API Bridge මඟින් දත්ත ලබා ගැනීම (No SQL Connections)
+    # 3. API Bridge මඟින් දත්ත ලබා ගැනීම
     ref_df = db.get_reference_options(user)
     v_df = db.fetch_vouchers_from_cloud()
     d_df = db.fetch_activities_from_cloud()
@@ -45,15 +47,23 @@ def render_reports(user):
 
     # Allocation තීරුව සංඛ්‍යාත්මක අගයක් (Numeric) බවට පත් කිරීම
     if 'allocation' not in ref_df.columns:
-        if 'allocation_actual' in ref_df.columns:
-            ref_df['allocation'] = ref_df['allocation_actual']
-        else:
-            ref_df['allocation'] = 0.0
+        ref_df['allocation'] = ref_df.get('allocation_actual', 0.0)
     ref_df['allocation'] = pd.to_numeric(ref_df['allocation'], errors='coerce').fillna(0.0)
 
+    # වැය ශීර්ෂය (Vote Number) අනුව නිවැරදිව Capital / Recurrent හඳුනාගැනීම (1xxx = Recurrent, 2xxx = Capital)
+    def detect_vote_category(row):
+        vote = str(row.get('vote_number') or row.get('vote_code') or '')
+        match = re.search(r'-(\d{4})', vote)
+        if match:
+            obj_code = int(match.group(1))
+            return "Recurrent" if 1000 <= obj_code < 2000 else "Capital"
+        return str(row.get('category', 'Capital'))
+
+    ref_df['detected_category'] = ref_df.apply(detect_vote_category, axis=1)
+
     # Category Filter යෙදීම
-    if sel_filter != "All" and 'category' in ref_df.columns:
-        ref_df = ref_df[ref_df['category'] == sel_filter]
+    if sel_filter != "All":
+        ref_df = ref_df[ref_df['detected_category'] == sel_filter]
 
     # වලංගු (Delete නොකළ) ලොග් පෙරීම
     v_valid = v_df[v_df.get('delete_requested', 0) != 1] if not v_df.empty and 'delete_requested' in v_df.columns else v_df
@@ -124,6 +134,7 @@ def render_reports(user):
         export_rows.append({
             "Action No": act_raw,
             "Vote Number": vote,
+            "Category": row['detected_category'],
             "Main Activity Description": name,
             "Allocation (Mn)": alloc_mn,
             "Expenditure (Mn)": spent_mn,
