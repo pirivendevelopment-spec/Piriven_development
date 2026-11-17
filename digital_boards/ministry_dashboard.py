@@ -202,6 +202,30 @@ if cloud_excel_data:
 if df_usage is None or df_usage.empty:
     df_usage = pd.DataFrame({"Census No": ["0542"], "Piriven Name": ["Sample Pirivena"], "District": ["Colombo"], "Zone": ["Central"], "Mobile": [""], "Whatsapp": [""], "Status": ["Offline"], "Latitude": [6.9271], "Longitude": [79.8612], "Monthly Usage (Hours)": [0.0]})
 
+# 💡 මෘදුකාංග භාවිත ලොග් දත්ත (Software Analytics) වලින් සෑම පිරිවෙනකටම අදාළ මුළු පැය ගණන ස්වයංක්‍රීයව ගණනය කර එකතු කිරීම
+try:
+    res_apps_all = requests.get(f"{API_URL}?action=get_software_analytics", timeout=10)
+    if res_apps_all.status_code == 200 and res_apps_all.json():
+        apps_all_data = res_apps_all.json()
+        census_total_hours = {}
+        for c_no, dates in apps_all_data.items():
+            total_mins = 0
+            if isinstance(dates, dict):
+                for date_str, apps in dates.items():
+                    if isinstance(apps, dict):
+                        for app_name, mins in apps.items():
+                            try:
+                                total_mins += float(mins)
+                            except: pass
+            census_total_hours[str(c_no).strip()] = round(total_mins / 60.0, 2)
+        
+        if "Monthly Usage (Hours)" in df_usage.columns:
+            for idx, row in df_usage.iterrows():
+                c_num = str(row["Census No"]).strip()
+                if c_num in census_total_hours:
+                    df_usage.loc[idx, "Monthly Usage (Hours)"] = census_total_hours[c_num]
+except: pass
+
 def is_device_actually_active(last_ping_str):
     try:
         if not last_ping_str: return False
@@ -319,7 +343,7 @@ with tab2:
     )
     st.dataframe(styled_df, use_container_width=True)
 
-    # 💡 **1. Monthly Usage Excel Download Button (නිවැරදි කරන ලද කොටස)**
+    # 📥 Monthly Usage Excel Download Button
     st.write("---")
     st.markdown("### 📥 Download Usage Report")
     
