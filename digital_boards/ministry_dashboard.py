@@ -319,12 +319,17 @@ with tab2:
     )
     st.dataframe(styled_df, use_container_width=True)
 
-    # 💡 **1. Monthly Usage Excel Download Button**
+    # 💡 **1. Monthly Usage Excel Download Button (නිවැරදි කරන ලද කොටස)**
     st.write("---")
     st.markdown("### 📥 Download Usage Report")
+    
+    df_excel_export = df_filtered.copy()
+    if "Monthly Usage (Hours)" in df_excel_export.columns:
+        df_excel_export["Monthly Usage (Hours)"] = pd.to_numeric(df_excel_export["Monthly Usage (Hours)"], errors='coerce').fillna(0.0)
+
     usage_excel_buffer = io.BytesIO()
     with pd.ExcelWriter(usage_excel_buffer, engine='xlsxwriter') as writer:
-        df_filtered.to_excel(writer, index=False, sheet_name='Monthly Usage Report')
+        df_excel_export.to_excel(writer, index=False, sheet_name='Monthly Usage Report')
     usage_excel_buffer.seek(0)
     
     st.download_button(
@@ -437,7 +442,6 @@ with tab1:
 with tab3:
     st.subheader("🛠️ Technical Support & Live Chat Panel")
     
-    # 💡 **2. Support Tickets Excel Export Feature**
     try:
         res_t_all = requests.get(f"{API_URL}?action=get_tickets", timeout=10)
         if res_t_all.status_code == 200 and res_t_all.json():
@@ -445,7 +449,6 @@ with tab3:
             ticket_list_for_excel = []
             for tid, tinfo in tickets_raw.items():
                 if isinstance(tinfo, dict):
-                    ticket_list_for_excel.endswith if hasattr(ticket_list_for_excel, 'endswith') else None
                     ticket_list_for_excel.append({
                         "Ticket ID": tid,
                         "Census No": tinfo.get("census_no"),
@@ -530,7 +533,7 @@ with tab3:
                                     pass
                         else:
                             st.info("🔒 මෙම ගැටලුව විසඳා ඇති බැවින් (Solved) චැට් එක වසා ඇත.")
-                ticket_index += 1
+                    ticket_index += 1
         else:
             st.info("No reported tickets found.")
     except Exception as e: st.error(f"Error loading tickets: {e}")
