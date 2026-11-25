@@ -8,7 +8,7 @@ if BASE_DIR not in sys.path:
     sys.path.append(BASE_DIR)
 
 st.set_page_config(
-    page_title="පිරිවෙන් අංශයේ ප්‍රධාන කළමනාකරණ පෝටලය",
+    page_title="PEIMS - පිරිවෙන් තොරතුරු හා නියාමන පද්ධතිය",
     page_icon="🏛️",
     layout="wide",
     initial_sidebar_state="collapsed"
