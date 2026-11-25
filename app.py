@@ -257,7 +257,7 @@ else:
 background: linear-gradient(135deg, #0f766e, #115e59);
 color: white; border: none; padding: 10px 16px; border-radius: 8px;
 font-weight: 700; width: 100%; cursor: pointer;">
-⬅️ ප්‍රධාන පෝටලයට ආපසු
+⬅️ ප්‍රධාන මෙනුවට
 </button>
 </a>
 </div>
