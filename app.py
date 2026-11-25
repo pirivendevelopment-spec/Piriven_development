@@ -161,8 +161,8 @@ footer { visibility: hidden !important; }
 <div class="portal-wrap">
 <div class="header-section">
 <div class="container">
-<h2><i class="fa-solid fa-landmark"></i> පිරිවෙන් අංශයේ ප්‍රධාන කළමනාකරණ පෝටලය</h2>
-<p class="mb-0">අධ්‍යාපන අමාත්‍යාංශය - ශ්‍රී ලංකා | කේන්ද්‍රීය කළමනාකරණ මධ්‍යස්ථානය</p>
+<h2><i class="fa-solid fa-landmark"></i> PEIMS - පිරිවෙන් තොරතුරු හා නියාමන පද්ධතිය</h2>
+<p class="mb-0">සංවර්ධන ශාඛාව ‍‍| පිරිවෙන් අධ්‍යාපන අංශය | අධ්‍යාපන, උසස් අධ්‍යාපන හා වෘත්තීය අධ්‍යාපන අමාත්‍යාංශය -</p>
 </div>
 </div>
 
